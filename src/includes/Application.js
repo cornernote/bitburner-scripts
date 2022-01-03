@@ -2,7 +2,6 @@ import {Formatter} from "/includes/Formatter";
 import {Logger} from "/includes/Logger";
 import {Cache} from "/includes/Cache";
 import {StringHelper} from "/includes/StringHelper";
-import {ProcessManager} from "/includes/ProcessManager";
 
 /**
  * Application
@@ -18,7 +17,7 @@ export class Application {
     ns = null
 
     /**
-     * Core components to be initialized
+     * Core components to be initialized, all should have `@MEM 0GB`
      * @type {Object}
      */
     coreComponents = {
@@ -26,7 +25,6 @@ export class Application {
         logger: 'Logger',
         cache: 'Cache',
         stringHelper: 'StringHelper',
-        processManager: 'ProcessManager',
     }
 
     /**
@@ -48,11 +46,6 @@ export class Application {
      * @type {StringHelper}
      */
     stringHelper = null
-
-    /**
-     * @type {ProcessManager}
-     */
-    processManager = null
 
     /**
      * Initialize the application and components

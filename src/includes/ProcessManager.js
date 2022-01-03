@@ -2,6 +2,8 @@ import {BaseComponent} from "/includes/BaseComponent";
 
 /**
  * ProcessManager
+ *
+ * @RAM 1.1GB
  */
 export class ProcessManager extends BaseComponent {
 
