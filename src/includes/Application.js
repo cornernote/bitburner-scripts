@@ -20,12 +20,12 @@ export class Application {
      * @param {NS} ns - The nestcript instance passed to your script's main entry point
      * @param options
      */
-    constructor(ns, options = []) {
+    constructor(ns, options = {}) {
         if (!ns.print) throw 'The first argument to Application.constructor() must be an instance of "ns".';
         this.ns = ns;
 
         // allow override of properties
-        options.forEach(([key, value]) => this[key] = value);
+        Object.entries(options).forEach(([key, value]) => this[key] = value);
 
         // load components
         Object.entries(this.components).forEach(([key, value]) => {

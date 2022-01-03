@@ -11,6 +11,6 @@ export class BaseComponent {
         this.app = app;
 
         // allow override of properties
-        options.forEach(([key, value]) => this[key] = value);
+        Object.entries(options).forEach(([key, value]) => this[key] = value);
     }
 }
