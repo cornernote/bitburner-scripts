@@ -5,7 +5,7 @@ import {Application} from "./includes/Application";
  *
  * Doing this here allows us to save the RAM from our task script.
  *
- * @RAM 1.1GB
+ * @RAM 1.1GB (+1.6GB for base script)
  * @param {NS} ns
  */
 export async function main(ns) {
