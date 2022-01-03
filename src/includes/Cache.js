@@ -9,7 +9,7 @@ import {BaseComponent} from "/includes/BaseComponent";
  */
 export class Cache extends BaseComponent {
     constructor(app, options = {}) {
-        super();
+        super(app, options);
     }
 
     /**

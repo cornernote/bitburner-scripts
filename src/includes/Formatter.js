@@ -5,7 +5,7 @@ import {BaseComponent} from "/includes/BaseComponent";
  */
 export class Formatter extends BaseComponent {
     constructor(app, options = {}) {
-        super();
+        super(app, options);
     }
 
     /**

@@ -5,7 +5,8 @@ import {BaseComponent} from "/includes/BaseComponent";
  */
 export class StringHelper extends BaseComponent {
     constructor(app, options = {}) {
-        super();
+        super(app, options);
+        super(app, options);
     }
 
     /**

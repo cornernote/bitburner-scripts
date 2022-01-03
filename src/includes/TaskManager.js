@@ -6,7 +6,7 @@ import {BaseComponent} from "/includes/BaseComponent";
  */
 export class TaskManager extends BaseComponent {
     constructor(app, options = {}) {
-        super();
+        super(app, options);
     }
 
     /**
