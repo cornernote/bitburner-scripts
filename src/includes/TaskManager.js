@@ -34,7 +34,9 @@ export class TaskManager extends BaseComponent {
 
         // write the payload to a temp Application js file
         let uuid = this.app.stringHelper.generateUUID();
-        this.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
+        if (this.verbose) {
+            this.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
+        }
         let filename = `/tasks/${uuid}.js`;
         let contents = [
             ['import {', 'Application', '} from', '"./includes/Application"', ';'].join(' '), // join() to prevent game rewriting to `blob:file:///bla`
@@ -59,7 +61,9 @@ export class TaskManager extends BaseComponent {
 
         // get the output from cache
         let output = this.app.cache.getItem(uuid);
-        this.app.logger.log(`task OUTPUT was collected for uuid ${uuid}`, true);
+        if (this.verbose) {
+            this.app.logger.log(`task OUTPUT was collected for uuid ${uuid}`, true);
+        }
 
         // cleanup the cache and task file
         if (cleanup) {
