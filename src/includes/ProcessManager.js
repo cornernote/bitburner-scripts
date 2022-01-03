@@ -23,8 +23,8 @@ export class ProcessManager extends BaseComponent {
     async runBackgroundPayload(payload, cleanup = true) {
 
         // write the payload to a temp Application js file
-        this.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
         let uuid = this.app.stringHelper.generateUUID();
+        this.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
         let filename = `/tasks/${uuid}.js`;
         let contents = [
             ['import {', 'Application', '} from', '"./includes/Application"', ';'].join(' '), // join() to prevent game rewriting to `blob:file:///bla`
