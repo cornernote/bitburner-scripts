@@ -5,14 +5,22 @@ import {BaseComponent} from "/includes/BaseComponent";
  * @RAM 1.1GB
  */
 export class TaskManager extends BaseComponent {
-    constructor(app, options = {}) {
-        super(app, options);
-    }
 
     /**
-     * @type {boolean}
+     * @type {null|boolean}
      */
-    verbose = false;
+    verbose = null
+
+    /**
+     *
+     * @param app
+     * @param options
+     */
+    constructor(app, options = {verbose: false}) {
+        super(app, options);
+        // allow override of properties in this class
+        Object.entries(options).forEach(([key, value]) => this[key] = value);
+    }
 
     /**
      * Executes an arbitrary payload using a temporary script file.

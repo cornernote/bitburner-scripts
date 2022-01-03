@@ -6,6 +6,8 @@ import {BaseComponent} from "/includes/BaseComponent";
 export class Logger extends BaseComponent {
     constructor(app, options = {}) {
         super(app, options);
+        // allow override of properties in this class
+        Object.entries(options).forEach(([key, value]) => this[key] = value);
     }
 
     /**

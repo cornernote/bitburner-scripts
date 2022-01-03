@@ -17,10 +17,10 @@ export class BaseComponent {
      * @param {Object} options - key/value pairs used to set object properties
      */
     constructor(app, options = {}) {
-        if (!app.ns.print) throw 'The first argument to Cache.constructor() must be an application with property "ns" being an instance of "ns".';
+        if (!app.ns.print) throw 'The first argument to BaseComponent.constructor() must be an application with property "ns" being an instance of "ns".';
         this.app = app;
 
-        // allow override of properties
+        // allow override of properties in this class
         Object.entries(options).forEach(([key, value]) => this[key] = value);
     }
 
