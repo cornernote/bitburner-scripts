@@ -46,7 +46,7 @@ export class TaskManager extends BaseComponent {
             this.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
         }
         let filename = `/tasks/${uuid}.js`;
-        let contents = [
+        let contents = [ // the Application js template
             ['import {', 'Application', '} from', '"./includes/Application"', ';'].join(' '), // join() to prevent game rewriting to `blob:file:///bla`
             'export async function main(ns) {',
             '    let app = new Application(ns), output;',
@@ -58,6 +58,7 @@ export class TaskManager extends BaseComponent {
             '}',
         ].join("\n");
         await this.app.ns.write(filename, [contents], 'w');
+        //this.app.ns.getScriptRam(filename);
 
         // run the task, and wait for it to complete
         let pid = this.app.ns.run(filename); // @RAM 1.0GB

@@ -17,6 +17,11 @@ export class Application {
     ns = null
 
     /**
+     * @type {boolean}
+     */
+    verbose = false
+
+    /**
      * Core components to be initialized, all should have `@MEM 0GB`
      * @type {Object}
      */
@@ -53,7 +58,7 @@ export class Application {
      * @param {NS} ns - The nestcript instance passed to your script's main entry point
      * @param {Object} options - key/value pairs used to set object properties
      */
-    constructor(ns, options = {}) {
+    constructor(ns, options = {verbose: false}) {
         if (!ns.print) throw 'The first argument to Application.constructor() must be an instance of "ns".';
         this.ns = ns;
 
@@ -68,8 +73,10 @@ export class Application {
         });
 
         // Log start/end!
-        this.logger.log('Application Started', true);
-        // let app = this; ns.atExit(() => app.logger.log('Application Ended', true)); // doesn't work, i think NS is unloaded :(
+        if (this.verbose) {
+            this.logger.log('Application Started', true);
+            // let app = this; ns.atExit(() => app.logger.log('Application Ended', true)); // doesn't work, i think NS is unloaded :(
+        }
     }
 
     /**
