@@ -5,15 +5,20 @@ import {StringHelper} from "/includes/StringHelper";
 import {ProcessManager} from "/includes/ProcessManager";
 
 /**
- * Main Application
+ * Application
+ *
+ * The application class gives easy access to common components such as formatting, logging, and caching.
  */
 export class Application {
+
     /**
+     * The NS instance the application is running on.
      * @type {NS}
      */
     ns = null
 
     /**
+     * Core components to be initialized
      * @type {Object}
      */
     coreComponents = {
@@ -68,6 +73,10 @@ export class Application {
                 this[key] = this.createComponent(value);
             }
         });
+
+        // Log start/end!
+        this.logger.log('Application Started', true);
+        ns.atExit(() => this.logger.log('Application Ended', true));
     }
 
     /**
