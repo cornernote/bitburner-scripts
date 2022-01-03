@@ -30,11 +30,11 @@ export class Cache extends BaseComponent {
      * Sets the value of the pair identified by key to value, creating a new key/value pair if none existed for key previously.
      * @param key
      * @param value
-     * @param expires in seconds, 0 = forever
+     * @param expires in milliseconds, 0 = forever
      */
     setItem(key, value, expires) {
         let data = {
-            expires: expires ? new Date().getTime() + expires * 1000 : 0,
+            expires: expires ? new Date().getTime() + expires : 0,
             value: typeof value === 'function' ? value() : value, // if value is a function then use the returned value
         };
         let contents = JSON.stringify(data);
