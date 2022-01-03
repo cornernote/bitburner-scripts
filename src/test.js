@@ -25,16 +25,16 @@ export async function main(ns) {
         // the data is not in cache
         app.logger.log('Player data is not cached, loading it using a background task...', true);
 
-        // next we use use taskManager to do the call using a background payload
+        // next we use taskManager to do the call using a background payload
         let taskManager = new TaskManager(app, {verbose: true}); //@RAM 1.1GB
         player = await taskManager.runBackgroundPayload([
             // set 'output = ...', so something gets written to cache
-            'output = ns.getPlayer();',  //@RAM FREE - save 0.5GB
+            'output = ns.getPlayer();',  //@RAM 0.5GB (+1.6GB entry) (ram is allocated to background task)
         ].join("\n"));
 
         // save to cache
         app.logger.log('Player data was loaded, saving it to cache...', true);
-        app.cache.setItem('player', player, 30 * 1000);
+        app.cache.setItem('player', player, 10 * 1000); // expires in 10s
 
     } else {
 

@@ -54,8 +54,7 @@ export class TaskManager extends BaseComponent {
             payload,
             '    // save the output of the payload the uuid cache when the temp js runs',
             `    app.cache.setItem('${uuid}', output);`,
-            `    let verbose = ${this.verbose};`,
-            '    if (verbose) app.logger.log(`task RUN was completed for uuid ${uuid}`, true);',
+            `    if (${this.verbose}) app.logger.log('task RUN was completed for uuid ${uuid}', true);`,
             '}',
         ].join("\n");
         await this.app.ns.write(filename, [contents], 'w');
