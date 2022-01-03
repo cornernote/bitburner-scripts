@@ -76,7 +76,8 @@ export class Application {
 
         // Log start/end!
         this.logger.log('Application Started', true);
-        ns.atExit(() => this.logger.log('Application Ended', true));
+        let app = this;
+        ns.atExit(() => app.logger.log('Application Ended', true));
     }
 
     /**
