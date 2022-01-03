@@ -2,9 +2,10 @@ import {Application} from "../includes/Application";
 import {TaskManager} from "../includes/TaskManager";
 
 /**
- * Test script...
+ * Sample script
+ * Gets player information using a background task
  *
- * Get the response from `ns.getPlayer()`, however we want to avoid the 0.5GB RAM cost
+ * Get the response from `ns.getPlayer()`, however avoids the 0.5GB RAM cost
  *
  * In this case
  * - there is a 1.1GB RAM cost for the background process which is not worth the tradeoff for the 0.5GB saving to `ns.getPlayer()`
@@ -27,10 +28,7 @@ export async function main(ns) {
 
         // next we use taskManager to do the call using a background payload
         let taskManager = new TaskManager(app, {verbose: true}); //@RAM 1.1GB
-        player = await taskManager.runBackgroundPayload([
-            // set 'output = ...', so something gets written to cache
-            'output = ns.getPlayer();',  //@RAM 0.5GB (+1.6GB entry) (ram is allocated to background task)
-        ].join("\n"));
+        player = await taskManager.backgroundNS('getPlayer');
 
         // save to cache
         app.logger.log('Player data was loaded, saving it to cache...', true);
