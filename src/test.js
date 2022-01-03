@@ -1,5 +1,5 @@
 import {Application} from "./includes/Application";
-import {BackgroundNS} from "./includes/BackgroundNS";
+import {TaskManager} from "./includes/TaskManager";
 
 
 /**
@@ -11,8 +11,8 @@ import {BackgroundNS} from "./includes/BackgroundNS";
 export async function main(ns) {
     let app = new Application(ns);
 
-    let backgroundNS = new BackgroundNS(app); //@RAM 1.1GB
-    let player = await backgroundNS.getPlayer();
+    let taskManager = new TaskManager(app); //@RAM 1.1GB
+    let player = await taskManager.backgroundNS('getPlayer');
 
     // we have the player data!
     app.logger.log(JSON.stringify(player), true);

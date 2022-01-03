@@ -23,6 +23,19 @@ export class TaskManager extends BaseComponent {
     }
 
     /**
+     * Calls an NS method as a background payload
+     *
+     * @param nsMethod
+     * @param args
+     * @returns {Promise<*>}
+     */
+    async backgroundNS(nsMethod, ...args) {
+        return await this.runBackgroundPayload([
+            `output = ns.${nsMethod}();`,
+        ].join("\n"))
+    }
+
+    /**
      * Executes an arbitrary payload using a temporary script file.
      *
      * The payload is written to a temporary Application js file, which is run using `ns.run()`.
