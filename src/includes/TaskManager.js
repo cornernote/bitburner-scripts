@@ -1,10 +1,10 @@
 import {BaseComponent} from "/includes/BaseComponent";
 
 /**
- * ProcessManager
+ * TaskManager
  * @RAM 1.1GB
  */
-export class ProcessManager extends BaseComponent {
+export class TaskManager extends BaseComponent {
     constructor(app, options = {}) {
         super();
     }
@@ -20,9 +20,15 @@ export class ProcessManager extends BaseComponent {
      * The payload is written to a temporary Application js file, which is run using `ns.run()`.
      *
      * @RAM 1.0GB
-     * @param payload
-     * @param cleanup
-     * @returns {Promise<*>}
+     * @param {String} payload
+     * ```
+     * [
+     *    'await ns.sleep(5000);', // do something random...
+     *    'output = ns.getPlayer();', // set 'output = ...', so something gets written to cache
+     * ].join("\n");
+     * ```
+     * @param {Boolean} cleanup
+     * @returns {Promise<*>} to the contents of the `output` variable in the payload
      */
     async runBackgroundPayload(payload, cleanup = true) {
 
@@ -49,7 +55,7 @@ export class ProcessManager extends BaseComponent {
         if (this.verbose) {
             this.app.logger.log(`task RUN was started for uuid ${uuid} with pid ${pid}`, true);
         }
-        await this.app.processManager.waitForProcessToComplete(pid);
+        await this.waitForProcessToComplete(pid);
 
         // get the output from cache
         let output = this.app.cache.getItem(uuid);
@@ -67,7 +73,7 @@ export class ProcessManager extends BaseComponent {
             if (this.verbose) {
                 this.app.logger.log(`task CLEANUP was started for uuid ${uuid} with pid ${pid}`, true);
             }
-            await this.app.processManager.waitForProcessToComplete(pid);
+            await this.waitForProcessToComplete(pid);
         }
 
         // task done!
