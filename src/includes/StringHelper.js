@@ -4,6 +4,9 @@ import {BaseComponent} from "/includes/BaseComponent";
  * StringHelper
  */
 export class StringHelper extends BaseComponent {
+    constructor(app, options = {}) {
+        super();
+    }
 
     /**
      * Generate a UUIDv4 string

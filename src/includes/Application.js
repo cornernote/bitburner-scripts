@@ -51,7 +51,7 @@ export class Application {
      * Initialize the application and components
      *
      * @param {NS} ns - The nestcript instance passed to your script's main entry point
-     * @param options
+     * @param {Object} options - key/value pairs used to set object properties
      */
     constructor(ns, options = {}) {
         if (!ns.print) throw 'The first argument to Application.constructor() must be an instance of "ns".';

@@ -14,7 +14,7 @@ export class BaseComponent {
      * Initialize the component
      *
      * @param {Application} app - The application instance created in your script's main entry point
-     * @param options
+     * @param {Object} options - key/value pairs used to set object properties
      */
     constructor(app, options = {}) {
         if (!app.ns.print) throw 'The first argument to Cache.constructor() must be an application with property "ns" being an instance of "ns".';

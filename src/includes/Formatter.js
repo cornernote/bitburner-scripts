@@ -4,6 +4,9 @@ import {BaseComponent} from "/includes/BaseComponent";
  * Formatter
  */
 export class Formatter extends BaseComponent {
+    constructor(app, options = {}) {
+        super();
+    }
 
     /**
      * Returns the local date and time of the given timestamp, or the current time if no timestamp is given

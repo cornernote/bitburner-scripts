@@ -8,6 +8,9 @@ import {BaseComponent} from "/includes/BaseComponent";
  * - Allows data to expire after a given time.
  */
 export class Cache extends BaseComponent {
+    constructor(app, options = {}) {
+        super();
+    }
 
     /**
      * Returns the current value associated with the given key, or null if the given key does not exist.

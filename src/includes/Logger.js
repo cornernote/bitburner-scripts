@@ -4,6 +4,9 @@ import {BaseComponent} from "/includes/BaseComponent";
  * Logger
  */
 export class Logger extends BaseComponent {
+    constructor(app, options = {}) {
+        super();
+    }
 
     /**
      * Log a message, and optionally also tprint it and toast it
