@@ -31,7 +31,8 @@ export class TaskManager extends BaseComponent {
      */
     async backgroundNS(nsMethod, ...args) {
         return await this.runBackgroundPayload([
-            `output = ns.${nsMethod}();`,
+            `output = ns.${nsMethod}();`, // TODO - args
+            //`output = ns.${nsMethod}(`+ JSON.stringify(args) +`);`,
         ].join("\n"))
     }
 
