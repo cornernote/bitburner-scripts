@@ -19,6 +19,7 @@ export async function main(ns) {
     if (!ns.fileExists(filename)) {  //@RAM 0.1GB
         throw `cannot find task file for cleanup "${filename}", already cleaned?`;
     }
+    app.logger.log(`task CLEANUP was completed for uuid ${uuid}`, true);
     ns.rm(filename); //@RAM 1GB
 }
 

@@ -76,8 +76,7 @@ export class Application {
 
         // Log start/end!
         this.logger.log('Application Started', true);
-        let app = this;
-        ns.atExit(() => app.logger.log('Application Ended', true));
+        // let app = this; ns.atExit(() => app.logger.log('Application Ended', true)); // doesn't work, i think NS is unloaded :(
     }
 
     /**

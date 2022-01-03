@@ -35,7 +35,7 @@ export class Cache extends BaseComponent {
     setItem(key, value, expires) {
         let data = {
             expires: expires ? new Date().getTime() + expires * 1000 : 0,
-            value: value,
+            value: typeof value === 'function' ? value() : value, // if value is a function then use the returned value
         };
         let contents = JSON.stringify(data);
         //this.app.logger.log(`cache.setItem (expires=${expires}) ${key} = ${contents}`, true);
