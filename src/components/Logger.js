@@ -7,14 +7,15 @@ export class Logger extends BaseComponent {
 
     /**
      * Construct the component
-     *
+     * @param {Application} app - the application instance created in the entry script
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(config = {}) {
-        super(config);
+    constructor(app, config = {}) {
+        super(app, config);
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
+
 
     /**
      * Log a message, and optionally also tprint it and toast it
