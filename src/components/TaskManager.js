@@ -32,7 +32,26 @@ export class TaskManager extends BaseComponent {
     async backgroundNS(nsMethod, ...args) {
         return await this.runBackgroundPayload([
             `output = ns.${nsMethod}(${Object.values(args).map(a => JSON.stringify(a)).join(", ")});`,
-        ].join("\n"))
+        ].join("\n"));
+    }
+
+    /**
+     * Executes an existing script file.
+     *
+     * The payload is written to a temporary Application js file, which is run using `ns.run()`.
+     *
+     * @param {String} filename
+     * @param {Number} numThreads
+     * @param args
+     * @returns {Promise<*>}
+     */
+    async runBackgroundScript(filename, numThreads, ...args) {
+        // run the task, and wait for it to complete
+        let pid = this.app.ns.run(filename); // @RAM 1.0GB
+        if (this.verbose) {
+            this.app.logger.log(`task RUN was started for uuid ${uuid} with pid ${pid}`, true);
+        }
+        await this.waitForProcessToComplete(pid);
     }
 
     /**
@@ -40,7 +59,6 @@ export class TaskManager extends BaseComponent {
      *
      * The payload is written to a temporary Application js file, which is run using `ns.run()`.
      *
-     * @RAM 1.0GB
      * @param {String} payload
      * ```
      * [
@@ -72,7 +90,6 @@ export class TaskManager extends BaseComponent {
             '}',
         ].join("\n");
         await this.app.ns.write(filename, [contents], 'w');
-        //this.app.ns.getScriptRam(filename);
 
         // run the task, and wait for it to complete
         let pid = this.app.ns.run(filename); // @RAM 1.0GB
@@ -84,7 +101,7 @@ export class TaskManager extends BaseComponent {
         // get the output from cache
         let output = this.app.cache.getItem(uuid);
         if (this.verbose) {
-            this.app.logger.log(`task OUTPUT was collected for uuid ${uuid}`, true);
+            this.app.logger.log(`task OUTPUT was collected for uuid ${uuid}: ${JSON.stringify(output)}`, true);
         }
 
         // cleanup the cache and task file
@@ -95,7 +112,7 @@ export class TaskManager extends BaseComponent {
 
             // cleanup temp file
             // this.app.ns.rm(filename); //@RAM 1GB, prefer to run as a sub-script, see below
-            pid = this.app.ns.run('rm-task.js', 1, uuid); // @RAM +0 as we already call this!  =)
+            pid = this.app.ns.run('task-rm.js', 1, uuid); // @RAM +0 as we already call this!  =)
             if (this.verbose) {
                 this.app.logger.log(`task CLEANUP was started for uuid ${uuid} with pid ${pid}`, true);
             }

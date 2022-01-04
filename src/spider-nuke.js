@@ -15,7 +15,7 @@ export async function main(ns) {
         components: {
             taskManager: {
                 className: TaskManager, //@RAM 1.1GB
-                verbose: true,
+                verbose: false,
             },
         },
     });
@@ -25,9 +25,7 @@ export async function main(ns) {
 
     //let myHackingLevel = await ns.getHackingLevel(); //@RAM 0.05GB
     let myHackingLevel = await app.taskManager.backgroundNS('getHackingLevel');  //@BG RAM 0.05GB
-    app.logger.log('my hacking level is: '+myHackingLevel,true);
-    exit();
-
+    app.logger.log('my hacking level is: ' + myHackingLevel, true);
 
     // Scan all servers and keep track of the path to get to them
     for (let i = 0, j; i < servers.length; i++) {
@@ -56,8 +54,8 @@ export async function main(ns) {
     let rootedServersWithinHackingLevel = [];
     for (let i = 0, j; i < hackableServers.length; i++) {
         let serverRequiredHackingLevel = await app.taskManager.backgroundNS('getServerRequiredHackingLevel', hackableServers[i]);
-        let hasRootAccess = await app.taskManager.backgroundNS('hasRootAccess', hackableServers[i]);
-        if (myHackingLevel > serverRequiredHackingLevel && hasRootAccess) {
+        let rootAccess = await app.taskManager.backgroundNS('hasRootAccess', hackableServers[i]);
+        if (myHackingLevel >= serverRequiredHackingLevel && rootAccess) {
             rootedServersWithinHackingLevel.push(hackableServers[i])
         }
     }
@@ -67,33 +65,35 @@ export async function main(ns) {
     let toBackdoor = [];
     for (let i = 0, j; i < hackableServers.length; i++) {
         let server = await app.taskManager.backgroundNS('getServer', hackableServers[i]);
+        app.logger.log(JSON.stringify(server));
         if (server) {
             toBackdoor.push(hackableServers[i])
         }
     }
+
+
     let count = toBackdoor.length;
     app.logger.log(`${count} servers have yet to be backdoored.`, true);
     if (count === 0) return;
 
 
-    let anyConnected = false;
-
     for (const server of toBackdoor) {
+        var pid = ns.run('install-backdoor-remote.js', 1, server, routes[server].join(','));
+
         app.logger.log(`Hopping to ${server}`, true);
-        anyConnected = true;
         for (let hop of routes[server])
             ns.connect(hop);
-        if (server === "w0r1d_d43m0n") {
-            ns.alert("Ready to hack w0r1d_d43m0n!");
-            while (true) await ns.sleep(10000); // Sleep forever so the script isn't run multiple times to create multiple overlapping alerts
-        }
-        ns.print(`Installing backdoor on "${server}"...`);
+
+        // var pid = ns.run('install-backdoor.js', 1, server);
+
+        // if (server === "w0r1d_d43m0n") {
+        //     ns.alert("Ready to hack w0r1d_d43m0n!");
+        //     while (true) await ns.sleep(10000); // Sleep forever so the script isn't run multiple times to create multiple overlapping alerts
+        // }
+        app.logger.log(`Installing backdoor on "${server}"...`, true);
         // Kick off a separate script that will run backdoor before we connect to home.
-        var pid = ns.run('/Tasks/backdoor-all-servers.js.backdoor-one.js', 1, server);
-        if (pid === 0)
-            return ns.print(`Couldn't initiate a new backdoor of "${server}"" (insufficient RAM?). Will try again later.`);
         await ns.sleep(spawnDelay); // Wait some time for the external backdoor script to initiate its backdoor of the current connected server
-        ns.connect("home");
+
     }
 
 }
