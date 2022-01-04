@@ -101,12 +101,12 @@ export class Application {
      */
     createComponent(config) {
         if (config.prototype && config.prototype instanceof BaseComponent) {
-            return new config();
+            return new config(this);
         }
         if (config.className.prototype && config.className.prototype instanceof BaseComponent) {
             let className = config.className;
             delete config.className;
-            return new className(config);
+            return new className(this, config);
         }
         this.ns.tprint('could not createComponent for the following config:');
         this.ns.tprint(config);
