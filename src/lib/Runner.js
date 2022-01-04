@@ -8,8 +8,8 @@ import {cache} from "/lib/cache";
  * This is typically used to save RAM cost in the foreground script.
  *
  * @RAM 1.1GB
- * - 1.0 GB for ns.run()
- * - 0.1 GB for ns.isRunning()
+ * - 1.0GB ns.run()
+ * - 0.1GB ns.isRunning()
  */
 export class Runner {
 
