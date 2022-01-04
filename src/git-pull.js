@@ -51,6 +51,7 @@ async function repositoryListing(ns, folder = '') {
         response = await fetch(listUrl); // Raw response
         // Expect an array of objects: [{path:"", type:"[file|dir]" },{...},...]
         response = await response.json(); // Deserialized
+        if (!response.filter) response = []; // ensure we have an array
         // Sadly, we must recursively retrieve folders, which eats into our 60 free API requests per day.
         const folders = response.filter(f => f.type === "dir").map(f => f.path);
         let files = response.filter(f => f.type === "file").map(f => f.path)
