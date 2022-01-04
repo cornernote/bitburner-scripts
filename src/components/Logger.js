@@ -25,7 +25,7 @@ export class Logger extends BaseComponent {
      * @param maxToastLength
      */
     log(message = "", printToTerminal = false, toastStyle = "", maxToastLength = 100) {
-        message = `[${this.app.formatter.toLocaleDateTimeString()}] ${message}`;
+        message = `[${this.app.dateHelper.toLocaleDateTimeString()}] ${message}`;
         this.app.ns.print(message);
         if (printToTerminal) {
             this.app.ns.tprint(message);

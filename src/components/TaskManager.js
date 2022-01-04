@@ -2,7 +2,12 @@ import {BaseComponent} from "/components/BaseComponent";
 
 /**
  * TaskManager
+ *
+ * Runs script and payload tasks, and awaits their completion.
+ *
  * @RAM 1.1GB
+ * - 1.0 GB for ns.run()
+ * - 0.1 GB for ns.isRunning()
  */
 export class TaskManager extends BaseComponent {
 
@@ -47,7 +52,7 @@ export class TaskManager extends BaseComponent {
      */
     async runBackgroundScript(filename, numThreads, ...args) {
         // run the task, and wait for it to complete
-        let pid = this.app.ns.run(filename); // @RAM 1.0GB
+        let pid = this.app.ns.run(filename);
         if (this.verbose) {
             this.app.logger.log(`task RUN was started for uuid ${uuid} with pid ${pid}`, true);
         }
@@ -125,7 +130,6 @@ export class TaskManager extends BaseComponent {
 
     /**
      * Wait for a process id to complete running
-     * @RAM 0.1 GB for ns.isRunning
      * @param {int} pid - The process id to monitor
      **/
     async waitForProcessToComplete(pid) {

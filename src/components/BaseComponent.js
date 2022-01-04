@@ -1,18 +1,18 @@
 /**
  * BaseComponent
  *
- * Base component class used to extend to other classes.
+ * The base component class used to extend to other classes.
  */
 export class BaseComponent {
 
     /**
+     * Allows global access to the main application and it's components.
      * @type {Application}
      */
     app = null
 
     /**
      * Construct the component
-     *
      * @param {Application} app - the application instance created in the entry script
      * @param {Object} config - key/value pairs used to set object properties
      */

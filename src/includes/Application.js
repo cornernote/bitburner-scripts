@@ -1,8 +1,8 @@
 import {BaseComponent} from "/components/BaseComponent";
-import {Formatter} from "/components/Formatter";
+import {StringHelper} from "/components/StringHelper";
+import {DateHelper} from "/components/DateHelper";
 import {Logger} from "/components/Logger";
 import {Cache} from "/components/Cache";
-import {StringHelper} from "/components/StringHelper";
 
 /**
  * Application
@@ -33,16 +33,21 @@ export class Application {
      * @type {Object}
      */
     coreComponents = {
-        formatter: Formatter,
+        stringHelper: StringHelper,
+        dateHelper: DateHelper,
         logger: Logger,
         cache: Cache,
-        stringHelper: StringHelper,
     }
 
     /**
-     * @type {Formatter}
+     * @type {StringHelper}
      */
-    formatter = null
+    stringHelper = null
+
+    /**
+     * @type {DateHelper}
+     */
+    dateHelper = null
 
     /**
      * @type {Logger}
@@ -53,11 +58,6 @@ export class Application {
      * @type {Cache}
      */
     cache = null
-
-    /**
-     * @type {StringHelper}
-     */
-    stringHelper = null
 
     /**
      * @type {TaskManager}
