@@ -28,8 +28,9 @@ export class DateHelper extends BaseComponent {
         if (ms === null) {
             ms = new Date().getTime()
         }
-        let date = new Date(ms);
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        this.app.ns.tFormat(ms);
+        // let date = new Date(ms);
+        // return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
     }
 
 }
