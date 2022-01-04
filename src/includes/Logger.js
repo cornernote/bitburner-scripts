@@ -4,10 +4,17 @@ import {BaseComponent} from "/includes/BaseComponent";
  * Logger
  */
 export class Logger extends BaseComponent {
-    constructor(app, options = {}) {
-        super(app, options);
+
+    /**
+     * Construct the component
+     *
+     * @param {Application} app - The application instance created in your script's main entry point
+     * @param {Object} config - key/value pairs used to set object properties
+     */
+    constructor(app, config = {}) {
+        super(app, config);
         // allow override of properties in this class
-        Object.entries(options).forEach(([key, value]) => this[key] = value);
+        Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
 
     /**

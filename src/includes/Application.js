@@ -56,14 +56,14 @@ export class Application {
      * Initialize the application and components
      *
      * @param {NS} ns - The nestcript instance passed to your script's main entry point
-     * @param {Object} options - key/value pairs used to set object properties
+     * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(ns, options = {verbose: false}) {
+    constructor(ns, config = {verbose: false}) {
         if (!ns.print) throw 'The first argument to Application.constructor() must be an instance of "ns".';
         this.ns = ns;
 
         // allow override of properties
-        Object.entries(options).forEach(([key, value]) => this[key] = value);
+        Object.entries(config).forEach(([key, value]) => this[key] = value);
 
         // load core components
         Object.entries(this.coreComponents).forEach(([key, value]) => {

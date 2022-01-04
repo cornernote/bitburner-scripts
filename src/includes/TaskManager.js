@@ -17,14 +17,15 @@ export class TaskManager extends BaseComponent {
     debug = null
 
     /**
+     * Construct the component
      *
-     * @param app
-     * @param options
+     * @param {Application} app - The application instance created in your script's main entry point
+     * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(app, options = {verbose: false, debug: false}) {
-        super(app, options);
+    constructor(app, config = {}) {
+        super(app, config);
         // allow override of properties in this class
-        Object.entries(options).forEach(([key, value]) => this[key] = value);
+        Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
 
     /**

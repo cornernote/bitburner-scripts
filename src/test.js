@@ -14,7 +14,7 @@ export async function main(ns) {
     let taskManager = new TaskManager(app, {debug: true}); //@RAM 1.1GB
     //let player = await taskManager.backgroundNS('getPlayer');
 
-    let test = await taskManager.backgroundNS('getScriptRam', 'test.js');
+    let test = await taskManager.backgroundNS('getScriptRam', 'test.js');  //@RAM 0.1GB
 
     app.logger.log(test, true);
 

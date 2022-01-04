@@ -11,17 +11,17 @@ export class BaseComponent {
     app = null;
 
     /**
-     * Initialize the component
+     * Construct the component
      *
      * @param {Application} app - The application instance created in your script's main entry point
-     * @param {Object} options - key/value pairs used to set object properties
+     * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(app, options = {}) {
+    constructor(app, config = {}) {
         if (!app.ns.print) throw 'The first argument to BaseComponent.constructor() must be an application with property "ns" being an instance of "ns".';
         this.app = app;
 
         // allow override of properties in this class
-        Object.entries(options).forEach(([key, value]) => this[key] = value);
+        Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
 
 }
