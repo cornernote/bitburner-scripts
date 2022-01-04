@@ -1,4 +1,4 @@
-import {BaseComponent} from "/includes/BaseComponent";
+import {BaseComponent} from "/components/BaseComponent";
 
 /**
  * StringHelper
@@ -8,11 +8,10 @@ export class StringHelper extends BaseComponent {
     /**
      * Construct the component
      *
-     * @param {Application} app - The application instance created in your script's main entry point
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(app, config = {}) {
-        super(app, config);
+    constructor(config = {}) {
+        super(config);
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value);
     }

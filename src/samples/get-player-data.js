@@ -1,5 +1,6 @@
-import {Application} from "../includes/Application";
-import {TaskManager} from "../includes/TaskManager";
+import {BBFW} from "/includes/BBFW";
+import {Application} from "/includes/Application";
+import {TaskManager} from "/components/TaskManager";
 
 /**
  * Sample script
@@ -17,7 +18,14 @@ import {TaskManager} from "../includes/TaskManager";
  * @param {NS} ns
  */
 export async function main(ns) {
-    let app = new Application(ns);
+    let app = BBFW.createApplication(ns, Application, {
+        components: {
+            taskManager: {
+                className: TaskManager,  //@RAM 1.1GB
+                verbose: true,
+            },
+        },
+    });
 
     // first we try a cache strategy, checking if the data is in cache already
     let player = app.cache.getItem('player');
@@ -27,8 +35,9 @@ export async function main(ns) {
         app.logger.log('Player data is not cached, loading it using a background task...', true);
 
         // next we use taskManager to do the call using a background payload
-        let taskManager = new TaskManager(app, {verbose: true}); //@RAM 1.1GB
-        player = await taskManager.backgroundNS('getPlayer');
+        // player = ns.getPlayer();
+
+        player = await BBFW.app.taskManager.backgroundNS('getPlayer');
 
         // save to cache
         app.logger.log('Player data was loaded, saving it to cache...', true);

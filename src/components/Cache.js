@@ -1,4 +1,4 @@
-import {BaseComponent} from "/includes/BaseComponent";
+import {BaseComponent} from "/components/BaseComponent";
 
 /**
  * Cache
@@ -12,11 +12,10 @@ export class Cache extends BaseComponent {
     /**
      * Construct the component
      *
-     * @param {Application} app - The application instance created in your script's main entry point
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(app, config = {}) {
-        super(app, config);
+    constructor(config = {}) {
+        super(config);
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
@@ -27,7 +26,7 @@ export class Cache extends BaseComponent {
      * @returns {any}
      */
     getItem(key) {
-        //this.app.logger.log(`cache.getItem(${key})`, true);
+        //BBFW.app.logger.log(`cache.getItem(${key})`, true);
         let contents = localStorage.getItem(key)
         if (contents) {
             let data = JSON.parse(contents);
@@ -50,7 +49,7 @@ export class Cache extends BaseComponent {
             value: typeof value === 'function' ? value() : value, // if value is a function then use the returned value
         };
         let contents = JSON.stringify(data);
-        //this.app.logger.log(`cache.setItem (expires=${expires}) ${key} = ${contents}`, true);
+        //BBFW.app.logger.log(`cache.setItem (expires=${expires}) ${key} = ${contents}`, true);
         localStorage.setItem(key, contents);
     }
 
@@ -60,23 +59,6 @@ export class Cache extends BaseComponent {
      */
     removeItem(key) {
         localStorage.removeItem(key);
-    }
-
-    /**
-     * Returns the number of key/value pairs.
-     * @returns {number}
-     */
-    getLength() {
-        return localStorage.length;
-    }
-
-    /**
-     * Returns the name of the nth key, or null if n is greater than or equal to the number of key/value pairs.
-     * @param index
-     * @returns {string}
-     */
-    key(index) {
-        return localStorage.key(index);
     }
 
     /**

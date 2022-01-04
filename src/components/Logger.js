@@ -1,4 +1,5 @@
-import {BaseComponent} from "/includes/BaseComponent";
+import {BBFW} from "/includes/BBFW";
+import {BaseComponent} from "/components/BaseComponent";
 
 /**
  * Logger
@@ -8,11 +9,10 @@ export class Logger extends BaseComponent {
     /**
      * Construct the component
      *
-     * @param {Application} app - The application instance created in your script's main entry point
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(app, config = {}) {
-        super(app, config);
+    constructor(config = {}) {
+        super(config);
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
@@ -25,13 +25,13 @@ export class Logger extends BaseComponent {
      * @param maxToastLength
      */
     log(message = "", printToTerminal = false, toastStyle = "", maxToastLength = 100) {
-        message = `[${this.app.formatter.toLocaleDateTimeString()}] ${message}`;
-        this.app.ns.print(message);
+        message = `[${BBFW.app.formatter.toLocaleDateTimeString()}] ${message}`;
+        BBFW.app.ns.print(message);
         if (printToTerminal) {
-            this.app.ns.tprint(message);
+            BBFW.app.ns.tprint(message);
         }
         if (toastStyle) {
-            this.app.ns.toast(message.length <= maxToastLength ? message : message.substring(0, maxToastLength - 3) + "...", toastStyle);
+            BBFW.app.ns.toast(message.length <= maxToastLength ? message : message.substring(0, maxToastLength - 3) + "...", toastStyle);
         }
         return message;
     }
@@ -41,7 +41,7 @@ export class Logger extends BaseComponent {
      * @param logs
      */
     disableLogs(logs) {
-        ['disableLog'].concat(...logs).forEach(log => this.app.ns.disableLog(log));
+        ['disableLog'].concat(...logs).forEach(log => BBFW.app.ns.disableLog(log));
     }
 
 }

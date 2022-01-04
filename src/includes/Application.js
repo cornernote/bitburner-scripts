@@ -1,7 +1,8 @@
-import {Formatter} from "/includes/Formatter";
-import {Logger} from "/includes/Logger";
-import {Cache} from "/includes/Cache";
-import {StringHelper} from "/includes/StringHelper";
+import {BaseComponent} from "/components/BaseComponent";
+import {Formatter} from "/components/Formatter";
+import {Logger} from "/components/Logger";
+import {Cache} from "/components/Cache";
+import {StringHelper} from "/components/StringHelper";
 
 /**
  * Application
@@ -22,14 +23,20 @@ export class Application {
     verbose = false
 
     /**
+     * Extra components to be initialized, all probably have `@MEM >0GB`
+     * @type {Object}
+     */
+    components = {}
+
+    /**
      * Core components to be initialized, all should have `@MEM 0GB`
      * @type {Object}
      */
     coreComponents = {
-        formatter: 'Formatter',
-        logger: 'Logger',
-        cache: 'Cache',
-        stringHelper: 'StringHelper',
+        formatter: Formatter,
+        logger: Logger,
+        cache: Cache,
+        stringHelper: StringHelper,
     }
 
     /**
@@ -72,6 +79,13 @@ export class Application {
             }
         });
 
+        // load extra components
+        Object.entries(this.components).forEach(([key, value]) => {
+            if (!this[key]) {
+                this[key] = this.createComponent(value);
+            }
+        });
+
         // Log start/end!
         if (this.verbose) {
             this.logger.log('Application Started', true);
@@ -82,14 +96,21 @@ export class Application {
     /**
      * Creates an application component
      *
-     * @param options
+     * @param config
      * @returns {any}
      */
-    createComponent(options) {
-        if (typeof options === 'string') {
-            options = {className: options};
+    createComponent(config) {
+        if (config.prototype && config.prototype instanceof BaseComponent) {
+            return new config();
         }
-        return eval('new ' + options.className + '(this)'); // new Formatter(this);
+        if (config.className.prototype && config.className.prototype instanceof BaseComponent) {
+            let className = config.className;
+            delete config.className;
+            return new className(config);
+        }
+        this.ns.tprint('could not createComponent for the following config:');
+        this.ns.tprint(config);
+        throw 'could not createComponent!';
     }
 
 }

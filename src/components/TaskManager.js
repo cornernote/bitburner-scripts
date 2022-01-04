@@ -1,4 +1,5 @@
-import {BaseComponent} from "/includes/BaseComponent";
+import {BBFW} from "/includes/BBFW";
+import {BaseComponent} from "/components/BaseComponent";
 
 /**
  * TaskManager
@@ -7,23 +8,17 @@ import {BaseComponent} from "/includes/BaseComponent";
 export class TaskManager extends BaseComponent {
 
     /**
-     * @type {null|boolean}
+     * @type {boolean}
      */
-    verbose = null
-
-    /**
-     * @type {null|boolean}
-     */
-    debug = null
+    verbose
 
     /**
      * Construct the component
      *
-     * @param {Application} app - The application instance created in your script's main entry point
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(app, config = {}) {
-        super(app, config);
+    constructor(config = {}) {
+        super(config);
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value);
     }
@@ -60,49 +55,51 @@ export class TaskManager extends BaseComponent {
     async runBackgroundPayload(payload, cleanup = false) {
 
         // write the payload to a temp Application js file
-        let uuid = this.app.stringHelper.generateUUID();
+        let uuid = BBFW.app.stringHelper.generateUUID();
         if (this.verbose) {
-            this.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
+            BBFW.app.logger.log(`task PREPARE was started for uuid ${uuid}`, true);
         }
         let filename = `/tasks/${uuid}.js`;
         let contents = [ // the Application js template
+            ['import {', 'BBFW', '} from', '"./includes/BBFW"', ';'].join(' '), // join() to prevent game rewriting to `blob:file:///bla`
             ['import {', 'Application', '} from', '"./includes/Application"', ';'].join(' '), // join() to prevent game rewriting to `blob:file:///bla`
             'export async function main(ns) {',
-            '    let app = new Application(ns), output;',
+            '    BBFW.createApplication(ns, Application);',
+            '    let output = "";',
             '    // execute the payload',
             payload,
             '    // save the output of the payload the uuid cache when the temp js runs',
-            `    app.cache.setItem('${uuid}', output);`,
-            `    if (${this.verbose}) app.logger.log('task RUN was completed for uuid ${uuid}', true);`,
+            `    BBFW.app.cache.setItem('${uuid}', output);`,
+            `    if (${this.verbose}) BBFW.app.logger.log('task RUN was completed for uuid ${uuid}', true);`,
             '}',
         ].join("\n");
-        await this.app.ns.write(filename, [contents], 'w');
-        //this.app.ns.getScriptRam(filename);
+        await BBFW.app.ns.write(filename, [contents], 'w');
+        //BBFW.app.ns.getScriptRam(filename);
 
         // run the task, and wait for it to complete
-        let pid = this.app.ns.run(filename); // @RAM 1.0GB
+        let pid = BBFW.app.ns.run(filename); // @RAM 1.0GB
         if (this.verbose) {
-            this.app.logger.log(`task RUN was started for uuid ${uuid} with pid ${pid}`, true);
+            BBFW.app.logger.log(`task RUN was started for uuid ${uuid} with pid ${pid}`, true);
         }
         await this.waitForProcessToComplete(pid);
 
         // get the output from cache
-        let output = this.app.cache.getItem(uuid);
+        let output = BBFW.app.cache.getItem(uuid);
         if (this.verbose) {
-            this.app.logger.log(`task OUTPUT was collected for uuid ${uuid}`, true);
+            BBFW.app.logger.log(`task OUTPUT was collected for uuid ${uuid}`, true);
         }
 
         // cleanup the cache and task file
         if (cleanup) {
 
             // cleanup cache
-            this.app.cache.removeItem(uuid);
+            BBFW.app.cache.removeItem(uuid);
 
             // cleanup temp file
-            // this.app.ns.rm(filename); //@RAM 1GB, prefer to run as a sub-script, see below
-            pid = this.app.ns.run('rm-task.js', 1, uuid); // @RAM +0 as we already call this!  =)
+            // BBFW.app.ns.rm(filename); //@RAM 1GB, prefer to run as a sub-script, see below
+            pid = BBFW.app.ns.run('rm-task.js', 1, uuid); // @RAM +0 as we already call this!  =)
             if (this.verbose) {
-                this.app.logger.log(`task CLEANUP was started for uuid ${uuid} with pid ${pid}`, true);
+                BBFW.app.logger.log(`task CLEANUP was started for uuid ${uuid} with pid ${pid}`, true);
             }
             await this.waitForProcessToComplete(pid);
         }
@@ -117,7 +114,7 @@ export class TaskManager extends BaseComponent {
      * @param {int} pid - The process id to monitor
      **/
     async waitForProcessToComplete(pid) {
-        return await this.waitForProcessToComplete_Custom(this.app.ns.isRunning, pid);
+        return await this.waitForProcessToComplete_Custom(BBFW.app.ns.isRunning, pid);
     }
 
     /**
@@ -132,13 +129,13 @@ export class TaskManager extends BaseComponent {
             if (!fnIsAlive(pid))
                 break; // Script is done running
             if (this.verbose && retries % 100 === 0)
-                this.app.logger.log(`Waiting for pid ${pid} to complete... (${retries})`, true);
-            await this.app.ns.sleep(10);
+                BBFW.app.logger.log(`Waiting for pid ${pid} to complete... (${retries})`, true);
+            await BBFW.app.ns.sleep(10);
         }
         // Make sure that the process has shut down, and we haven't just stopped retrying
         if (fnIsAlive(pid)) {
             let errorMessage = `run-command pid ${pid} is running much longer than expected. Max retries exceeded.`;
-            this.app.logger.log(errorMessage, true);
+            BBFW.app.logger.log(errorMessage, true);
             throw errorMessage;
         }
     }
