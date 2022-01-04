@@ -26,7 +26,7 @@ export class Cache extends BaseComponent {
      * @returns {any}
      */
     getItem(key) {
-        //BBFW.app.logger.log(`cache.getItem(${key})`, true);
+        //this.app.logger.log(`cache.getItem(${key})`, true);
         let contents = localStorage.getItem(key)
         if (contents) {
             let data = JSON.parse(contents);
@@ -49,7 +49,7 @@ export class Cache extends BaseComponent {
             value: typeof value === 'function' ? value() : value, // if value is a function then use the returned value
         };
         let contents = JSON.stringify(data);
-        //BBFW.app.logger.log(`cache.setItem (expires=${expires}) ${key} = ${contents}`, true);
+        //this.app.logger.log(`cache.setItem (expires=${expires}) ${key} = ${contents}`, true);
         localStorage.setItem(key, contents);
     }
 

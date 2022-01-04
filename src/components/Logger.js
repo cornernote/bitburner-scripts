@@ -1,4 +1,3 @@
-import {BBFW} from "/includes/BBFW";
 import {BaseComponent} from "/components/BaseComponent";
 
 /**
@@ -25,13 +24,13 @@ export class Logger extends BaseComponent {
      * @param maxToastLength
      */
     log(message = "", printToTerminal = false, toastStyle = "", maxToastLength = 100) {
-        message = `[${BBFW.app.formatter.toLocaleDateTimeString()}] ${message}`;
-        BBFW.app.ns.print(message);
+        message = `[${this.app.formatter.toLocaleDateTimeString()}] ${message}`;
+        this.app.ns.print(message);
         if (printToTerminal) {
-            BBFW.app.ns.tprint(message);
+            this.app.ns.tprint(message);
         }
         if (toastStyle) {
-            BBFW.app.ns.toast(message.length <= maxToastLength ? message : message.substring(0, maxToastLength - 3) + "...", toastStyle);
+            this.app.ns.toast(message.length <= maxToastLength ? message : message.substring(0, maxToastLength - 3) + "...", toastStyle);
         }
         return message;
     }
@@ -41,7 +40,7 @@ export class Logger extends BaseComponent {
      * @param logs
      */
     disableLogs(logs) {
-        ['disableLog'].concat(...logs).forEach(log => BBFW.app.ns.disableLog(log));
+        ['disableLog'].concat(...logs).forEach(log => this.app.ns.disableLog(log));
     }
 
 }

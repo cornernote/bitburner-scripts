@@ -1,4 +1,3 @@
-import {BBFW} from "./includes/BBFW"
 import {Application} from "./includes/Application";
 import {TaskManager} from "./components/TaskManager";
 
@@ -12,7 +11,7 @@ import {TaskManager} from "./components/TaskManager";
  */
 export async function main(ns) {
 
-    let app = BBFW.createApplication(ns, Application, {
+    let app = new Application(ns, {
         components: {
             taskManager: {
                 className: TaskManager, //@RAM 1.1GB

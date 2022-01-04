@@ -1,4 +1,3 @@
-import {BBFW} from "./includes/BBFW"
 import {Application} from "./includes/Application";
 import {TaskManager} from "./components/TaskManager";
 
@@ -12,8 +11,7 @@ import {TaskManager} from "./components/TaskManager";
  */
 export async function main(ns) {
 
-    //BBFW.createApplication(ns, Application);
-    BBFW.createApplication(ns, Application, {
+    let app = new Application(ns, {
         components: {
             taskManager: {
                 className: TaskManager,
@@ -22,7 +20,7 @@ export async function main(ns) {
         },
     });
 
-    BBFW.app.logger.log('TESTING 123', true);
+    app.logger.log('TESTING 123', true);
 
 }
 

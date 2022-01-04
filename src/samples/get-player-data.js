@@ -1,4 +1,3 @@
-import {BBFW} from "/includes/BBFW";
 import {Application} from "/includes/Application";
 import {TaskManager} from "/components/TaskManager";
 
@@ -18,7 +17,7 @@ import {TaskManager} from "/components/TaskManager";
  * @param {NS} ns
  */
 export async function main(ns) {
-    let app = BBFW.createApplication(ns, Application, {
+    let app = new Application(ns, {
         components: {
             taskManager: {
                 className: TaskManager,  //@RAM 1.1GB
@@ -37,7 +36,7 @@ export async function main(ns) {
         // next we use taskManager to do the call using a background payload
         // player = ns.getPlayer();
 
-        player = await BBFW.app.taskManager.backgroundNS('getPlayer');
+        player = await app.taskManager.backgroundNS('getPlayer');
 
         // save to cache
         app.logger.log('Player data was loaded, saving it to cache...', true);
