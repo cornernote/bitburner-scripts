@@ -12,11 +12,16 @@ export class TaskManager extends BaseComponent {
     verbose = null
 
     /**
+     * @type {null|boolean}
+     */
+    debug = null
+
+    /**
      *
      * @param app
      * @param options
      */
-    constructor(app, options = {verbose: false}) {
+    constructor(app, options = {verbose: false, debug: false}) {
         super(app, options);
         // allow override of properties in this class
         Object.entries(options).forEach(([key, value]) => this[key] = value);
@@ -31,8 +36,7 @@ export class TaskManager extends BaseComponent {
      */
     async backgroundNS(nsMethod, ...args) {
         return await this.runBackgroundPayload([
-            `output = ns.${nsMethod}();`, // TODO - args
-            //`output = ns.${nsMethod}(`+ JSON.stringify(args) +`);`,
+            `output = ns.${nsMethod}(${Object.values(args).map(a => JSON.stringify(a)).join(", ")});`,
         ].join("\n"))
     }
 
@@ -52,7 +56,7 @@ export class TaskManager extends BaseComponent {
      * @param {Boolean} cleanup
      * @returns {Promise<*>} to the contents of the `output` variable in the payload
      */
-    async runBackgroundPayload(payload, cleanup = true) {
+    async runBackgroundPayload(payload, cleanup = false) {
 
         // write the payload to a temp Application js file
         let uuid = this.app.stringHelper.generateUUID();

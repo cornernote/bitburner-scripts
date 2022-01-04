@@ -11,10 +11,11 @@ import {TaskManager} from "./includes/TaskManager";
 export async function main(ns) {
     let app = new Application(ns);
 
-    let taskManager = new TaskManager(app); //@RAM 1.1GB
-    let player = await taskManager.backgroundNS('getPlayer');
+    let taskManager = new TaskManager(app, {debug: true}); //@RAM 1.1GB
+    //let player = await taskManager.backgroundNS('getPlayer');
 
-    // we have the player data!
-    app.logger.log(JSON.stringify(player), true);
+    let test = await taskManager.backgroundNS('getScriptRam', 'test.js');
+
+    app.logger.log(test, true);
 
 }
