@@ -1,5 +1,4 @@
-import {Application} from "/includes/Application";
-import {TaskManager} from "/components/TaskManager";
+import {Runner} from "/lib/Runner";
 
 /**
  * Sample script
@@ -17,39 +16,7 @@ import {TaskManager} from "/components/TaskManager";
  * @param {NS} ns
  */
 export async function main(ns) {
-    let app = new Application(ns, {
-        components: {
-            taskManager: {
-                className: TaskManager,  //@RAM 1.1GB
-                verbose: true,
-            },
-        },
-    });
-
-    // first we try a cache strategy, checking if the data is in cache already
-    let player = app.cache.getItem('player');
-    if (player === undefined) {
-
-        // the data is not in cache
-        app.logger.log('Player data is not cached, loading it using a background task...', true);
-
-        // next we use taskManager to do the call using a background payload
-        // player = ns.getPlayer();
-
-        player = await app.taskManager.backgroundNS('getPlayer');
-
-        // save to cache
-        app.logger.log('Player data was loaded, saving it to cache...', true);
-        app.cache.setItem('player', player, 10 * 1000); // expires in 10s
-
-    } else {
-
-        // the data is cached
-        app.logger.log('Player data is cached, nothing to do here...', true);
-
-    }
-
-    // we have the player data!
-    app.logger.log(JSON.stringify(player), true);
-
+    const runner = new Runner(ns);
+    let player = await runner.runNS('getPlayer');
+    ns.tprint(JSON.stringify(player));
 }

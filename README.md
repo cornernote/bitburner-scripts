@@ -18,3 +18,5 @@ Now you can run `start` from the terminal.
 - https://github.com/alainbryden/bitburner-scripts
 - https://github.com/moriakaice/bitburner
 - https://github.com/ChaelCodes/bitburner-scripts
+- https://github.com/edusig/bitburner
+- https://github.com/Naliwe/bitBurnerTsProject

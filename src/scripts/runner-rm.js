@@ -11,7 +11,7 @@ export async function main(ns) {
     if (!uuid) {
         throw 'missing UUID';
     }
-    let filename = `/tasks/${uuid}.js`;
+    let filename = `/runners/${uuid}.js`;
     if (!ns.fileExists(filename)) {  //@RAM 0.1GB
         throw `cannot find task file for cleanup "${filename}", already cleaned?`;
     }
