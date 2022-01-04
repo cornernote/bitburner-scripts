@@ -60,6 +60,11 @@ export class Application {
     stringHelper = null
 
     /**
+     * @type {TaskManager}
+     */
+    taskManager = null
+
+    /**
      * Initialize the application and components
      *
      * @param {NS} ns - The nestcript instance passed to your script's main entry point
