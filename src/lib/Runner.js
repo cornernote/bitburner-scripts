@@ -31,6 +31,7 @@ export class Runner {
 
     /**
      * Construct the class
+     *
      * @param {NS} ns - the NS instance passed into the scripts main() entry method
      * @param {Object} config - key/value pairs used to set object properties
      */
@@ -159,4 +160,5 @@ export class Runner {
             return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
         });
     }
+
 }
