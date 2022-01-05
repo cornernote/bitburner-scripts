@@ -9,6 +9,8 @@ import {cache} from "/lib/cache";
 export async function main(ns) {
     const runner = new Runner(ns);
 
+    // build player .. TODO
+    let myHackingLevel = await runner.nsProxy['getHackingLevel']();
 
     // build attack list
     let attacks = cache.getItem('attacks');
@@ -26,13 +28,29 @@ export async function main(ns) {
         cache.setItem('servers', servers, 60 * 60 * 24 * 1000);
     }
 
-    let myHackingLevel = await runner.nsProxy['getHackingLevel']();
+    // get some filtered server lists
     let rootedServers = servers.filter(s => s.rootAccess);
     let rootableServers = servers
         .filter(s => !s.rootAccess) // exclude servers with root access
         .filter(s => s.requiredHackingLevel <= myHackingLevel);
 
+    // run all attacks on all servers
+    if (rootableServers.length) {
+        for (const server of rootableServers) {
+            for (const attack of attacks) {
+                if (attack.exists) {
+                    await runner.nsProxy[attack.method](server.host);
+                }
+            }
+            ns.tprint(`New Server Cracked: ${server.host}!`);
+        }
+        // rebuild server list
+        ns.tprint('Building server list in background, this may take a while...');
+        servers = await getServers(runner);
+        cache.setItem('servers', servers, 60 * 60 * 24 * 1000);
+    }
 
+    // print the report
     ns.tprint([
         '',
         '',
@@ -51,22 +69,6 @@ export async function main(ns) {
         '',
         '',
     ].join("\n"));
-
-    // run all attacks on all servers
-    if (rootableServers.length) {
-        for (const server of rootableServers) {
-            for (const attack of attacks) {
-                if (attack.exists) {
-                    await runner.nsProxy[attack.method](server.host);
-                }
-            }
-            ns.tprint(`New Server Cracked: ${server.host}!`);
-        }
-        // rebuild server list
-        ns.tprint('Building server list in background, this may take a while...');
-        servers = await getServers(runner);
-        cache.setItem('servers', servers, 60 * 60 * 24 * 1000);
-    }
 
 }
 
