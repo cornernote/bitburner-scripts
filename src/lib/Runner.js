@@ -59,7 +59,8 @@ export class Runner {
      */
     async runNS(nsMethod, ...args) {
         return await this.runPayload([
-            `output = ns.${nsMethod}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")});`,
+            // todo, find a way to detect if we need to await
+            `output = await ns.${nsMethod}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")});`,
         ].join("\n"));
     }
 
