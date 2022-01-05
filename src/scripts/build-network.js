@@ -1,35 +1,92 @@
 import {Runner} from "/lib/Runner";
+import {cache} from "/lib/cache";
 
 /**
  * Build the network.
  *
- * @RAM 4.40GB/thread = 2.8GB (+1.6GB for base script)
- * - 2.0GB ns.getServer()
- * - 0.2GB ns.scan()
- * - 0.1GB ns.getServerNumPortsRequired()
- * - 0.1GB ns.getServerRequiredHackingLevel()
- * - 0.1GB ns.getServerMaxMoney()
- * - 0.1GB ns.getServerGrowth()
- * - 0.1GB ns.getServerMinSecurityLevel()
- * - 0.05GB ns.getServerMaxRam()
- * - 0.05GB ns.getServerUsedRam()
  * @param {NS} ns
  */
 export async function main(ns) {
     const runner = new Runner(ns);
 
-    let hosts = {};
 
+    // build attack list
+    let attacks = cache.getItem('attacks');
+    if (attacks === undefined) {
+        ns.tprint('Building attack list in background, this may take a while...');
+        attacks = await getAttacks(runner);
+        cache.setItem('attacks', attacks, 60 * 60 * 24 * 1000);
+    }
+
+    // build server list
+    let servers = cache.getItem('servers');
+    if (servers === undefined) {
+        ns.tprint('Building server list in background, this may take a while...');
+        servers = await getServers(runner);
+        cache.setItem('servers', servers, 60 * 60 * 24 * 1000);
+    }
+
+    let myHackingLevel = await runner.nsProxy['getHackingLevel']();
+    let rootedServers = servers.filter(s => s.rootAccess);
+    let rootableServers = servers
+        .filter(s => !s.rootAccess) // exclude servers with root access
+        .filter(s => s.requiredHackingLevel <= myHackingLevel);
+
+
+    ns.tprint([
+        '',
+        '',
+        '=============',
+        `Server Report`,
+        '=============',
+        '',
+        `${servers.length} servers in the network:`,
+        ` -> ${servers.map(s => s.host).join(', ')}`,
+        '',
+        `${rootedServers.length} servers have root access:`,
+        ` -> ${rootedServers.map(s => s.host).join(', ')}`,
+        '',
+        `${rootableServers.length} servers are within hacking level (${myHackingLevel})`,
+        ` -> ${rootableServers.map(s => s.host).join(', ')}`,
+        '',
+        '',
+    ].join("\n"));
+
+    // run all attacks on all servers
+    if (rootableServers.length) {
+        for (const server of rootableServers) {
+            for (const attack of attacks) {
+                if (attack.exists) {
+                    await runner.nsProxy[attack.method](server.host);
+                }
+            }
+            ns.tprint(`New Server Cracked: ${server.host}!`);
+        }
+        // rebuild server list
+        ns.tprint('Building server list in background, this may take a while...');
+        servers = await getServers(runner);
+        cache.setItem('servers', servers, 60 * 60 * 24 * 1000);
+    }
+
+}
+
+/**
+ *
+ * @param {Runner} runner
+ * @returns {Promise<*[]>}
+ */
+async function getServers(runner) {
+    let servers = [];
     let spider = ['home'];
     while (spider.length > 0) {
         let host = spider.pop();
         for (const scannedHostName of await runner.nsProxy['scan'](host)) {
-            if (!Object.keys(hosts).includes(scannedHostName)) {
+            if (servers.filter(s => s.host === scannedHostName).length === 0) {
                 spider.push(scannedHostName);
             }
         }
-        hosts[host] = {
-            hostName: host,
+        servers.push({
+            host: host,
             serverInfo: await runner.nsProxy['getServer'](host),
             numPortsRequired: await runner.nsProxy['getServerNumPortsRequired'](host),
             requiredHackingLevel: await runner.nsProxy['getServerRequiredHackingLevel'](host),
@@ -38,10 +95,35 @@ export async function main(ns) {
             minSecurityLevel: await runner.nsProxy['getServerMinSecurityLevel'](host),
             maxRam: await runner.nsProxy['getServerMaxRam'](host),
             usedRam: await runner.nsProxy['getServerUsedRam'](host),
-        };
+            rootAccess: await runner.nsProxy['hasRootAccess'](host), // cannot use hasRootAccess without false RAM cost added
+        });
     }
+    return servers;
+}
 
-    ns.tprint(hosts);
 
+/**
+ *
+ * @param {Runner} runner
+ * @returns {Promise<*[]>}
+ */
+async function getAttacks(runner) {
+    let attacks = [];
+    let cracks = {
+        brutessh: 'BruteSSH.exe',
+        ftpcrack: 'FTPCrack.exe',
+        relaysmtp: 'relaySMTP.exe',
+        httpworm: 'HTTPWorm.exe',
+        sqlinject: 'SQLInject.exe',
+        nuke: 'NUKE.exe',
+    };
+    for (const [method, exe] of Object.entries(cracks)) {
+        attacks.push({
+            method: method,
+            exe: exe,
+            exists: await runner.nsProxy['fileExists'](exe, 'home'),
+        });
+    }
+    return attacks;
 }
 
