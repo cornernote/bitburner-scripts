@@ -207,29 +207,35 @@ export class SysAdmin {
         this.hacks = {
             weaken: {
                 script: '/hacks/weaken-target.js',
-                ram: 1.7, // TODO check this ...
+                ram: 0,
                 time: await this.runner.nsProxy['getWeakenTime'](bestTarget.hostname) / 1000,
                 delay: 0,
+                maxThreads: 0,
                 threads: 0,
-                change: 0.05, // todo, what is this???
+                change: 0.05,
             },
             grow: {
                 script: '/hacks/grow-target.js',
-                ram: 1.75,
+                ram: 0,
                 time: await this.runner.nsProxy['getGrowTime'](bestTarget.hostname) / 1000,
                 delay: 0,
-                threads: 0,
+                maxThreads: 0,
                 change: 0.004,
             },
             hack: {
                 script: '/hacks/hack-target.js',
-                ram: 1.7,
+                ram: 0,
                 time: await this.runner.nsProxy['getHackTime'](bestTarget.hostname) / 1000,
                 delay: 0,
+                maxThreads: 0,
                 threads: 0,
                 change: 0.002,
             },
         };
+        // calculate the ram needed
+        for (const _hack of Object.values(this.hacks)) {
+            _hack.ram = await this.runner.nsProxy['getScriptRam'](_hack.script);
+        }
         // calculate the maximum threads based on available ram
         for (const server of hackingServers) {
             let ram = server.maxRam - server.ramUsed;
@@ -237,7 +243,7 @@ export class SysAdmin {
                 ram -= this.settings.reservedHomeRam // reserve memory on home
             }
             for (const _hack of Object.values(this.hacks)) {
-                _hack.threads += Math.floor(ram / _hack.ram);
+                _hack.maxThreads += Math.floor(ram / _hack.ram);
             }
         }
         const hacks = this.hacks,
@@ -265,13 +271,15 @@ export class SysAdmin {
 
         // run owned tools on rootable servers
         if (rootableServers.length) {
-            this.ns.tprint(`Rooting ${rootableServers.length} servers...`);
             for (const server of rootableServers) {
+                // run root tools
                 for (const tool of ownedTools) {
                     await this.runner.nsProxy[tool.method](server.hostname);
                 }
+                // copy hack scripts
+                await this.runner.nsProxy['scp'](['/hacks/weaken-target.js', '/hacks/grow-target.js', '/hacks/hack-target.js'], server.hostname);
+                // add to list
                 this.newlyRootedServers.push(server);
-                this.ns.tprint(`Server was rooted: ${server.hostname}`);
             }
             // rebuild server list
             await this.loadServers(); // todo, just reload the changed servers instead of all?
@@ -330,7 +338,7 @@ export class SysAdmin {
             return Math.max(0, Math.ceil(hackThreads * (hack.changes / weaken.changes)))
         }
 
-        // todo, replace args (hack should loop internally)
+        // todo, replace args (hack should loop internally and not delay)
         // args...
         //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
         //hack[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: disable toast warnings, 7: loop]
@@ -338,6 +346,9 @@ export class SysAdmin {
 
         // build the attacks
         this.attacks = [];
+        weaken.threads = weaken.maxThreads;
+        grow.threads = grow.maxThreads;
+        hack.threads = hack.maxThreads;
         let actionLog = '';
         switch (action) {
             // spawn threads to WEAKEN the target
@@ -533,7 +544,6 @@ export class SysAdmin {
                 hackingReport.push(` -> hbbp://${attack[1]}/${attack[0]} threads=${attack[2]} target=${attack[3]} delay=${attack[5]}`);
             }
         }
-        //hackingReport.push(`Cycles ratio: ${hacks['grow'].threads} grow cycles; ${hacks['weaken'].threads} weaken cycles; expected security reduction: ${expectedSecurityReduction}`);
         reports.push(hackingReport);
 
         // glue it together
