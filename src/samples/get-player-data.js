@@ -17,6 +17,7 @@ import {Runner} from "/lib/Runner";
  */
 export async function main(ns) {
     const runner = new Runner(ns);
-    let player = await runner.runNS('getPlayer');
-    ns.tprint(JSON.stringify(player));
+    //let player = await runner.nsProxy.getPlayer(); // works, but game still takes the RAM
+    let player = await runner.nsProxy['getPlayer']();
+    ns.tprint(player);
 }
