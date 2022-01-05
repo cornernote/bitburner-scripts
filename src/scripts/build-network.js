@@ -1,3 +1,5 @@
+import {Runner} from "/lib/Runner";
+
 /**
  * Build the network.
  *
@@ -14,27 +16,28 @@
  * @param {NS} ns
  */
 export async function main(ns) {
+    const runner = new Runner(ns);
 
     let hosts = {};
 
-    let spider = ["home"];
+    let spider = ['home'];
     while (spider.length > 0) {
-        let hostName = spider.pop();
-        for (const scannedHostName of ns.scan(hostName)) {
+        let host = spider.pop();
+        for (const scannedHostName of await runner.nsProxy['scan'](host)) {
             if (!Object.keys(hosts).includes(scannedHostName)) {
                 spider.push(scannedHostName);
             }
         }
-        hosts[hostName] = {
-            hostName: hostName,
-            serverInfo: ns.getServer(hostName),
-            numPortsRequired: ns.getServerNumPortsRequired(hostName),
-            requiredHackingLevel: ns.getServerRequiredHackingLevel(hostName),
-            maxMoney: ns.getServerMaxMoney(hostName),
-            growth: ns.getServerGrowth(hostName),
-            minSecurityLevel: ns.getServerMinSecurityLevel(hostName),
-            maxRam: ns.getServerMaxRam(hostName),
-            usedRam: ns.getServerUsedRam(hostName),
+        hosts[host] = {
+            hostName: host,
+            serverInfo: await runner.nsProxy['getServer'](host),
+            numPortsRequired: await runner.nsProxy['getServerNumPortsRequired'](host),
+            requiredHackingLevel: await runner.nsProxy['getServerRequiredHackingLevel'](host),
+            maxMoney: await runner.nsProxy['getServerMaxMoney'](host),
+            growth: await runner.nsProxy['getServerGrowth'](host),
+            minSecurityLevel: await runner.nsProxy['getServerMinSecurityLevel'](host),
+            maxRam: await runner.nsProxy['getServerMaxRam'](host),
+            usedRam: await runner.nsProxy['getServerUsedRam'](host),
         };
     }
 
