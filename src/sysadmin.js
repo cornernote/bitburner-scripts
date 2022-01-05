@@ -209,7 +209,6 @@ export class SysAdmin {
                 script: '/hacks/weaken-target.js',
                 ram: 0,
                 time: await this.runner.nsProxy['getWeakenTime'](bestTarget.hostname) / 1000,
-                delay: 0,
                 maxThreads: 0,
                 threads: 0,
                 change: 0.05,
@@ -218,7 +217,6 @@ export class SysAdmin {
                 script: '/hacks/grow-target.js',
                 ram: 0,
                 time: await this.runner.nsProxy['getGrowTime'](bestTarget.hostname) / 1000,
-                delay: 0,
                 maxThreads: 0,
                 change: 0.004,
             },
@@ -226,7 +224,6 @@ export class SysAdmin {
                 script: '/hacks/hack-target.js',
                 ram: 0,
                 time: await this.runner.nsProxy['getHackTime'](bestTarget.hostname) / 1000,
-                delay: 0,
                 maxThreads: 0,
                 threads: 0,
                 change: 0.002,
@@ -250,8 +247,6 @@ export class SysAdmin {
             weaken = hacks['weaken'],
             grow = hacks['grow'],
             hack = hacks['hack'];
-        grow.delay = Math.max(0, weaken.time - grow.time - 15);
-        hack.delay = Math.max(0, grow.time + grow.delay - hack.time - 15)
     }
 
     /**
@@ -338,12 +333,6 @@ export class SysAdmin {
             return Math.max(0, Math.ceil(hackThreads * (hack.changes / weaken.changes)))
         }
 
-        // todo, replace args (hack should loop internally and not delay)
-        // args...
-        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
-        //hack[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: disable toast warnings, 7: loop]
-        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
-
         // build the attacks
         this.attacks = [];
         weaken.threads = weaken.maxThreads;
@@ -367,12 +356,14 @@ export class SysAdmin {
                     let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / weaken.ram));
                     const threadsToRun = Math.max(0, Math.min(threadsFittable, grow.threads));
                     if (grow.threads) {
-                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname, threadsToRun, grow.delay]);
+                        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
+                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname]); // todo
                         grow.threads -= threadsToRun;
                         threadsFittable -= threadsToRun;
                     }
                     if (threadsFittable) {
-                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname, threadsFittable, 0]);
+                        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
+                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname]); // todo
                         weaken.threads -= threadsFittable;
                     }
                 }
@@ -387,12 +378,14 @@ export class SysAdmin {
                     let threadsFittable = Math.max(0, Math.floor(server.ram / grow.ram));
                     const threadsToRun = Math.max(0, Math.min(threadsFittable, grow.threads));
                     if (grow.threads) {
-                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname, threadsToRun, grow.delay]);
+                        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
+                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname]); // todo
                         grow.threads -= threadsToRun;
                         threadsFittable -= threadsToRun;
                     }
                     if (threadsFittable) {
-                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname, threadsFittable, 0]);
+                        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
+                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname]); // todo
                         weaken.threads -= threadsFittable;
                     }
                 }
@@ -420,7 +413,8 @@ export class SysAdmin {
                     let cyclesFittable = Math.max(0, Math.floor(server.ram / hack.ram));
                     const cyclesToRun = Math.max(0, Math.min(cyclesFittable, hack.threads));
                     if (hack.threads) {
-                        this.attacks.push([hack.script, server.hostname, cyclesToRun, bestTarget.hostname, cyclesToRun, hack.delay]);
+                        //hack[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: disable toast warnings, 7: loop]
+                        this.attacks.push([hack.script, server.hostname, cyclesToRun, bestTarget.hostname]); // todo
                         hack.threads -= cyclesToRun;
                         cyclesFittable -= cyclesToRun;
                     }
@@ -428,12 +422,14 @@ export class SysAdmin {
                     cyclesFittable = Math.max(0, Math.floor(freeRam / grow.ram))
                     if (cyclesFittable && grow.threads) {
                         const growCyclesToRun = Math.min(grow.threads, cyclesFittable)
-                        this.attacks.push([grow.script, server.hostname, growCyclesToRun, bestTarget.hostname, growCyclesToRun, grow.delay]);
+                        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
+                        this.attacks.push([grow.script, server.hostname, growCyclesToRun, bestTarget.hostname]); // todo
                         grow.threads -= growCyclesToRun;
                         cyclesFittable -= growCyclesToRun;
                     }
                     if (cyclesFittable) {
-                        this.attacks.push([weaken.script, server.hostname, cyclesFittable, bestTarget.hostname, cyclesFittable, 0]);
+                        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
+                        this.attacks.push([weaken.script, server.hostname, cyclesFittable, bestTarget.hostname]); // todo
                         weaken.threads -= cyclesFittable;
                     }
                 }
@@ -532,7 +528,6 @@ export class SysAdmin {
         //     hackingReport.push(' -> ' + name + ': ' + [
         //         `ram=${hack.ram}GB`,
         //         `time=${this.ns.nFormat(hack.time, '00:00:00')}`,
-        //         `delay=${this.ns.nFormat(hack.delay, '00:00:00')}`,
         //         `threads=${hack.threads}`,
         //         `change=${hack.change}`,
         //     ].join(' | '));
@@ -540,8 +535,38 @@ export class SysAdmin {
         if (this.attacks.length) {
             hackingReport.push('');
             hackingReport.push('Attacks Launched:');
-            for (const attack of this.attacks) {
-                hackingReport.push(` -> hbbp://${attack[1]}/${attack[0]} threads=${attack[2]} target=${attack[3]} delay=${attack[5]}`);
+            for (const a of this.attacks) {
+                // all[0: script, 1: host, 2: threads, 3: target, 4: desired start time, 5: expected end, 6: expected duration, 7: description]
+                const baseUrl = `hbbp://${a[1]}/${a[0]}?`;
+                const params = [
+                    `threads=${a[2]}`,
+                    `target=${a[3]}`,
+                ];
+                if (a[4]) params.push(`start=${a[4]}`);
+                if (a[5]) params.push(`end=${a[4]}`);
+                if (a[6]) params.push(`dur=${a[4]}`);
+                if (a[7]) params.push(`desc=${a[4]}`);
+                switch (a[0]) {
+                    case this.hacks['weaken'].script:
+                        //weak[8: disable toast warnings, 9: loop]
+                        if (a[8]) params.push(`noToast=${a[8]}`);
+                        if (a[9]) params.push(`loop=${a[9]}`);
+                        break;
+                    case this.hacks['grow'].script:
+                        //grow[8: manipulate stock, 9: loop]
+                        if (a[8]) params.push(`stock=${a[8]}`);
+                        if (a[9]) params.push(`loop=${a[9]}`);
+                        hackingReport.push(` -> hbbp://${a[1]}/${a[0]}?threads=${a[2]}&target=${a[3]}&start=${a[4]}&end=${a[5]}&dur=${a[6]}&desc=${a[7]}`);
+                        break;
+                    case this.hacks['hack'].script:
+                        //hack[8: manipulate stock, 9: disable toast warnings, 10: loop]
+                        if (a[8]) params.push(`stock=${a[8]}`);
+                        if (a[9]) params.push(`noToast=${a[9]}`);
+                        if (a[10]) params.push(`loop=${a[10]}`);
+                        hackingReport.push(` -> hbbp://${a[1]}/${a[0]}?threads=${a[2]}&target=${a[3]}&start=${a[4]}&end=${a[5]}&dur=${a[6]}&desc=${a[7]}`);
+                        break;
+                }
+                hackingReport.push(' -> ' + baseUrl + params.join('&'));
             }
         }
         reports.push(hackingReport);

@@ -1,11 +1,18 @@
 # Bitburner Scripts
 
+## Install
+
+```sh
+wget https://raw.githubusercontent.com/cornernote/bitburner-scripts/main/src/install.js install.js
+run install.js
+```
+
 ## Tips
 
 Use an alias to shortcut run commands: 
 
 ```sh
-alias start="run daemon.js -v --tail"
+alias sysadmin="run sysadmin.js -v --tail"
 ```
 
 Now you can run `start` from the terminal.
