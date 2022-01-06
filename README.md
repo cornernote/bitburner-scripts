@@ -12,7 +12,7 @@ run install.js
 Use an alias to shortcut run commands: 
 
 ```sh
-alias work="run worker.js loop --tail"
+alias work="run worker.js --loop --tail"
 ```
 
 Now you can run `start` from the terminal.

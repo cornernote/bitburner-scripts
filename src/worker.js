@@ -709,7 +709,7 @@ export class Worker {
             'Attack:',
             ` -> Action: ${this.action}`,
             ` -> Duration: ${this.ns.nFormat(w.time, '00:00:00')}`,
-            ` -> Memory: ${this.ns.nFormat(h.runThreads * h.ram + g.runThreads * g.ram + w.runThreads * w.ram * 1024 * 1000 * 1000, '0.00b')}`,
+            ` -> Memory: ${this.ns.nFormat(h.runThreads * h.ram + g.runThreads * g.ram + w.runThreads * w.ram * 1024 * 1024 * 1000, '0.00b')}`,
             ` -> Threads Run: hack ${h.runThreads} | grow ${g.runThreads} | weaken ${w.runThreads}`,
         ]
         if (this.attacks.length) {
