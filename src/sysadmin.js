@@ -82,16 +82,28 @@ export class SysAdmin {
     weightedServers
 
     /**
-     * List of tools that are used to root servers
+     * List of port hacks that are used to root servers
      * @type {Array}
      */
-    tools
+    portHacks
 
     /**
      * List of hacks that are used to hack servers
      * @type {Object}
      */
     hacks
+
+    /**
+     * Information about the action taken for the cycle.
+     * @type {String}
+     */
+    action
+
+    /**
+     * Information about the cycle.
+     * @type {String}
+     */
+    ratioLog
 
     /**
      * List of attacks we will be running to hack servers
@@ -122,7 +134,7 @@ export class SysAdmin {
         // get required data to...
         this.ns.tprint('Building data...');
         await this.loadPlayer();
-        await this.loadTools();
+        await this.loadPortHacks();
         await this.loadServers();
         // ...do some work
 
@@ -149,22 +161,22 @@ export class SysAdmin {
     }
 
     /**
-     * Loads a list of attack tools.
+     * Loads a list of port hacks.
      *
      * @returns {Promise<*[]>}
      */
-    async loadTools() {
-        this.tools = [];
+    async loadPortHacks() {
+        this.portHacks = [];
         const cracks = {
             brutessh: 'BruteSSH.exe',
             ftpcrack: 'FTPCrack.exe',
             relaysmtp: 'relaySMTP.exe',
             httpworm: 'HTTPWorm.exe',
             sqlinject: 'SQLInject.exe',
-            nuke: 'NUKE.exe',
+            // nuke: 'NUKE.exe', // not a port hack
         };
         for (const [method, exe] of Object.entries(cracks)) {
-            this.tools.push({
+            this.portHacks.push({
                 method: method,
                 exe: exe,
                 owned: await this.runner.nsProxy['fileExists'](exe, 'home'),
@@ -205,32 +217,49 @@ export class SysAdmin {
 
         // build the hack list
         this.hacks = {
+            // name: {
+            //     script:      // target script
+            //     ram:         // ram needed (calculated below)
+            //     time:        // time to run
+            //     delay:       // delay ensures hacks finish in order (calculated below)
+            //     maxThreads:  // the max threads that can be run on our ram (calculated below)
+            //     threads:     // the remaining threads to run (calculated during loadAttacks)
+            //     change:      // security change per thread
+            // }
             weaken: {
-                script: '/hacks/weaken-target.js',
+                script: '/hacks/weaken.js',
                 ram: 0,
                 time: await this.runner.nsProxy['getWeakenTime'](bestTarget.hostname) / 1000,
+                delay: 0,
                 maxThreads: 0,
                 threads: 0,
                 change: 0.05,
             },
             grow: {
-                script: '/hacks/grow-target.js',
+                script: '/hacks/grow.js',
                 ram: 0,
                 time: await this.runner.nsProxy['getGrowTime'](bestTarget.hostname) / 1000,
+                delay: 0,
                 maxThreads: 0,
                 change: 0.004,
             },
             hack: {
-                script: '/hacks/hack-target.js',
+                script: '/hacks/hack.js',
                 ram: 0,
                 time: await this.runner.nsProxy['getHackTime'](bestTarget.hostname) / 1000,
+                delay: 0,
                 maxThreads: 0,
                 threads: 0,
                 change: 0.002,
             },
         };
+        // expose vars for shorter code below
+        const hacks = this.hacks,
+            weaken = hacks['weaken'],
+            grow = hacks['grow'],
+            hack = hacks['hack'];
         // calculate the ram needed
-        for (const _hack of Object.values(this.hacks)) {
+        for (const _hack of Object.values(hacks)) {
             _hack.ram = await this.runner.nsProxy['getScriptRam'](_hack.script);
         }
         // calculate the maximum threads based on available ram
@@ -239,14 +268,13 @@ export class SysAdmin {
             if (server.hostname === 'home') {
                 ram -= this.settings.reservedHomeRam // reserve memory on home
             }
-            for (const _hack of Object.values(this.hacks)) {
+            for (const _hack of Object.values(hacks)) {
                 _hack.maxThreads += Math.floor(ram / _hack.ram);
             }
         }
-        const hacks = this.hacks,
-            weaken = hacks['weaken'],
-            grow = hacks['grow'],
-            hack = hacks['hack'];
+        // calculate the delay required for all threads to end at the right time
+        grow.delay = Math.max(0, weaken.time - grow.time - 20);
+        hack.delay = Math.max(0, grow.time + grow.delay - hack.time - 20);
     }
 
     /**
@@ -258,32 +286,41 @@ export class SysAdmin {
         this.newlyRootedServers = [];
 
         // filter some lists
-        const ownedTools = this.tools
+        const ownedPortHacks = this.portHacks
             .filter(a => a.owned);
         const rootableServers = this.servers
             .filter(s => !s.hasAdminRights) // exclude servers with root access
             .filter(s => s.requiredHackingSkill <= this.player.hacking); // include servers within hacking level
 
-        // run owned tools on rootable servers
+        // run owned port hacks on rootable servers
         if (rootableServers.length) {
             for (const server of rootableServers) {
-                // run root tools
-                for (const tool of ownedTools) {
-                    await this.runner.nsProxy[tool.method](server.hostname);
+                // skip if we have don't enough tools
+                if (ownedPortHacks.length < server.numOpenPortsRequired) {
+                    continue;
                 }
+                // run port hacks
+                for (const portHack of ownedPortHacks) {
+                    await this.runner.nsProxy[portHack.method](server.hostname);
+                }
+                // run nuke
+                await this.runner.nsProxy['nuke'](server.hostname);
                 // copy hack scripts
-                await this.runner.nsProxy['scp'](['/hacks/weaken-target.js', '/hacks/grow-target.js', '/hacks/hack-target.js'], server.hostname);
+                await this.runner.nsProxy['scp'](['grow.js', 'hack.js', 'weaken.js'], server.hostname);
                 // add to list
                 this.newlyRootedServers.push(server);
             }
-            // rebuild server list
-            await this.loadServers(); // todo, just reload the changed servers instead of all?
+            if (this.newlyRootedServers.length) {
+                // rebuild server list
+                await this.loadServers(); // todo, just reload the changed servers instead of all?
+            }
         }
     }
 
     /**
      * Load the attack plan
      *
+     * @see https://github.com/danielyxie/bitburner/blob/dev/doc/source/advancedgameplay/hackingalgorithms.rst
      * @returns {Promise<void>}
      */
     async loadAttacks() {
@@ -302,7 +339,7 @@ export class SysAdmin {
             server.analyze = await this.runner.nsProxy['hackAnalyze'](server.hostname);
             server.securityLevel = await this.runner.nsProxy['getServerSecurityLevel'](server.hostname);
             server.minSecurityLevel = await this.runner.nsProxy['getServerMinSecurityLevel'](server.hostname);
-            server.fullHackCycles = Math.ceil(100 / Math.max(0.00000001, server.analyze));
+            server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyze));
             server.hackValue = server.moneyMax * (this.settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel));
             this.weightedServers.push(server);
         }
@@ -310,12 +347,18 @@ export class SysAdmin {
         const bestTarget = this.weightedServers[0];
         await this.loadHacks(); // after weightedServers is updated
 
+
         // decide which action to perform
-        let action = 'hack';
+        // - if security is not min then action=weaken
+        // - elseif money is not max then action=hack
+        // - else (action=hack)
+        this.action = 'hack'; // standard attack
         if (bestTarget.securityLevel > bestTarget.minSecurityLevel + this.settings.minSecurityLevelOffset) {
-            action = 'weaken';
+            // security is too high, need to weaken
+            this.action = 'weaken';
         } else if (bestTarget.moneyAvailable < bestTarget.moneyMax * this.settings.maxMoneyMultiplayer) {
-            action = 'grow';
+            // money is too low, need to grow
+            this.action = 'grow';
         }
 
         // calculate hacks time and number of threads we can run
@@ -326,11 +369,11 @@ export class SysAdmin {
 
         // TODO -- SORT THIS OUT
         function weakenThreadsForGrow(growThreads) {
-            return Math.max(0, Math.ceil(growThreads * (grow.changes / weaken.changes)))
+            return Math.max(0, Math.ceil(growThreads * (grow.change / weaken.change)))
         }
 
         function weakenThreadsForHack(hackThreads) {
-            return Math.max(0, Math.ceil(hackThreads * (hack.changes / weaken.changes)))
+            return Math.max(0, Math.ceil(hackThreads * (hack.change / weaken.change)))
         }
 
         // build the attacks
@@ -338,102 +381,123 @@ export class SysAdmin {
         weaken.threads = weaken.maxThreads;
         grow.threads = grow.maxThreads;
         hack.threads = hack.maxThreads;
-        let actionLog = '';
-        switch (action) {
+        this.ratioLog = '';
+        switch (this.action) {
+
             // spawn threads to WEAKEN the target
             case 'weaken':
-                if (weaken.changes * weaken.threads > bestTarget.securityLevel - bestTarget.minSecurityLevel) {
-                    weaken.threads = Math.ceil((bestTarget.securityLevel - bestTarget.minSecurityLevel) / weaken.changes);
+                // if there are more weaken threads than needed
+                const requiredSecurityChange = bestTarget.securityLevel - bestTarget.minSecurityLevel;
+                if (weaken.change * weaken.threads > requiredSecurityChange) {
+                    // limit weaken threads
+                    weaken.threads = Math.ceil(requiredSecurityChange / weaken.change);
+                    // assign threads from grow to weaken
                     grow.threads = Math.max(0, grow.threads - weaken.threads);
                     weaken.threads += weakenThreadsForGrow(grow.threads);
                     grow.threads = Math.max(0, grow.threads - weakenThreadsForGrow(grow.threads));
                 } else {
                     grow.threads = 0;
                 }
-                actionLog = `Cycles ratio: ${grow.threads} grow cycles; ${weaken.threads} weaken cycles; expected security reduction: ${Math.floor(weaken.changes * weaken.threads * 1000) / 1000}`;
-
+                // log ratios and assign threads
+                const securityReduction = Math.floor(weaken.change * weaken.threads * 1000) / 1000;
+                this.ratioLog = `${grow.threads} grow threads; ${weaken.threads} weaken threads; expected security reduction: ${securityReduction}`;
                 for (const server of hackingServers) {
                     let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / weaken.ram));
                     const threadsToRun = Math.max(0, Math.min(threadsFittable, grow.threads));
-                    if (grow.threads) {
-                        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
-                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname]); // todo
+                    // grow threads
+                    if (threadsToRun) {
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
+                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname, grow.delay]);
                         grow.threads -= threadsToRun;
                         threadsFittable -= threadsToRun;
                     }
+                    // weaken threads
                     if (threadsFittable) {
-                        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
-                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname]); // todo
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
+                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname, weaken.delay]);
                         weaken.threads -= threadsFittable;
                     }
                 }
                 break;
+
             // spawn threads to GROW the target
             case 'grow':
+                // assign threads from grow to weaken
                 weaken.threads = weakenThreadsForGrow(grow.threads);
                 grow.threads -= weaken.threads;
-                this.ns.tprint(`Cycles ratio: ${grow.threads} grow cycles; ${weaken.threads} weaken cycles`);
-
+                // log ratios and assign threads
+                this.ratioLog = `${grow.threads} grow threads; ${weaken.threads} weaken threads`;
                 for (const server of hackingServers) {
-                    let threadsFittable = Math.max(0, Math.floor(server.ram / grow.ram));
+                    let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / grow.ram));
                     const threadsToRun = Math.max(0, Math.min(threadsFittable, grow.threads));
-                    if (grow.threads) {
-                        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
-                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname]); // todo
+                    // grow threads
+                    if (threadsToRun) {
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
+                        this.attacks.push([grow.script, server.hostname, threadsToRun, bestTarget.hostname, grow.delay]);
                         grow.threads -= threadsToRun;
                         threadsFittable -= threadsToRun;
                     }
+                    // weaken threads
                     if (threadsFittable) {
-                        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
-                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname]); // todo
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
+                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname, weaken.delay]);
                         weaken.threads -= threadsFittable;
                     }
                 }
                 break;
+
             // spawn threads to HACK the target
             case 'hack':
             default:
-                if (hack.threads > bestTarget.fullHackCycles) {
-                    hack.threads = bestTarget.fullHackCycles;
+                // if there are more hack threads than needed
+                if (hack.threads > bestTarget.fullHackThreads) {
+                    // limit hack threads
+                    hack.threads = bestTarget.fullHackThreads;
                     if (hack.threads * 100 < grow.threads) {
                         hack.threads *= 10;
                     }
+                    // assign threads to grow/weaken
                     grow.threads = Math.max(0, grow.threads - Math.ceil((hack.threads * hack.ram) / grow.ram));
                     weaken.threads = weakenThreadsForGrow(grow.threads) + weakenThreadsForHack(hack.threads);
                     grow.threads = Math.max(0, grow.threads - weaken.threads);
                     hack.threads = Math.max(0, hack.threads - Math.ceil((weakenThreadsForHack(hack.threads) * weaken.ram) / hack.ram));
                 } else {
+                    // assign threads from hack to weaken
                     grow.threads = 0;
                     weaken.threads = weakenThreadsForHack(hack.threads);
                     hack.threads = hack.threads - Math.ceil((weaken.threads * weaken.ram) / hack.ram);
                 }
-                this.ns.tprint(`Cycles ratio: ${hack.threads} hack cycles; ${grow.threads} grow cycles; ${weaken.threads} weaken cycles`)
-
+                // log ratios and assign threads
+                this.ratioLog = `${hack.threads} hack threads; ${grow.threads} grow threads; ${weaken.threads} weaken threads`;
                 for (const server of hackingServers) {
-                    let cyclesFittable = Math.max(0, Math.floor(server.ram / hack.ram));
-                    const cyclesToRun = Math.max(0, Math.min(cyclesFittable, hack.threads));
+                    let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / hack.ram));
+                    const threadsToRun = Math.max(0, Math.min(threadsFittable, hack.threads));
+                    // hack threads
                     if (hack.threads) {
-                        //hack[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: disable toast warnings, 7: loop]
-                        this.attacks.push([hack.script, server.hostname, cyclesToRun, bestTarget.hostname]); // todo
-                        hack.threads -= cyclesToRun;
-                        cyclesFittable -= cyclesToRun;
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
+                        this.attacks.push([hack.script, server.hostname, threadsToRun, bestTarget.hostname, hack.delay]);
+                        hack.threads -= threadsToRun;
+                        threadsFittable -= threadsToRun;
                     }
-                    const freeRam = server.ram - cyclesToRun * 1.7
-                    cyclesFittable = Math.max(0, Math.floor(freeRam / grow.ram))
-                    if (cyclesFittable && grow.threads) {
-                        const growCyclesToRun = Math.min(grow.threads, cyclesFittable)
-                        //grow[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: manipulate stock, 6: loop]
-                        this.attacks.push([grow.script, server.hostname, growCyclesToRun, bestTarget.hostname]); // todo
-                        grow.threads -= growCyclesToRun;
-                        cyclesFittable -= growCyclesToRun;
+                    // grow threads
+                    const freeRam = (server.maxRam - server.ramUsed) - threadsToRun * grow.ram;
+                    threadsFittable = Math.max(0, Math.floor(freeRam / grow.ram))
+                    if (threadsFittable && grow.threads) {
+                        const growThreadsToRun = Math.min(grow.threads, threadsFittable)
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
+                        this.attacks.push([grow.script, server.hostname, growThreadsToRun, bestTarget.hostname, grow.delay]);
+                        grow.threads -= growThreadsToRun;
+                        threadsFittable -= growThreadsToRun;
                     }
-                    if (cyclesFittable) {
-                        //weak[0: target, 1: desired start time, 2: expected end, 3: expected duration, 4: description, 5: disable toast warnings, 6: loop]
-                        this.attacks.push([weaken.script, server.hostname, cyclesFittable, bestTarget.hostname]); // todo
-                        weaken.threads -= cyclesFittable;
+                    // weaken threads
+                    if (threadsFittable) {
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
+                        this.attacks.push([weaken.script, server.hostname, threadsFittable, bestTarget.hostname, weaken.delay]);
+                        weaken.threads -= threadsFittable;
                     }
                 }
                 break;
+
         }
     }
 
@@ -457,7 +521,7 @@ export class SysAdmin {
      */
     getReports() {
         // filter some lists
-        const ownedTools = this.tools
+        const ownedPortHacks = this.portHacks
             .filter(a => a.owned);
         const myServers = this.servers
             .filter(s => s.hostname === 'home' || s.hostname.includes('hacknet-') || s.hostname.includes(this.settings.purchasedServerPrefix)); // exclude home/hacknet-/homenet-
@@ -475,7 +539,7 @@ export class SysAdmin {
             '==============',
             '',
             `Hacking Level: ${this.player.hacking}`,
-            `Tools: ${ownedTools.length}/${this.tools.length} (${ownedTools.map(a => a.exe).join(', ')})`,
+            `Port Hacks: ${ownedPortHacks.length}/${this.portHacks.length} (${ownedPortHacks.map(a => a.exe).join(', ')})`,
             `Money: ${this.ns.nFormat(this.player.money, '$0.000a')}`,
             `HP/Max: ${this.player.hp} / ${this.player.max_hp}`,
             `City/Location: ${this.player.city} / ${this.player.location}`,
@@ -496,13 +560,10 @@ export class SysAdmin {
             ` -> ${this.servers.map(s => s.hostname).join(', ')}`,
             '',
             `${myServers.length} servers are yours:`,
-            ` -> ${myServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB').join(', ')}`,
+            ` -> ${myServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB free').join(', ')}`,
             '',
             `${this.weightedServers.length} servers have root access:`,
-            ` -> ${this.weightedServers.map(s => s.hostname + ' = ' + this.ns.nFormat(s.hackValue, '$0.0a') + ' | ' + s.ramUsed + '/' + s.maxRam + 'GB').join(', ')}`,
-            '',
-            `Best target is ${bestTarget.hostname}:`,
-            ` -> ${this.ns.nFormat(bestTarget.hackValue, '$0.0a')}`,
+            ` -> ${this.weightedServers.map(s => s.hostname + ' = ' + this.ns.nFormat(s.hackValue, '$0.0a') + ' | ' + s.ramUsed + '/' + s.maxRam + 'GB free').join(', ')}`,
         ];
         if (rootableServers.length) {
             serversReport.push('');
@@ -516,6 +577,12 @@ export class SysAdmin {
             '===============',
             `|| 🖧 Hacking ||`,
             '===============',
+            '',
+            `Best target is ${bestTarget.hostname}:`,
+            ` -> ${this.ns.nFormat(bestTarget.hackValue, '$0.0a')}`,
+            ` -> Action: ${this.action}`,
+            ` -> Duration: ${this.ns.nFormat(this.hacks.weaken.time, '00:00:00')}`,
+            ` -> Ratio: ${this.ratioLog}`,
         ];
         if (this.newlyRootedServers.length) {
             hackingReport.push('');
@@ -536,36 +603,15 @@ export class SysAdmin {
             hackingReport.push('');
             hackingReport.push('Attacks Launched:');
             for (const a of this.attacks) {
-                // all[0: script, 1: host, 2: threads, 3: target, 4: desired start time, 5: expected end, 6: expected duration, 7: description]
+                //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
                 const baseUrl = `hbbp://${a[1]}/${a[0]}?`;
                 const params = [
                     `threads=${a[2]}`,
                     `target=${a[3]}`,
                 ];
-                if (a[4]) params.push(`start=${a[4]}`);
-                if (a[5]) params.push(`end=${a[4]}`);
-                if (a[6]) params.push(`dur=${a[4]}`);
-                if (a[7]) params.push(`desc=${a[4]}`);
-                switch (a[0]) {
-                    case this.hacks['weaken'].script:
-                        //weak[8: disable toast warnings, 9: loop]
-                        if (a[8]) params.push(`noToast=${a[8]}`);
-                        if (a[9]) params.push(`loop=${a[9]}`);
-                        break;
-                    case this.hacks['grow'].script:
-                        //grow[8: manipulate stock, 9: loop]
-                        if (a[8]) params.push(`stock=${a[8]}`);
-                        if (a[9]) params.push(`loop=${a[9]}`);
-                        hackingReport.push(` -> hbbp://${a[1]}/${a[0]}?threads=${a[2]}&target=${a[3]}&start=${a[4]}&end=${a[5]}&dur=${a[6]}&desc=${a[7]}`);
-                        break;
-                    case this.hacks['hack'].script:
-                        //hack[8: manipulate stock, 9: disable toast warnings, 10: loop]
-                        if (a[8]) params.push(`stock=${a[8]}`);
-                        if (a[9]) params.push(`noToast=${a[9]}`);
-                        if (a[10]) params.push(`loop=${a[10]}`);
-                        hackingReport.push(` -> hbbp://${a[1]}/${a[0]}?threads=${a[2]}&target=${a[3]}&start=${a[4]}&end=${a[5]}&dur=${a[6]}&desc=${a[7]}`);
-                        break;
-                }
+                if (a[4]) params.push(`delay=${Math.round(a[4] * 1000) / 1000}`);
+                if (a[5]) params.push(`uuid=${a[5]}`);
+                if (a[6]) params.push(`stock=${a[6]}`);
                 hackingReport.push(' -> ' + baseUrl + params.join('&'));
             }
         }
