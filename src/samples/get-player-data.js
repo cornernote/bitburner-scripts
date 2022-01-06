@@ -1,4 +1,4 @@
-import {Runner} from "/lib/Runner";
+import {Runner} from "/lib/Runner"
 
 /**
  * Sample script
@@ -16,8 +16,8 @@ import {Runner} from "/lib/Runner";
  * @param {NS} ns
  */
 export async function main(ns) {
-    const runner = new Runner(ns);
-    //let player = await runner.nsProxy.getPlayer(); // works, but game still takes the RAM
-    let player = await runner.nsProxy['getPlayer']();
-    ns.tprint(player);
+    const runner = new Runner(ns)
+    //let player = await runner.nsProxy.getPlayer() // works, but game still takes the RAM
+    let player = await runner.nsProxy['getPlayer']()
+    ns.tprint(player)
 }

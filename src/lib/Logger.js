@@ -14,8 +14,8 @@ export class Logger {
      * @param {Object} config - key/value pairs used to set object properties
      */
     constructor(ns, config = {}) {
-        this.ns = ns;
-        Object.entries(config).forEach(([key, value]) => this[key] = value); // allow override of properties in this class
+        this.ns = ns
+        Object.entries(config).forEach(([key, value]) => this[key] = value) // allow override of properties in this class
     }
 
     /**
@@ -28,21 +28,21 @@ export class Logger {
      */
     log(message = "", options = {}) {
         // build message with datetime prefix
-        message = `[${this.localeDateTime()}] ${message}`;
+        message = `[${this.localeDateTime()}] ${message}`
         // print to logs
-        this.ns.print(message);
+        this.ns.print(message)
         // print to terminal
         if (options.terminal) {
-            this.ns.tprint(message);
+            this.ns.tprint(message)
         }
         // throw a toast alert
         if (options.toast) {
             if (!options.toastLength) {
-                options.toastLength = 100;
+                options.toastLength = 100
             }
-            this.ns.toast(message.length <= options.toastLength ? message : message.substring(0, options.toastLength - 3) + "...", options.toast);
+            this.ns.toast(message.length <= options.toastLength ? message : message.substring(0, options.toastLength - 3) + '...', options.toast)
         }
-        return message;
+        return message
     }
 
     /**
@@ -54,8 +54,8 @@ export class Logger {
         if (ms === null) {
             ms = new Date().getTime()
         }
-        let date = new Date(ms);
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        let date = new Date(ms)
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
     }
 
     /**
@@ -63,7 +63,7 @@ export class Logger {
      * @param logs
      */
     disableLogs(logs) {
-        ['disableLog'].concat(...logs).forEach(log => this.ns.disableLog(log));
+        ['disableLog'].concat(...logs).forEach(log => this.ns.disableLog(log))
     }
 
 }

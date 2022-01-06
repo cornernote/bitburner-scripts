@@ -1,4 +1,4 @@
-let options;
+let options
 const argsSchema = [
     ['github', 'cornernote'],
     ['repository', 'bitburner-scripts'],
@@ -9,11 +9,11 @@ const argsSchema = [
     ['subfolder', ''], // Can be set to download to a sub-folder that is not part of the remote repository structure.
     ['extension', ['.js', '.ns', '.txt', '.script']], // Files to download by extension.
     ['omit-folder', []], // Folders to omit
-];
+]
 
 export function autocomplete(data, _) {
-    data.flags(argsSchema);
-    return [];
+    data.flags(argsSchema)
+    return []
 }
 
 /**
@@ -24,21 +24,21 @@ export function autocomplete(data, _) {
  * @param {NS} ns
  */
 export async function main(ns) {
-    options = ns.flags(argsSchema);
-    const baseUrl = `https://raw.githubusercontent.com/${options.github}/${options.repository}/${options.branch}/`;
+    options = ns.flags(argsSchema)
+    const baseUrl = `https://raw.githubusercontent.com/${options.github}/${options.repository}/${options.branch}/`
     const filesToDownload = options['new-file'].concat(options.download.length > 0 ? options.download : await repositoryListing(ns, options.folder))
-        .map(f => f.substring(options.folder.length)); // remove remote folder name
+        .map(f => f.substring(options.folder.length)) // remove remote folder name
     for (const localFilePath of filesToDownload) {
-        const remoteFilePath = baseUrl + options.folder + localFilePath;
-        ns.tprint(`Trying to update "${localFilePath}" from ${remoteFilePath} ...`);
+        const remoteFilePath = baseUrl + options.folder + localFilePath
+        ns.tprint(`Trying to update "${localFilePath}" from ${remoteFilePath} ...`)
         if (await ns.wget(`${remoteFilePath}?ts=${new Date().getTime()}`, (options.subfolder ? (options.subfolder + '/') : '') + localFilePath))
-            ns.tprint(' -> SUCCESS');
+            ns.tprint(' -> SUCCESS')
         else
-            ns.tprint(' -> FAILED');
+            ns.tprint(' -> FAILED')
     }
-    ns.tprint('Download complete!');
-    ns.tprint('Spawning sysadmin.js');
-    ns.spawn('sysadmin.js');
+    ns.tprint('Download complete!')
+    ns.tprint('Spawning worker.js (takes 10 seconds)...')
+    ns.spawn('worker.js')
 }
 
 /**
@@ -48,28 +48,28 @@ export async function main(ns) {
  */
 async function repositoryListing(ns, folder = '') {
     // Note: Limit of 60 free API requests per day, don't over-do it
-    const listUrl = `https://api.github.com/repos/${options.github}/${options.repository}/contents/${folder}?ref=${options.branch}`;
-    let response = null;
+    const listUrl = `https://api.github.com/repos/${options.github}/${options.repository}/contents/${folder}?ref=${options.branch}`
+    let response = null
     try {
-        response = await fetch(listUrl); // Raw response
+        response = await fetch(listUrl) // Raw response
         // Expect an array of objects: [{path:"", type:"[file|dir]" },{...},...]
-        response = await response.json(); // Deserialized
-        if (!response.filter) response = []; // ensure we have an array
+        response = await response.json() // Deserialized
+        if (!response.filter) response = [] // ensure we have an array
         // Sadly, we must recursively retrieve folders, which eats into our 60 free API requests per day.
-        const folders = response.filter(f => f.type === "dir").map(f => f.path);
+        const folders = response.filter(f => f.type === "dir").map(f => f.path)
         let files = response.filter(f => f.type === "file").map(f => f.path)
-            .filter(f => options.extension.some(ext => f.endsWith(ext)));
-        ns.tprint(`The following files exist at ${listUrl}\n${files.map(f=>` -> ${f}`).join("\n")}`);
+            .filter(f => options.extension.some(ext => f.endsWith(ext)))
+        ns.tprint(`The following files exist at ${listUrl}\n${files.map(f=>` -> ${f}`).join("\n")}`)
         for (const folder of folders)
             files = files.concat((await repositoryListing(ns, folder))
-                .map(f => `/${f}`)); // Game requires files to have a leading slash when using a folder
-        return files;
+                .map(f => `/${f}`)) // Game requires files to have a leading slash when using a folder
+        return files
     } catch (error) {
-        if (folder !== '') throw error; // Propagate the error if this was a recursive call.
+        if (folder !== '') throw error // Propagate the error if this was a recursive call.
         ns.tprint(`WARNING: Failed to get a repository listing (GitHub API request limit of 60 reached?): ${listUrl}` +
-            `\nResponse Contents (if available): ${JSON.stringify(response ?? '(N/A)')}\nError: ${String(error)}`);
+            `\nResponse Contents (if available): ${JSON.stringify(response ?? '(N/A)')}\nError: ${String(error)}`)
         // Fallback, assume the user already has a copy of all files in the repo, and use it as a directory listing
         return ns.ls('home').filter(name => options.extension.some(ext => f.endsWith(ext)) &&
-            !options['omit-folder'].some(dir => name.startsWith(dir)));
+            !options['omit-folder'].some(dir => name.startsWith(dir)))
     }
 }

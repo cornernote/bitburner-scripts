@@ -5,13 +5,13 @@
  */
 export async function main(ns) {
     //args[0: target, 1: delay, 2: uuid, 3: stock]
-    const target = ns.args[0];
-    const delay = ns.args.length > 1 ? ns.args[1] : 0;
-    const stock = (ns.args.length > 3 && ns.args[3]);
+    const target = ns.args[0]
+    const delay = ns.args.length > 1 ? ns.args[1] : 0
+    const stock = (ns.args.length > 3 && ns.args[3])
     if (delay > 0) {
-        await ns.sleep(delay);
+        await ns.sleep(delay)
     }
     if (!await ns.grow(target, {stock: stock})) {
-        ns.toast(`Warning, grow increased 0 money. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning');
+        ns.toast(`Warning, grow increased 0 money. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning')
     }
 }
