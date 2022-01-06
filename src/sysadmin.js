@@ -306,7 +306,7 @@ export class SysAdmin {
                 // run nuke
                 await this.runner.nsProxy['nuke'](server.hostname);
                 // copy hack scripts
-                await this.runner.nsProxy['scp'](['grow.js', 'hack.js', 'weaken.js'], server.hostname);
+                await this.runner.nsProxy['scp'](['/hacks/grow.js', '/hacks/hack.js', '/hacks/weaken.js'], server.hostname);
                 // add to list
                 this.newlyRootedServers.push(server);
             }
@@ -501,13 +501,20 @@ export class SysAdmin {
         }
     }
 
-
     /**
      * Gain root access on any available servers.
      *
      * @returns {Promise<void>}
      */
     async attackServers() {
+        // // quick fix to add attack scripts - remove this later, or make it a flag
+        // const hackingServers = this.servers
+        //     .filter(s => !s.hostname.includes('hacknet-')) // exclude hacknet-
+        //     .filter(s => s.hasAdminRights); // include servers with root access
+        // for (const server of hackingServers) {
+        //     await this.runner.nsProxy['scp'](['/hacks/grow.js', '/hacks/hack.js', '/hacks/weaken.js'], server.hostname);
+        // }
+        // run the attack
         for (const attack of this.attacks) {
             await this.runner.nsProxy['exec'](...attack);
         }
@@ -604,7 +611,7 @@ export class SysAdmin {
             hackingReport.push('Attacks Launched:');
             for (const a of this.attacks) {
                 //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
-                const baseUrl = `hbbp://${a[1]}/${a[0]}?`;
+                const baseUrl = `hbbp://${a[1]}${a[0].substr(-1) === '/' ? '' : '/'}${a[0]}?`;
                 const params = [
                     `threads=${a[2]}`,
                     `target=${a[3]}`,
