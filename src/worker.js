@@ -33,7 +33,7 @@ export async function main(ns) {
     const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy because .hacknet is too much ram for a background script if we only have 8gb
     const rootServers = new RootServers(ns, runner.nsProxy)
     const attackServer = new AttackServer(ns, runner.nsProxy, {
-        onlyHack: player.money < 1000000 && player.hacking < 125, // early game, just hack
+        onlyHack: player.money < 250000000 && player.hacking < 150, // early game, just hack
     })
     // print help
     if (args.help) {

@@ -11,7 +11,10 @@ export async function main(ns) {
     if (delay > 0) {
         await ns.sleep(delay)
     }
-    if (!await ns.hack(target, {stock: stock})) {
-        ns.toast(`Warning, hack stole 0 money. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning')
+    const amount = await ns.hack(target, {stock: stock});
+    if (amount) {
+        ns.toast(`HACK ${target} stole ${ns.nFormat(amount, '$0.0a')} money! ${JSON.stringify(ns.args)}`, 'success')
+    } else {
+        ns.toast(`HACK ${target} stole 0 money. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning')
     }
 }

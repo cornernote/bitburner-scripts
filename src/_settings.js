@@ -31,7 +31,7 @@ export const settings = {
     },
 
     // controls how far to upgrade hacknet servers
-    hacknetMaxPayoffTime: 60 * 60 * 4,  // in seconds
+    hacknetMaxPayoffTime: 0,  // in seconds
 
     // controls how far to upgrade hacknet servers
     hacknetMaxSpend: 0,

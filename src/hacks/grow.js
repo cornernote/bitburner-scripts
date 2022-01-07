@@ -11,7 +11,10 @@ export async function main(ns) {
     if (delay > 0) {
         await ns.sleep(delay)
     }
-    if (!await ns.grow(target, {stock: stock})) {
-        ns.toast(`Warning, grow increased 0 money. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning')
+    const amount = await ns.grow(target, {stock: stock})
+    if (amount) {
+        ns.toast(`GROW ${target} increased ${ns.nFormat(amount, '$0.0a')} money! ${JSON.stringify(ns.args)}`, 'success')
+    } else {
+        ns.toast(`GROW ${target} increased 0 money. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning')
     }
 }

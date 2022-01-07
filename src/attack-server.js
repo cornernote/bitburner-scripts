@@ -28,7 +28,7 @@ export async function main(ns) {
     // load job module
     let player = await runner.nsProxy['getPlayer']();
     const attackServer = new AttackServer(ns, runner.nsProxy, {
-        onlyHack: player.money < 1000000 && player.hacking < 125, // early game, just hack
+        onlyHack: player.money < 250000000 && player.hacking < 150, // early game, just hack
     })
     // print help
     if (args.help) {
@@ -492,7 +492,7 @@ export class AttackServer {
             server.fullGrowThreads = server.moneyAvailable ? await this.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
             if (this.onlyHack) {
-                server.hackValue = server.moneyAvailable * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel))
+                server.hackValue = server.moneyAvailable
             } else {
                 server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
             }
