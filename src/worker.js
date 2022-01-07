@@ -28,10 +28,13 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
-    // load job module
-    const upgradeHacknet = new UpgradeHacknet(ns, runner.nsProxy, runner.hacknetProxy)
+    // load job modules
+    let player = await runner.nsProxy['getPlayer']();
+    const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy here
     const rootServers = new RootServers(ns, runner.nsProxy)
-    const attackServer = new AttackServer(ns, runner.nsProxy)
+    const attackServer = new AttackServer(ns, runner.nsProxy, {
+        onlyHack: player.money < 10000000 && player.hacking < 150, // early game, just hack
+    })
     // print help
     if (args.help) {
         ns.tprint("\n\n\n" + [
@@ -43,11 +46,11 @@ export async function main(ns) {
         ns.exit()
     }
     // work, sleep, repeat
-    let home = await runner.nsProxy['getServer']('home');
+    //let home = await runner.nsProxy['getServer']('home');
     do {
-        if ((home.maxRam - home.ramUsed) >= 16) {
+        //if (home.maxRam >= 16) {
             await upgradeHacknet.doJob();
-        }
+        //}
         await rootServers.doJob();
         await attackServer.doJob();
         await ns.sleep(10)
@@ -65,4 +68,5 @@ export async function main(ns) {
 function countedTowardsMemory(ns) {
     ns.run()
     ns.isRunning(0)
+    ns.getPlayer() // adds 0.5gb, which is enough to run .hacknet locally
 }

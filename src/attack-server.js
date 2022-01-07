@@ -26,7 +26,10 @@ export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
     // load job module
-    const attackServer = new AttackServer(ns, runner.nsProxy)
+    let player = await runner.nsProxy['getPlayer']();
+    const attackServer = new AttackServer(ns, runner.nsProxy, {
+        onlyHack: player.money < 1000000 && player.hacking < 150, // early game, just hack
+    })
     // print help
     if (args.help) {
         ns.tprint(attackServer.getHelp())
@@ -39,6 +42,7 @@ export async function main(ns) {
         await ns.sleep(10)
     } while (args.loop)
 }
+
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
     ns.run()
@@ -106,6 +110,12 @@ export class AttackServer {
      * @type {String}
      */
     action
+
+    /**
+     * If we should force all attacks to be hack()
+     * @type {Boolean}
+     */
+    onlyHack
 
     /**
      * Security change for this cycle
@@ -196,6 +206,12 @@ export class AttackServer {
             g = hacks['grow'],
             h = hacks['hack']
 
+        // option to force the action to be hack(), handy early-game but may hack a target to $0
+        if (this.onlyHack) {
+            this.action = 'only-hack'
+            w.time = h.time
+        }
+
         // helper, calculates how many weaken threads are needed for countering a grow/hack
         const w4 = {
             g(growThreads) {
@@ -283,7 +299,6 @@ export class AttackServer {
 
             // spawn threads to HACK the target
             case 'hack':
-            default:
                 // if there are more hack threads than needed
                 if (h.threads > bestTarget.fullHackThreads) {
                     // limit hack threads
@@ -332,6 +347,23 @@ export class AttackServer {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
                         this.attacks.push([w.script, server.hostname, threadsFittable, bestTarget.hostname, w.delay])
                         w.threads -= threadsFittable
+                    }
+                }
+                break
+
+            // spawn threads to ONLY-HACK the target
+            case 'only-hack':
+                // log and assign threads
+                h.runThreads = h.threads
+                this.securityChangeLog = `security change: ${Math.floor((h.change * h.threads * -1) * 1000) / 1000}`
+                for (const server of this.hackingServers) {
+                    let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / h.ram))
+                    const hackThreadsToRun = Math.max(0, Math.min(threadsFittable, h.threads))
+                    // hack threads
+                    if (hackThreadsToRun) {
+                        //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
+                        this.attacks.push([h.script, server.hostname, hackThreadsToRun, bestTarget.hostname, 0])
+                        h.threads -= hackThreadsToRun
                     }
                 }
                 break
@@ -459,7 +491,11 @@ export class AttackServer {
             server.minSecurityLevel = await this.nsProxy['getServerMinSecurityLevel'](server.hostname)
             server.fullGrowThreads = server.moneyAvailable ? await this.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
-            server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
+            if (this.onlyHack) {
+                server.hackValue = server.moneyAvailable
+            } else {
+                server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
+            }
             this.targetServers.push(server)
         }
         this.targetServers.sort((a, b) => b.hackValue - a.hackValue)

@@ -121,7 +121,7 @@ export class UpgradeHacknet {
      * @param {Hacknet} hacknetProxy - the hacknetProxy object
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(ns,  nsProxy, hacknetProxy, config = {}) {
+    constructor(ns, nsProxy, hacknetProxy, config = {}) {
         this.ns = ns
         this.nsProxy = nsProxy
         this.hacknetProxy = hacknetProxy
@@ -146,7 +146,6 @@ export class UpgradeHacknet {
         this.lastRun = new Date().getTime()
         // display the report
         //this.ns.tprint(this.getRootServersReport())
-
     }
 
     /**
@@ -169,7 +168,8 @@ export class UpgradeHacknet {
         let cost = 0
         let upgradedValue = 0
         let worstNodeProduction = Number.MAX_VALUE // Used to how productive a newly purchased node might be
-        for (let i = 0; i < await this.hacknetProxy['numNodes'](); i++) {
+        let numNodes = await this.hacknetProxy['numNodes']();
+        for (let i = 0; i < numNodes; i++) {
             let nodeStats = await this.hacknetProxy['getNodeStats'](i)
             if (formulas && this.haveHacknetServers) { // When a hacknet server runs scripts, nodeStats.production lags behind what it should be for current ram usage. Get the "raw" rate
                 try {
@@ -223,7 +223,9 @@ export class UpgradeHacknet {
             this.ns.print(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${this.ns.nFormat(settings.hacknetMaxPayoffTime, '00:00:00')})`)
             return false // As long as maxPayoffTime doesn't change, we will never purchase another upgrade
         }
-        let success = shouldBuyNewNode ? await this.hacknetProxy['purchaseNode']() !== -1 : bestUpgrade.upgrade(nodeToUpgrade, 1)
+        let success = shouldBuyNewNode
+            ? await this.hacknetProxy['purchaseNode']() !== -1
+            : await bestUpgrade.upgrade(nodeToUpgrade, 1)
         if (!success) {
             this.ns.print(`Insufficient funds to purchase the next best upgrade: ${strPurchase}`)
             return 0
@@ -249,8 +251,11 @@ export class UpgradeHacknet {
     async loadUpgrades() {
         this.haveHacknetServers = await this.hacknetProxy['hashCapacity']() > 0
         // Get the lowest cache level, we do not consider upgrading the cache level of servers above this until all have the same cache level
-        const minCacheLevel = [...Array(await this.hacknetProxy['numNodes']()).keys()]
-            .reduce((min, i) => Math.min(min, this.hacknetProxy['getNodeStats'](i).cache), Number.MAX_VALUE)
+        let nodeStats = []
+        for (let i = 0; i < await this.hacknetProxy['numNodes'](); i++) {
+            nodeStats.push(await this.hacknetProxy['getNodeStats'](i))
+        }
+        const minCacheLevel = Math.max.apply(Math, nodeStats.map(n => n.cache))
         this.upgrades = [
             {
                 name: "none",
