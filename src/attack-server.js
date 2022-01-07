@@ -492,7 +492,7 @@ export class AttackServer {
             server.fullGrowThreads = server.moneyAvailable ? await this.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
             if (this.onlyHack) {
-                server.hackValue = server.moneyAvailable
+                server.hackValue = server.moneyAvailable * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel))
             } else {
                 server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
             }

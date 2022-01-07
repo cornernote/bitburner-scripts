@@ -30,7 +30,7 @@ export async function main(ns) {
     const runner = new Runner(ns)
     // load job modules
     let player = await runner.nsProxy['getPlayer']();
-    const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy here
+    const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy because .hacknet is too much ram for a background script if we only have 8gb
     const rootServers = new RootServers(ns, runner.nsProxy)
     const attackServer = new AttackServer(ns, runner.nsProxy, {
         onlyHack: player.money < 10000000 && player.hacking < 150, // early game, just hack

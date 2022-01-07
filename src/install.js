@@ -36,9 +36,19 @@ export async function main(ns) {
         else
             ns.tprint(' -> FAILED')
     }
-    ns.tprint('Download complete!')
     terminalCommand('alias work="run worker.js --loop"')
     terminalCommand('alias stop="kill worker.js --loop"')
+    ns.tprint([
+        '',
+        '',
+        '',
+        'Installation complete!',
+        '',
+        'You can now run "work" and "stop" to start and stop the worker.',
+        '',
+        '',
+        '',
+    ].join("\n"))
     // ns.tprint('Spawning worker.js (takes 10 seconds)...')
     // ns.spawn('worker.js')
 }
