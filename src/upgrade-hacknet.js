@@ -227,7 +227,7 @@ export class UpgradeHacknet {
                 nextPayoffTime = 60 * 60 // 1h
             } else if (this.player.money < 10000000) { // 10m
                 nextPayoffTime = 60 * 60 * 2 // 2h
-            } else if (this.player.money < 100000000) { // 100m
+            } else if (this.player.money < 500000000) { // 500m
                 nextPayoffTime = 60 * 60 * 4 // 4d
             } else if (this.player.money < 1000000000) { // 1b
                 nextPayoffTime = 60 * 60 * 24 // 1d
