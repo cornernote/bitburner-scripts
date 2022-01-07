@@ -90,6 +90,12 @@ export class RootServers {
     newlyRootedServers
 
     /**
+     * Server data, containing servers we can run scripts on
+     * @type {Server[]}
+     */
+    hackingServers
+
+    /**
      * The time we last ran
      * @type {Number}
      */
@@ -188,6 +194,10 @@ export class RootServers {
             if (this.newlyRootedServers.length) {
                 await this.loadServers()
             }
+        }
+        // copy hack scripts (needed for purchased servers, ideally do this somewhere else, maybe RootServers?)
+        for (const server of this.hackingServers) {
+            await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
         }
     }
 
@@ -318,6 +328,13 @@ export class RootServers {
         this.rootedServers = this.servers
             // exclude home/hacknet-/homenet-
             .filter(s => s.hostname !== 'home' && !s.hostname.includes('hacknet-') && !s.hostname.includes(settings.purchasedServerPrefix))
+            // include servers with root access
+            .filter(s => s.hasAdminRights)
+
+        // get servers used for hacking
+        this.hackingServers = this.servers
+            // exclude hacknet-
+            .filter(s => !s.hostname.includes('hacknet-'))
             // include servers with root access
             .filter(s => s.hasAdminRights)
 

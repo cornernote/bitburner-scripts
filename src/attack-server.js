@@ -284,7 +284,7 @@ export class AttackServer {
                     // grow threads
                     if (growThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
-                        this.attacks.push([g.script, server.hostname, growThreadsToRun, bestTarget.hostname, g.delay])
+                        this.attacks.push([g.script, server.hostname, growThreadsToRun, bestTarget.hostname, 0])
                         g.threads -= growThreadsToRun
                         weakenThreadsToRun -= growThreadsToRun
                     }
