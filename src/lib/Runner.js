@@ -86,7 +86,7 @@ export class Runner {
         return await this.runPayload([
             // find a way to detect if we need to await, or just await all...
             `output = await ns.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
-        ].join("\n"))
+        ].join("\n"), `-ns-${method}`)
     }
 
     /**
@@ -100,7 +100,7 @@ export class Runner {
         return await this.runPayload([
             // find a way to detect if we need to await, or just await all...
             `output = await ns.hacknet.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
-        ].join("\n"))
+        ].join("\n"), `-hacknet-${method}`)
     }
 
     /**
@@ -127,20 +127,21 @@ export class Runner {
      *
      * The payload is written to a temporary js file, which is run using `ns.run()`.
      *
-     * @param {String} payload
+     * @param {String} payload the payload to run
      * ```
      * [
      *    'await ns.sleep(5000)', // do something random...
      *    'output = ns.getPlayer()', // set 'output = ...', so something gets written to localStorage
      * ].join("\n")
      * ```
+     * @param {String} filePrefix the prefix to use for the temp file
      * @returns {Promise<*>} to the contents of the `output` variable in the payload
      */
-    async runPayload(payload) {
+    async runPayload(payload, filePrefix = '') {
 
         // write the payload to a temp js file
         let uuid = this.generateUUID()
-        let filename = `/runners/${uuid}.js`
+        let filename = `/runners/${filePrefix}${uuid}.js`
         let contents = [ // the js template
             'export async function main(ns) {',
             '    // execute the payload',
