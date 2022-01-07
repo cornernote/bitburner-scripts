@@ -23,7 +23,16 @@ export const settings = {
     // if (bestTarget.money < bestTarget.moneyMax * settings.maxMoneyMultiplayer) action = 'grow'
     maxMoneyMultiplayer: 0.9,
 
-    // how often to run rootServers()
-    rootServersInterval: 60 * 5 * 1000, // 5mins
+    // how often to run delay between scripts (in milliseconds)
+    intervals: {
+        'upgrade-hacknet': 1000, // 1s
+        'root-servers': 60 * 5 * 1000, // 5mins
+    },
+
+    // controls how far to upgrade hacknet servers
+    hacknetMaxPayoffTime: 0,  // in seconds
+
+    // controls how far to upgrade hacknet servers
+    hacknetMaxSpend: 0,
 }
 

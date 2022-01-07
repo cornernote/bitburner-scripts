@@ -83,10 +83,10 @@ export class RootServers {
     newlyRootedServers
 
     /**
-     * The time we last ran rootServers()
+     * The time we last ran
      * @type {Number}
      */
-    lastRootedServers
+    lastRun
 
     /**
      * Server data, containing servers which are rootable
@@ -133,16 +133,31 @@ export class RootServers {
     }
 
     /**
-     * Gain root access on any available servers.
+     * The main job function.
      *
      * @returns {Promise<void>}
      */
     async doJob() {
         // check if we need to run
-        if (this.lastRootedServers + settings.rootServersInterval > new Date().getTime()) {
+        if (this.lastRun + settings.intervals['root-servers'] > new Date().getTime()) {
             return
         }
+        // run
         this.ns.tprint('RootServers...')
+        await this.rootServers()
+        // set the last run time
+        this.lastRun = new Date().getTime()
+        // display the report
+        this.ns.tprint(this.getRootServersReport())
+    }
+
+
+    /**
+     * Gain root access on any available servers.
+     *
+     * @returns {Promise<void>}
+     */
+    async rootServers() {
         // refresh data
         await this.loadPlayer()
         await this.loadPortHacks()
@@ -167,10 +182,6 @@ export class RootServers {
                 await this.loadServers()
             }
         }
-        // set the last run time
-        this.lastRootedServers = new Date().getTime()
-        // display the report
-        this.ns.tprint(this.getRootServersReport())
     }
 
     /**

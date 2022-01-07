@@ -1,5 +1,5 @@
-import {Runner} from "/lib/Runner"
-import {settings} from "/worker"
+import {Runner} from "./lib/Runner.js"
+import {settings} from "./_settings.js"
 
 /**
  * Command options
@@ -25,7 +25,7 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
-    const attackServer = new attackServer(ns, runner)
+    const attackServer = new AttackServer(ns, runner)
     // print help
     if (args.help) {
         ns.tprint(attackServer.getHelp())
@@ -422,21 +422,16 @@ export class AttackServer {
             const server = await this.runner.nsProxy['getServer'](hostname)
             // reserve memory on home
             if (server.hostname === 'home') {
-                server.ramUsed = Math.min(server.ramUsed + this.settings.reservedHomeRam, server.maxRam)
+                server.ramUsed = Math.min(server.ramUsed + settings.reservedHomeRam, server.maxRam)
             }
             // add this server to the list
             this.servers.push(server)
         }
 
-        // get my servers
-        this.myServers = this.servers
-            // exclude home/hacknet-/homenet-
-            .filter(s => s.hostname === 'home' || s.hostname.includes('hacknet-') || s.hostname.includes(this.settings.purchasedServerPrefix))
-
         // get rooted servers
         this.rootedServers = this.servers
             // exclude home/hacknet-/homenet-
-            .filter(s => s.hostname !== 'home' && !s.hostname.includes('hacknet-') && !s.hostname.includes(this.settings.purchasedServerPrefix))
+            .filter(s => s.hostname !== 'home' && !s.hostname.includes('hacknet-') && !s.hostname.includes(settings.purchasedServerPrefix))
             // include servers with root access
             .filter(s => s.hasAdminRights)
 
@@ -457,7 +452,7 @@ export class AttackServer {
             server.minSecurityLevel = await this.runner.nsProxy['getServerMinSecurityLevel'](server.hostname)
             server.fullGrowThreads = server.moneyAvailable ? await this.runner.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
-            server.hackValue = server.moneyMax * (this.settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel))
+            server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
             this.targetServers.push(server)
         }
         this.targetServers.sort((a, b) => b.hackValue - a.hackValue)
