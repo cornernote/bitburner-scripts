@@ -148,26 +148,26 @@ export class Runner {
             '    let output = ""',
             payload,
             '    // save the output of the payload the uuid localStorage when the temp js runs',
-            `    localStorage.setItem('runner-${uuid}', JSON.stringify(output))`,
-            `    ns.print('task RUN was completed for uuid ${uuid}')`,
+            `    localStorage.setItem('runner-${filePrefix}${uuid}', JSON.stringify(output))`,
+            `    ns.print('task RUN was completed for ${filePrefix}${uuid}')`,
             '}',
         ].join("\n")
         await this.ns.write(filename, [contents], 'w')
 
         // run the task, and wait for it to complete
-        let pid = this.ns['run'](filename) // @RAM 1.0GB
+        let pid = this.ns['run'](filename, 1, filePrefix) // @RAM 1.0GB
         if (!pid) {
-            throw `Could not start process ${uuid}, not enough RAM?`
+            throw `Could not start process ${filePrefix}${uuid}, not enough RAM?`
         }
         await this.waitForPid(pid)
 
         // get the output from localStorage
-        let output = JSON.parse(localStorage.getItem(`runner-${uuid}`))
+        let output = JSON.parse(localStorage.getItem(`runner-${filePrefix}${uuid}`))
 
         // cleanup
         localStorage.removeItem(uuid)
         // this.ns.rm(filename) // prefer to run as a sub-task and save 1GB RAM
-        await this.runScript('/scripts/runner-rm.js', 1, uuid)
+        await this.runScript('/scripts/runner-rm.js', 1, `${filePrefix}${uuid}`)
 
         // task done!
         return output
