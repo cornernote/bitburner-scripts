@@ -7,7 +7,8 @@ import {AttackServer} from "./attack-server.js"
  * Command options
  */
 const argsSchema = [
-    ['loop', false],
+    ['loop', false], // if we should loop
+    ['spawn', ''], // name of a script to spawn after this
     ['help', false],
 ]
 
@@ -27,7 +28,8 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
-    const upgradeHacknet = new UpgradeHacknet(ns, runner)
+    // load job module
+    const upgradeHacknet = new UpgradeHacknet(ns, runner) // disabled as it costs too much ram, run on another thread
     const rootServers = new RootServers(ns, runner)
     const attackServer = new AttackServer(ns, runner)
     // print help
@@ -41,11 +43,21 @@ export async function main(ns) {
         ns.exit()
     }
     // work, sleep, repeat
+    let home = await runner.nsProxy['getServer']('home');
     do {
-        await upgradeHacknet.doJob();
+        if ((home.maxRam - home.ramUsed) >= 16) {
+            await upgradeHacknet.doJob();
+        }
         await rootServers.doJob();
         await attackServer.doJob();
         await ns.sleep(10)
-    } while (args.loop)
+    } while (args['loop'])
+    // spawn another task before we exit
+    if (args['spawn']) {
+        const runAfter = args['spawn'].split(' ');
+        const script = runAfter.shift()
+        ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
+        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run loaded, saves 2GB
+    }
 }
 

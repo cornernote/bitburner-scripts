@@ -25,7 +25,8 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
-    const attackServer = new AttackServer(ns, runner)
+    // load job module
+    const attackServer = new AttackServer(ns, runner.nsProxy)
     // print help
     if (args.help) {
         ns.tprint(attackServer.getHelp())
@@ -38,6 +39,12 @@ export async function main(ns) {
         await ns.sleep(10)
     } while (args.loop)
 }
+// fake method to count towards memory usage, used by nsProxy
+function countedTowardsMemory(ns) {
+    ns.run()
+    ns.isRunning(0)
+}
+
 
 /**
  * AttackServer
@@ -53,10 +60,10 @@ export class AttackServer {
     ns
 
     /**
-     * The Runner instance
-     * @type {Runner}
+     * The nsProxy instance
+     * @type {NS}
      */
-    runner
+    nsProxy
 
     /**
      * Player data
@@ -122,12 +129,12 @@ export class AttackServer {
      * Construct the class
      *
      * @param {NS} ns - the NS instance passed into the scripts main() entry method
-     * @param {Runner} runner - the runner object
+     * @param {NS} nsProxy - the nsProxy object
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(ns, runner, config = {}) {
+    constructor(ns, nsProxy, config = {}) {
         this.ns = ns
-        this.runner = runner
+        this.nsProxy = nsProxy
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value)
     }
@@ -153,7 +160,7 @@ export class AttackServer {
         await this.loadAttacks()
         // run the attacks
         for (const attack of this.attacks) {
-            await this.runner.nsProxy['exec'](...attack)
+            await this.nsProxy['exec'](...attack)
         }
         // set the end time
         this.attackEndsAt = new Date().getTime() + this.hacks['weaken'].time * 1000 + 300
@@ -394,7 +401,7 @@ export class AttackServer {
      * @returns {Promise<*[]>}
      */
     async loadPlayer() {
-        this.player = await this.runner.nsProxy['getPlayer']()
+        this.player = await this.nsProxy['getPlayer']()
     }
 
     /**
@@ -411,7 +418,7 @@ export class AttackServer {
         while (spider.length > 0) {
             const hostname = spider.pop()
             // for all the connected hosts
-            for (const scannedHostName of await this.runner.nsProxy['scan'](hostname)) {
+            for (const scannedHostName of await this.nsProxy['scan'](hostname)) {
                 // if they are not in the list
                 if (this.servers.filter(s => s.hostname === scannedHostName).length === 0) {
                     // add them to the spider list
@@ -419,7 +426,7 @@ export class AttackServer {
                 }
             }
             // get the server info
-            const server = await this.runner.nsProxy['getServer'](hostname)
+            const server = await this.nsProxy['getServer'](hostname)
             // reserve memory on home
             if (server.hostname === 'home') {
                 server.ramUsed = Math.min(server.ramUsed + settings.reservedHomeRam, server.maxRam)
@@ -447,10 +454,10 @@ export class AttackServer {
         this.targetServers = []
         for (const server of this.rootedServers) {
             // get some more info about the servers
-            server.analyzeHack = await this.runner.nsProxy['hackAnalyze'](server.hostname)
-            server.securityLevel = await this.runner.nsProxy['getServerSecurityLevel'](server.hostname)
-            server.minSecurityLevel = await this.runner.nsProxy['getServerMinSecurityLevel'](server.hostname)
-            server.fullGrowThreads = server.moneyAvailable ? await this.runner.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
+            server.analyzeHack = await this.nsProxy['hackAnalyze'](server.hostname)
+            server.securityLevel = await this.nsProxy['getServerSecurityLevel'](server.hostname)
+            server.minSecurityLevel = await this.nsProxy['getServerMinSecurityLevel'](server.hostname)
+            server.fullGrowThreads = server.moneyAvailable ? await this.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
             server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
             this.targetServers.push(server)
@@ -518,9 +525,9 @@ export class AttackServer {
         // calculate the ram needed
         for (const [name, _hack] of Object.entries(hacks)) {
             if (bestTarget) {
-                _hack.time = await this.runner.nsProxy[`get${name[0].toUpperCase()}${name.slice(1)}Time`](bestTarget.hostname) / 1000 // getGrowTime
+                _hack.time = await this.nsProxy[`get${name[0].toUpperCase()}${name.slice(1)}Time`](bestTarget.hostname) / 1000 // getGrowTime
             }
-            _hack.ram = await this.runner.nsProxy['getScriptRam'](_hack.script)
+            _hack.ram = await this.nsProxy['getScriptRam'](_hack.script)
         }
         // calculate the maximum threads based on available ram
         for (const server of this.hackingServers) {

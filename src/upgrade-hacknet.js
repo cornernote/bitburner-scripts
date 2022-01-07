@@ -6,8 +6,8 @@ import {settings} from "./_settings.js"
  */
 const argsSchema = [
     ['loop', false],
-    ['max-payoff-time', '1h'], // Controls how far to upgrade hacknets. Can be a number of seconds, or an expression of minutes/hours (e.g. '123m', '4h')
-    ['time', null], // alias for max-payoff-time
+    ['proxy', false], // run the NS methods through the proxy
+    ['spawn', ''], // name of a script to spawn after this
     ['help', false],
 ]
 
@@ -26,10 +26,18 @@ export function autocomplete(data, _) {
  */
 export async function main(ns) {
     const args = ns.flags(argsSchema)
+
+    // load runner
+    // default is not running anything in background, or it won't run in under 8gb...
     const runner = new Runner(ns)
-    const upgradeHacknet = new UpgradeHacknet(ns, runner, {
-        maxPayoffTime: args['time'] || args['max-payoff-time'],
-    })
+    let nsProxy = runner.nsProxy
+    let hacknetProxy = runner.hacknetProxy
+    if (!args['proxy']) {
+        nsProxy = ns
+        hacknetProxy = ns.hacknet
+    }
+    // load job module
+    const upgradeHacknet = new UpgradeHacknet(ns, nsProxy, hacknetProxy)
     // print help
     if (args.help) {
         ns.tprint(upgradeHacknet.getHelp())
@@ -41,6 +49,13 @@ export async function main(ns) {
         await upgradeHacknet.doJob()
         await ns.sleep(10)
     } while (args.loop)
+    // spawn another task before we exit
+    if (args['spawn']) {
+        const runAfter = args['spawn'].split(' ');
+        const script = runAfter.shift()
+        ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
+        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run loaded, saves 2GB
+    }
 }
 
 /**
@@ -57,10 +72,16 @@ export class UpgradeHacknet {
     ns
 
     /**
-     * The Runner instance
-     * @type {Runner}
+     * The BitBurner proxy instance
+     * @type {NS}
      */
-    runner
+    nsProxy
+
+    /**
+     * The Hacknet proxy instance
+     * @type {Hacknet}
+     */
+    hacknetProxy
 
     /**
      * The time we last ran
@@ -96,12 +117,14 @@ export class UpgradeHacknet {
      * Construct the class
      *
      * @param {NS} ns - the NS instance passed into the scripts main() entry method
-     * @param {Runner} runner - the runner object
+     * @param {NS} nsProxy - the nsProxy object
+     * @param {Hacknet} hacknetProxy - the hacknetProxy object
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(ns, runner, config = {}) {
+    constructor(ns,  nsProxy, hacknetProxy, config = {}) {
         this.ns = ns
-        this.runner = runner
+        this.nsProxy = nsProxy
+        this.hacknetProxy = hacknetProxy
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value)
     }
@@ -136,9 +159,6 @@ export class UpgradeHacknet {
         await this.loadPlayer()
         await this.loadUpgrades()
 
-        const currentHacknetMult = this.player.hacknet_node_money_mult
-        // Get the lowest cache level, we do not consider upgrading the cache level of servers above this until all have the same cache level
-
         // TODO: Change this all to use https://bitburner.readthedocs.io/en/latest/netscript/formulasapi/hacknetServers/hashGainRate.html
 
         // Find the best upgrade we can make to an existing node
@@ -149,37 +169,39 @@ export class UpgradeHacknet {
         let cost = 0
         let upgradedValue = 0
         let worstNodeProduction = Number.MAX_VALUE // Used to how productive a newly purchased node might be
-        for (let i = 0; i < this.ns.hacknet.numNodes(); i++) {
-            let nodeStats = this.ns.hacknet.getNodeStats(i)
+        for (let i = 0; i < await this.hacknetProxy['numNodes'](); i++) {
+            let nodeStats = await this.hacknetProxy['getNodeStats'](i)
             if (formulas && this.haveHacknetServers) { // When a hacknet server runs scripts, nodeStats.production lags behind what it should be for current ram usage. Get the "raw" rate
                 try {
-                    nodeStats.production = this.ns.formulas.hacknetServers.hashGainRate(nodeStats.level, 0, nodeStats.ram, nodeStats.cores, currentHacknetMult)
+                    nodeStats.production = this.ns.formulas.hacknetServers.hashGainRate(nodeStats.level, 0, nodeStats.ram, nodeStats.cores, this.player.hacknet_node_money_mult)
                 } catch {
                     formulas = false
                 }
             }
             worstNodeProduction = Math.min(worstNodeProduction, nodeStats.production)
-            for (let up = 1; up < this.upgrades.length; up++) {
-                let currentUpgradeCost = this.upgrades[up].cost(i)
-                let payoff = this.upgrades[up].addedProduction(nodeStats) / currentUpgradeCost // Production (Hashes per second) per dollar spent
+
+            for (const upgrade of this.upgrades) {
+                let currentUpgradeCost = upgrade.costMethod ? await this.hacknetProxy[upgrade.costMethod](i, 1) : 0
+                let payoff = upgrade.addedProduction ? upgrade.addedProduction(nodeStats) / currentUpgradeCost : 0 // Production (Hashes per second) per dollar spent
                 if (payoff > bestUpgradePayoff) {
                     nodeToUpgrade = i
-                    bestUpgrade = this.upgrades[up]
+                    bestUpgrade = upgrade
                     bestUpgradePayoff = payoff
                     cost = currentUpgradeCost
-                    upgradedValue = this.upgrades[up].nextValue(nodeStats)
+                    upgradedValue = upgrade.nextValue(nodeStats)
                 }
             }
         }
+
         // Compare this to the cost of adding a new node. This is an imperfect science. We are paying to unlock the ability to buy all the same upgrades our
         // other nodes have - all of which have been deemed worthwhile. Not knowing the sum total that will have to be spent to reach that same production,
         // the "most optimistic" case is to treat "price" of all that production to be just the cost of this server, but this is **very** optimistic.
         // In practice, the cost of new hacknodes scales steeply enough that this should come close to being true (cost of server >> sum of cost of upgrades)
-        let newNodeCost = this.ns.hacknet.getPurchaseNodeCost()
-        let newNodePayoff = this.ns.hacknet.numNodes() === this.ns.hacknet.maxNumNodes() ? 0 : worstNodeProduction / newNodeCost
+        let newNodeCost = await this.hacknetProxy['getPurchaseNodeCost']()
+        let newNodePayoff = await this.hacknetProxy['numNodes']() === await this.hacknetProxy['maxNumNodes']() ? 0 : worstNodeProduction / newNodeCost
         let shouldBuyNewNode = newNodePayoff > bestUpgradePayoff
         if (newNodePayoff === 0 && bestUpgradePayoff === 0) {
-            this.ns.tprint(`All upgrades have no value (is hashNet income disabled in this BN?)`)
+            this.ns.print(`All upgrades have no value (is hashNet income disabled in this BN?)`)
             return false // As long as maxSpend doesn't change, we will never purchase another upgrade
         }
         // If specified, only buy upgrades that will pay for themselves in {payoffTimeSeconds}.
@@ -187,23 +209,27 @@ export class UpgradeHacknet {
         let payoffTimeSeconds = 1 / (hashDollarValue * (shouldBuyNewNode ? newNodePayoff : bestUpgradePayoff))
         if (shouldBuyNewNode) cost = newNodeCost
 
-        // Prepare info about the next uprade. Whether we end up purchasing or not, we will display this info.
+        // Prepare info about the next upgrade. Whether we end up purchasing or not, we will display this info.
         let strPurchase = (shouldBuyNewNode
-                ? `a new node "hacknet-node-${this.ns.hacknet.numNodes()}"`
+                ? `a new node "hacknet-node-${await this.hacknetProxy['numNodes']()}"`
                 : `hacknet-node-${nodeToUpgrade} ${bestUpgrade.name} ${upgradedValue}`)
             + ` for ${this.ns.nFormat(cost, '$0.00a')}`
         let strPayoff = `production ${((shouldBuyNewNode ? newNodePayoff : bestUpgradePayoff) * cost).toPrecision(3)} payoff time ${this.ns.nFormat(payoffTimeSeconds, '00:00:00')}`
         if (settings.hacknetMaxSpend && cost > settings.hacknetMaxSpend) {
-            this.ns.tprint(`The next best purchase would be ${strPurchase} but the cost ${this.ns.nFormat(cost, '$0.00a')} exceeds the limit (${this.ns.nFormat(settings.hacknetMaxSpend, '$0.00a')})`)
+            this.ns.print(`The next best purchase would be ${strPurchase} but the cost ${this.ns.nFormat(cost, '$0.00a')} exceeds the limit (${this.ns.nFormat(settings.hacknetMaxSpend, '$0.00a')})`)
             return false // As long as maxSpend doesn't change, we will never purchase another upgrade
         }
         if (settings.hacknetMaxPayoffTime && payoffTimeSeconds > settings.hacknetMaxPayoffTime) {
-            this.ns.tprint(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${this.ns.nFormat(settings.hacknetMaxPayoffTime, '00:00:00')})`)
+            this.ns.print(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${this.ns.nFormat(settings.hacknetMaxPayoffTime, '00:00:00')})`)
             return false // As long as maxPayoffTime doesn't change, we will never purchase another upgrade
         }
-        let success = shouldBuyNewNode ? this.ns.hacknet.purchaseNode() !== -1 : bestUpgrade.upgrade(nodeToUpgrade, 1)
-        this.ns.tprint(success ? `Purchased ${strPurchase} with ${strPayoff}` : `Insufficient funds to purchase the next best upgrade: ${strPurchase}`)
-        return success ? cost : 0
+        let success = shouldBuyNewNode ? await this.hacknetProxy['purchaseNode']() !== -1 : bestUpgrade.upgrade(nodeToUpgrade, 1)
+        if (!success) {
+            this.ns.print(`Insufficient funds to purchase the next best upgrade: ${strPurchase}`)
+            return 0
+        }
+        this.ns.tprint(`Purchased ${strPurchase} with ${strPayoff}`)
+        return cost
     }
 
     /**
@@ -212,7 +238,7 @@ export class UpgradeHacknet {
      * @returns {Promise<*[]>}
      */
     async loadPlayer() {
-        this.player = await this.runner.nsProxy['getPlayer']()
+        this.player = await this.nsProxy['getPlayer']()
     }
 
     /**
@@ -221,39 +247,40 @@ export class UpgradeHacknet {
      * @returns {Promise<*[]>}
      */
     async loadUpgrades() {
-        this.haveHacknetServers = this.ns.hacknet.hashCapacity() > 0
-        const minCacheLevel = [...Array(this.ns.hacknet.numNodes()).keys()]
-            .reduce((min, i) => Math.min(min, this.ns.hacknet.getNodeStats(i).cache), Number.MAX_VALUE)
+        this.haveHacknetServers = await this.hacknetProxy['hashCapacity']() > 0
+        // Get the lowest cache level, we do not consider upgrading the cache level of servers above this until all have the same cache level
+        const minCacheLevel = [...Array(await this.hacknetProxy['numNodes']()).keys()]
+            .reduce((min, i) => Math.min(min, this.hacknetProxy['getNodeStats'](i).cache), Number.MAX_VALUE)
         this.upgrades = [
             {
                 name: "none",
-                cost: 0,
+                costMethod: null,
             },
             {
                 name: "level",
-                upgrade: this.ns.hacknet.upgradeLevel,
-                cost: i => this.ns.hacknet.getLevelUpgradeCost(i, 1),
+                upgrade: await this.hacknetProxy['upgradeLevel'],
+                costMethod: 'getLevelUpgradeCost',
                 nextValue: nodeStats => nodeStats.level + 1,
                 addedProduction: nodeStats => nodeStats.production * ((nodeStats.level + 1) / nodeStats.level - 1),
             },
             {
                 name: "ram",
-                upgrade: this.ns.hacknet.upgradeRam,
-                cost: i => this.ns.hacknet.getRamUpgradeCost(i, 1),
+                upgrade: await this.hacknetProxy['upgradeRam'],
+                costMethod: 'getRamUpgradeCost',
                 nextValue: nodeStats => nodeStats.ram * 2,
                 addedProduction: nodeStats => nodeStats.production * 0.07,
             },
             {
                 name: "cores",
-                upgrade: this.ns.hacknet.upgradeCore,
-                cost: i => this.ns.hacknet.getCoreUpgradeCost(i, 1),
+                upgrade: await this.hacknetProxy['upgradeCore'],
+                costMethod: 'getCoreUpgradeCost',
                 nextValue: nodeStats => nodeStats.cores + 1,
                 addedProduction: nodeStats => nodeStats.production * ((nodeStats.cores + 5) / (nodeStats.cores + 4) - 1),
             },
             {
                 name: "cache",
-                upgrade: this.ns.hacknet.upgradeCache,
-                cost: i => this.ns.hacknet.getCacheUpgradeCost(i, 1),
+                upgrade: await this.hacknetProxy['upgradeCache'],
+                costMethod: 'getCacheUpgradeCost',
                 nextValue: nodeStats => nodeStats.cache + 1,
                 // Note: Does not actually give production, but it has "worth" to us so we can buy more things,
                 addedProduction: nodeStats => nodeStats.cache > minCacheLevel || !this.haveHacknetServers ? 0 : nodeStats.production * 0.01 / nodeStats.cache

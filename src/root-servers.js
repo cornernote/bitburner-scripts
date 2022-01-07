@@ -25,7 +25,8 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
-    const rootServers = new RootServers(ns, runner)
+    // load job module
+    const rootServers = new RootServers(ns, runner.nsProxy)
     // print help
     if (args.help) {
         ns.tprint(rootServers.getHelp())
@@ -37,6 +38,11 @@ export async function main(ns) {
         await rootServers.doJob()
         await ns.sleep(10)
     } while (args.loop)
+}
+// fake method to count towards memory usage, used by nsProxy
+function countedTowardsMemory(ns) {
+    ns.run()
+    ns.isRunning(0)
 }
 
 /**
@@ -53,10 +59,10 @@ export class RootServers {
     ns
 
     /**
-     * The Runner instance
-     * @type {Runner}
+     * The nsProxy instance
+     * @type {NS}
      */
-    runner
+    nsProxy
 
     /**
      * Player data
@@ -122,12 +128,12 @@ export class RootServers {
      * Construct the class
      *
      * @param {NS} ns - the NS instance passed into the scripts main() entry method
-     * @param {Runner} runner - the runner object
+     * @param {NS} nsProxy - the nsProxy object
      * @param {Object} config - key/value pairs used to set object properties
      */
-    constructor(ns, runner, config = {}) {
+    constructor(ns, nsProxy, config = {}) {
         this.ns = ns
-        this.runner = runner
+        this.nsProxy = nsProxy
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value)
     }
@@ -169,12 +175,12 @@ export class RootServers {
             for (const server of this.rootableServers) {
                 // run port hacks
                 for (const portHack of this.ownedPortHacks) {
-                    await this.runner.nsProxy[portHack.method](server.hostname)
+                    await this.nsProxy[portHack.method](server.hostname)
                 }
                 // run nuke
-                await this.runner.nsProxy['nuke'](server.hostname)
+                await this.nsProxy['nuke'](server.hostname)
                 // copy hack scripts
-                await this.runner.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
+                await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
                 // add to list
                 this.newlyRootedServers.push(server)
             }
@@ -233,7 +239,7 @@ export class RootServers {
      * @returns {Promise<*[]>}
      */
     async loadPlayer() {
-        this.player = await this.runner.nsProxy['getPlayer']()
+        this.player = await this.nsProxy['getPlayer']()
     }
 
     /**
@@ -256,7 +262,7 @@ export class RootServers {
             this.portHacks.push({
                 method: method,
                 exe: exe,
-                owned: await this.runner.nsProxy['fileExists'](exe, 'home'),
+                owned: await this.nsProxy['fileExists'](exe, 'home'),
             })
         }
         // the ones we own
@@ -278,7 +284,7 @@ export class RootServers {
         while (spider.length > 0) {
             const hostname = spider.pop()
             // for all the connected hosts
-            for (const scannedHostName of await this.runner.nsProxy['scan'](hostname)) {
+            for (const scannedHostName of await this.nsProxy['scan'](hostname)) {
                 // if they are not in the list
                 if (this.servers.filter(s => s.hostname === scannedHostName).length === 0) {
                     // add them to the spider list
@@ -286,7 +292,7 @@ export class RootServers {
                 }
             }
             // get the server info
-            const server = await this.runner.nsProxy['getServer'](hostname)
+            const server = await this.nsProxy['getServer'](hostname)
             // reserve memory on home
             if (server.hostname === 'home') {
                 server.ramUsed = Math.min(server.ramUsed + settings.reservedHomeRam, server.maxRam)

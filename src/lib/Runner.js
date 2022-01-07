@@ -10,12 +10,21 @@
  * - 0.1GB ns.isRunning()
  * - also note the background task will cost 1.6GB, plus any function memory required for the background script to run
  *
+ * Note, to avoid runtime ram errors, if you use the proxy you should have fake calls to the above functions. EG:
+ * ```
+ * function countedTowardsMemory(ns) {
+ *     ns.run()
+ *     ns.isRunning(0)
+ * }
+ * ```
+ *
  * Basic usage, to run NS methods in the background:
  * ```
  * let runner = new Runner(ns)
  * let home = await runner.nsProxy.getServer('home') // but the game will still charge for RAM :(
  * let server = await runner.nsProxy['getServer']('n00dles') // use this as a workaround
  * ```
+ *
  */
 export class Runner {
 
@@ -30,6 +39,11 @@ export class Runner {
     nsProxy = null
 
     /**
+     * @type {Hacknet|Proxy|*}
+     */
+    hacknetProxy = null
+
+    /**
      * Construct the class
      *
      * @param {NS} ns - the NS instance passed into the scripts main() entry method
@@ -37,30 +51,55 @@ export class Runner {
      */
     constructor(ns, config = {}) {
         this.ns = ns
-        // add a proxy to allow calls to undefined methods, which forward to this.runNS()
-        let that = this
-        this.nsProxy = new Proxy({}, {
-            get(target, name) {
-                return async function () {
-                    return await that.runNS(name, arguments)
-                }
-            },
-        })
         // allow override of properties in this class
         Object.entries(config).forEach(([key, value]) => this[key] = value)
+        // add a proxy to allow calls to undefined methods, which forward to this.runNS()
+        let that = this
+        if (!this.nsProxy) {
+            this.nsProxy = new Proxy({}, {
+                get(target, name) {
+                    return async function () {
+                        return await that.runNS(name, arguments)
+                    }
+                },
+            })
+        }
+        if (!this.hacknetProxy) {
+            this.hacknetProxy = new Proxy({}, {
+                get(target, name) {
+                    return async function () {
+                        return await that.runHacknet(name, arguments)
+                    }
+                },
+            })
+        }
     }
 
     /**
      * Calls an NS method as a background payload
      *
-     * @param nsMethod
+     * @param method
      * @param args
      * @returns {Promise<*>}
      */
-    async runNS(nsMethod, ...args) {
+    async runNS(method, ...args) {
         return await this.runPayload([
-            // todo, find a way to detect if we need to await
-            `output = await ns.${nsMethod}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
+            // find a way to detect if we need to await, or just await all...
+            `output = await ns.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
+        ].join("\n"))
+    }
+
+    /**
+     * Calls a Hacknet method as a background payload
+     *
+     * @param method
+     * @param args
+     * @returns {Promise<*>}
+     */
+    async runHacknet(method, ...args) {
+        return await this.runPayload([
+            // find a way to detect if we need to await, or just await all...
+            `output = await ns.hacknet.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
         ].join("\n"))
     }
 
@@ -76,7 +115,7 @@ export class Runner {
      */
     async runScript(filename, numThreads, ...args) {
         // run the task, and wait for it to complete
-        let pid = this.ns.run(filename, numThreads, ...args)
+        let pid = this.ns['run'](filename, numThreads, ...args)
         if (!pid) {
             throw `Could not run process ${filename}, not enough RAM?`
         }
@@ -115,7 +154,7 @@ export class Runner {
         await this.ns.write(filename, [contents], 'w')
 
         // run the task, and wait for it to complete
-        let pid = this.ns.run(filename) // @RAM 1.0GB
+        let pid = this.ns['run'](filename) // @RAM 1.0GB
         if (!pid) {
             throw `Could not start process ${uuid}, not enough RAM?`
         }
@@ -139,12 +178,12 @@ export class Runner {
      **/
     async waitForPid(pid) {
         for (let retries = 0; retries < 1000; retries++) {
-            if (!this.ns.isRunning(pid))
+            if (!this.ns['isRunning'](pid))
                 break // Script is done running
             await this.ns.sleep(10)
         }
         // Make sure that the process has shut down, and we haven't just stopped retrying
-        if (this.ns.isRunning(pid)) {
+        if (this.ns['isRunning'](pid)) {
             throw `run-command pid ${pid} is running much longer than expected. Max retries exceeded.`
         }
     }

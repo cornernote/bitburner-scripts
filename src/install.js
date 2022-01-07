@@ -37,9 +37,9 @@ export async function main(ns) {
             ns.tprint(' -> FAILED')
     }
     ns.tprint('Download complete!')
-    ns.tprint('Spawning worker.js (takes 10 seconds)...')
     terminalCommand('alias work="run worker.js --loop --tail"')
-    ns.spawn('worker.js')
+    // ns.tprint('Spawning worker.js (takes 10 seconds)...')
+    // ns.spawn('worker.js')
 }
 
 /**
