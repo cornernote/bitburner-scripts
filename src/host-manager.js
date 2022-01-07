@@ -132,7 +132,6 @@ export class HostManager {
         // Don't attempt to buy any new servers if we're under this utilization
         let utilizationTarget = 0.5
         // Keep at least this much money on hand (so we arent blocked from buying necessary things)
-        let reservedMoneyAmount = 0 //250000000 // Enable if needed (Can also use reserve.txt)
         let reservedMoneyPercent = 0.99 // Don't spend more than 1% of our money on temporary RAM
         let minRamExponent = 10
         // The name to give all purchased servers. Also used to determine which servers were purchased
@@ -140,7 +139,7 @@ export class HostManager {
         // Frequency of update
         const interval = 10000
 
-        let _ns = null
+        let _ns = this.ns
         let keepRunning = false
         let options
         let bitnodeMults
@@ -160,193 +159,12 @@ export class HostManager {
             _ns.toast(log, toastStyle)
         }
 
-
-        /** Helper to log a message, and optionally also tprint it and toast it
-         * @param {NS} ns - The nestcript instance passed to your script's main entry point */
-        function log(ns, message = "", alsoPrintToTerminal = false, toastStyle = "", maxToastLength = 100) {
-            ns.print(message)
-            if (alsoPrintToTerminal) ns.tprint(message)
-            if (toastStyle) ns.toast(message.length <= maxToastLength ? message : message.substring(0, maxToastLength - 3) + "...", toastStyle)
-            return message
-        }
-
-        /** Generate a hashCode for a string that is pretty unique most of the time */
-        function hashCode(s) {
-            return s.split("").reduce(function (a, b) {
-                a = ((a << 5) - a) + b.charCodeAt(0)
-                return a & a
-            }, 0)
-        }
-
-        /**
-         * Retrieve the result of an ns command by executing it in a temporary .js script, writing the result to a file, then shuting it down
-         * Importing incurs a maximum of 1.1 GB RAM (0 GB for ns.read, 1 GB for ns.run, 0.1 GB for ns.isRunning).
-         * Has the capacity to retry if there is a failure (e.g. due to lack of RAM available). Not recommended for performance-critical code.
-         * @param {NS} ns - The nestcript instance passed to your script's main entry point
-         * @param {string} command - The ns command that should be invoked to get the desired data (e.g. "ns.getServer('home')" )
-         * @param {string=} fName - (default "/Temp/{commandhash}-data.txt") The name of the file to which data will be written to disk by a temporary process
-         * @param {bool=} verbose - (default false) If set to true, pid and result of command are logged.
-         **/
-        async function getNsDataThroughFile(ns, command, fName, verbose = false, maxRetries = 5, retryDelayMs = 50) {
-            return await getNsDataThroughFile_Custom(ns, ns.run, ns.isRunning, command, fName, verbose, maxRetries, retryDelayMs)
-        }
-
-        /** @param {NS} ns
-         * getActiveSourceFiles Helper that allows the user to pass in their chosen implementation of getNsDataThroughFile to minimize RAM usage **/
-        async function getActiveSourceFiles_Custom(ns, fnGetNsDataThroughFile) {
-            let tempFile = '/Temp/owned-source-files.txt'
-            // Find out what source files the user has unlocked
-            let dictSourceFiles = await fnGetNsDataThroughFile(ns, `Object.fromEntries(ns.getOwnedSourceFiles().map(sf => [sf.n, sf.lvl]))`, tempFile)
-            if (!dictSourceFiles) { // Bit of a hack, but if RAM is so low that this fails, we can fallback to using an older version of this file, and even assuming we have no source files.
-                dictSourceFiles = ns.read(tempFile)
-                dictSourceFiles = dictSourceFiles ? JSON.parse(dictSourceFiles) : {}
-            }
-            // If the user is currently in a given bitnode, they will have its features unlocked
-            dictSourceFiles[(await fnGetNsDataThroughFile(ns, 'ns.getPlayer()', '/Temp/player-info.txt')).bitNodeN] = 3
-            return dictSourceFiles
-        }
-
-        /**
-         * An advanced version of waitForProcessToComplete that lets you pass your own "isAlive" test to reduce RAM requirements (e.g. to avoid referencing ns.isRunning)
-         * Importing incurs 0 GB RAM (assuming fnIsAlive is implemented using another ns function you already reference elsewhere like ns.ps)
-         * @param {NS} ns - The nestcript instance passed to your script's main entry point
-         * @param {function} fnIsAlive - A single-argument function used to start the new sript, e.g. `ns.isRunning` or `pid => ns.ps("home").some(process => process.pid === pid)`
-         **/
-        async function waitForProcessToComplete_Custom(ns, fnIsAlive, pid, verbose) {
-            // Wait for the PID to stop running (cheaper than e.g. deleting (rm) a possibly pre-existing file and waiting for it to be recreated)
-            for (var retries = 0; retries < 1000; retries++) {
-                if (!fnIsAlive(pid)) break // Script is done running
-                if (verbose && retries % 100 === 0) ns.print(`Waiting for pid ${pid} to complete... (${retries})`)
-                await ns.sleep(10)
-            }
-            // Make sure that the process has shut down and we haven't just stopped retrying
-            if (fnIsAlive(pid)) {
-                let errorMessage = `run-command pid ${pid} is running much longer than expected. Max retries exceeded.`
-                ns.print(errorMessage)
-                throw errorMessage
-            }
-        }
-
-        /** @param {NS} ns
-         * Return bitnode multiplers, or null if they cannot be accessed. **/
-        async function tryGetBitNodeMultipliers(ns) {
-            return await tryGetBitNodeMultipliers_Custom(ns, getNsDataThroughFile)
-        }
-
-        /** @param {NS} ns
-         * tryGetBitNodeMultipliers Helper that allows the user to pass in their chosen implementation of getNsDataThroughFile to minimize RAM usage **/
-        async function tryGetBitNodeMultipliers_Custom(ns, fnGetNsDataThroughFile) {
-            let canGetBitNodeMultipliers = false
-            try {
-                canGetBitNodeMultipliers = 5 in (await getActiveSourceFiles_Custom(ns, fnGetNsDataThroughFile))
-            } catch {
-            }
-            if (!canGetBitNodeMultipliers) return null
-            try {
-                return await fnGetNsDataThroughFile(ns, 'ns.getBitNodeMultipliers()', '/Temp/bitnode-multipliers.txt')
-            } catch {
-            }
-            return null
-        }
-
-        /**
-         * An advanced version of getNsDataThroughFile that lets you pass your own "fnRun" and "fnIsAlive" implementations to reduce RAM requirements
-         * Importing incurs no RAM (now that ns.read is free) plus whatever fnRun / fnIsAlive you provide it
-         * Has the capacity to retry if there is a failure (e.g. due to lack of RAM available). Not recommended for performance-critical code.
-         * @param {NS} ns - The nestcript instance passed to your script's main entry point
-         * @param {function} fnRun - A single-argument function used to start the new sript, e.g. `ns.run` or `(f,...args) => ns.exec(f, "home", ...args)`
-         * @param {function} fnIsAlive - A single-argument function used to start the new sript, e.g. `ns.isRunning` or `pid => ns.ps("home").some(process => process.pid === pid)`
-         **/
-        async function getNsDataThroughFile_Custom(ns, fnRun, fnIsAlive, command, fName, verbose = false, maxRetries = 5, retryDelayMs = 50) {
-            const commandHash = hashCode(command)
-            fName = fName || `/Temp/${commandHash}-data.txt`
-            const fNameCommand = (fName || `/Temp/${commandHash}-command`) + '.js'
-            // Prepare a command that will write out a new file containing the results of the command
-            // unless it already exists with the same contents (saves time/ram to check first)
-            // If an error occurs, it will write an empty file to avoid old results being misread.
-            const commandToFile = `let result = "" try { result = JSON.stringify(${command}) } catch { }
-        if (ns.read("${fName}") != result) await ns.write("${fName}", result, 'w')`
-            // Run the command with auto-retries if it fails
-            const pid = await runCommand_Custom(ns, fnRun, commandToFile, fNameCommand, false, maxRetries, retryDelayMs)
-            // Wait for the process to complete
-            await waitForProcessToComplete_Custom(ns, fnIsAlive, pid, verbose)
-            if (verbose) ns.print(`Process ${pid} is done. Reading the contents of ${fName}...`)
-            // Read the file, with auto-retries if it fails
-            const fileData = await autoRetry(ns, () => ns.read(fName), f => f !== undefined && f !== "",
-                () => `ns.read('${fName}') somehow returned undefined or an empty string`,
-                maxRetries, retryDelayMs, undefined, verbose)
-            if (verbose) ns.print(`Read the following data for command ${command}:\n${fileData}`)
-            return JSON.parse(fileData) // Deserialize it back into an object/array and return
-        }
-
-        /**
-         * An advanced version of runCommand that lets you pass your own "isAlive" test to reduce RAM requirements (e.g. to avoid referencing ns.isRunning)
-         * Importing incurs 0 GB RAM (assuming fnRun, fnWrite are implemented using another ns function you already reference elsewhere like ns.exec)
-         * @param {NS} ns - The nestcript instance passed to your script's main entry point
-         * @param {function} fnRun - A single-argument function used to start the new sript, e.g. `ns.run` or `(f,...args) => ns.exec(f, "home", ...args)`
-         **/
-        async function runCommand_Custom(ns, fnRun, command, fileName, verbose = false, maxRetries = 5, retryDelayMs = 50, ...args) {
-            let script = `import { formatMoney, formatNumberShort, formatDuration, parseShortNumber, scanAllServers } fr` + `om "helpers.js"\n` +
-                `export async function main(ns) { try { ` +
-                (verbose ? `let output = ${command} ns.tprint(output)` : command) +
-                ` } catch(err) { ns.tprint(String(err)) throw(err) } }`
-            fileName = fileName || `/Temp/${hashCode(command)}-command.js`
-            // To improve performance and save on garbage collection, we can skip writing this exact same script was previously written (common for repeatedly-queried data)
-            if (ns.read(fileName) != script) await ns.write(fileName, script, "w")
-            return await autoRetry(ns, () => fnRun(fileName, ...args), temp_pid => temp_pid !== 0,
-                () => `Run command returned no pid. Destination: ${fileName} Command: ${command}\nEnsure you have sufficient free RAM to run this temporary script.`,
-                maxRetries, retryDelayMs, undefined, verbose)
-        }
-
-        /** Helper to retry something that failed temporarily (can happen when e.g. we temporarily don't have enough RAM to run)
-         * @param {NS} ns - The nestcript instance passed to your script's main entry point */
-        async function autoRetry(ns, fnFunctionThatMayFail, fnSuccessCondition, errorContext = "Success condition not met",
-                                 maxRetries = 5, initialRetryDelayMs = 50, backoffRate = 3, verbose = false) {
-            let retryDelayMs = initialRetryDelayMs
-            while (maxRetries-- > 0) {
-                try {
-                    const result = await fnFunctionThatMayFail()
-                    if (!fnSuccessCondition(result)) throw typeof errorContext === 'string' ? errorContext : errorContext()
-                    return result
-                } catch (error) {
-                    const fatal = maxRetries === 0
-                    const errorLog = `${fatal ? 'FAIL' : 'WARN'}: (${maxRetries} retries remaining): ${String(error)}`
-                    log(ns, errorLog, fatal, !verbose ? undefined : (fatal ? 'error' : 'warning'))
-                    if (fatal) throw error
-                    await ns.sleep(retryDelayMs)
-                    retryDelayMs *= backoffRate
-                }
-            }
-        }
-
-        /**
-         * Return a formatted representation of the monetary amount using scale sympols (e.g. $6.50M)
-         * @param {number} num - The number to format
-         * @param {number=} maxSignificantFigures - (default: 6) The maximum significant figures you wish to see (e.g. 123, 12.3 and 1.23 all have 3 significant figures)
-         * @param {number=} maxDecimalPlaces - (default: 3) The maximum decimal places you wish to see, regardless of significant figures. (e.g. 12.3, 1.2, 0.1 all have 1 decimal)
-         **/
         function formatMoney(num, maxSignificantFigures = 6, maxDecimalPlaces = 3) {
-            let numberShort = formatNumberShort(num, maxSignificantFigures, maxDecimalPlaces)
-            return num >= 0 ? "$" + numberShort : numberShort.replace("-", "-$")
+            return ns.nFormat(num, '$0.0a')
         }
 
-        const symbols = ["", "k", "m", "b", "t", "q", "Q", "s", "S", "o", "n", "e33", "e36", "e39"]
-
-        /**
-         * Return a formatted representation of the monetary amount using scale sympols (e.g. 6.50M)
-         * @param {number} num - The number to format
-         * @param {number=} maxSignificantFigures - (default: 6) The maximum significant figures you wish to see (e.g. 123, 12.3 and 1.23 all have 3 significant figures)
-         * @param {number=} maxDecimalPlaces - (default: 3) The maximum decimal places you wish to see, regardless of significant figures. (e.g. 12.3, 1.2, 0.1 all have 1 decimal)
-         **/
-        function formatNumberShort(num, maxSignificantFigures = 6, maxDecimalPlaces = 3) {
-            for (var i = 0, sign = Math.sign(num), num = Math.abs(num); num >= 1000 && i < symbols.length; i++) num /= 1000
-            // TODO: A number like 9.999 once rounted to show 3 sig figs, will become 10.00, which is now 4 sig figs.
-            return ((sign < 0) ? "-" : "") + num.toFixed(Math.max(0, Math.min(maxDecimalPlaces, maxSignificantFigures - Math.floor(1 + Math.log10(num))))) + symbols[i]
-        }
-
-        /** Formats some RAM amount as a round number of GB with thousands separators e.g. `1,028 GB` */
         function formatRam(num) {
-            return `${Math.round(num).toLocaleString()} GB`
+            return ns.nFormat(num, '0.0a') + ' GB' // ??
         }
 
 
@@ -398,34 +216,32 @@ export class HostManager {
             // Check for other reasons not to go ahead with the purchase
             let prefix = 'Host-manager wants to buy another server, but '
 
-            const reserve = Number.parseFloat(ns.read('reserve.txt'))
-            let currentMoney = _ns.getServerMoneyAvailable("home")
-            let spendableMoney = currentMoney - reserve
+            let budget = _ns.getServerMoneyAvailable("home")
+
             // Reserve at least enough money to buy the final hack tool, if we do not already have it (once we do, remember and stop checking)
             if (!ns.fileExists("SQLInject.exe", "home")) {
                 prefix += '(reserving an extra 250M for SQLInject) '
-                spendableMoney = Math.max(0, spendableMoney - 250000000)
+                budget = Math.max(0, budget - 250000000)
             }
             // Additional reservations
-            spendableMoney = Math.max(0, Math.min(spendableMoney * (1 - reservedMoneyPercent), spendableMoney - reservedMoneyAmount))
-            if (spendableMoney === 0)
+            if (budget === 0)
                 return setStatus(prefix + 'all cash is currently reserved.')
 
             // Determine the most ram we can buy with this money
             let exponentLevel = 1
             for (; exponentLevel < maxPurchasableServerRamExponent; exponentLevel++)
-                if (ns.getPurchasedServerCost(Math.pow(2, exponentLevel + 1)) > spendableMoney)
+                if (ns.getPurchasedServerCost(Math.pow(2, exponentLevel + 1)) > budget)
                     break
 
             let maxRamPossibleToBuy = Math.pow(2, exponentLevel)
 
             // Abort if it would put us below our reserve (shouldn't happen, since we calculated how much to buy based on reserve amount)
             let cost = ns.getPurchasedServerCost(maxRamPossibleToBuy)
-            if (spendableMoney < cost)
-                return setStatus(prefix + 'spendableMoney (' + formatMoney(spendableMoney) + ') is less than the cost (' + formatMoney(cost) + ')')
+            if (budget < cost)
+                return setStatus(prefix + 'budget (' + formatMoney(budget) + ') is less than the cost (' + formatMoney(cost) + ')')
 
             if (exponentLevel < minRamExponent)
-                return setStatus(`${prefix}The highest ram exponent we can afford (2^${exponentLevel} for ${formatMoney(cost)}) on our budget of ${formatMoney(spendableMoney)} ` +
+                return setStatus(`${prefix}The highest ram exponent we can afford (2^${exponentLevel} for ${formatMoney(cost)}) on our budget of ${formatMoney(budget)} ` +
                     `is less than the minimum ram exponent (2^${minRamExponent} for ${formatMoney(ns.getPurchasedServerCost(Math.pow(2, minRamExponent)))})'`)
 
             // Under some conditions, we consider the new server "not worthwhile". but only if it isn't the biggest possible server we can buy
@@ -486,7 +302,7 @@ export class HostManager {
             let purchasedServer = ns.purchaseServer(purchasedServerName, maxRamPossibleToBuy)
             if (!purchasedServer)
                 setStatus(prefix + `Could not purchase a server with ${formatRam(maxRamPossibleToBuy)} RAM for ${formatMoney(cost)} ` +
-                    `with a budget of ${formatMoney(spendableMoney)}. This is either a bug, or we in a SF.9`)
+                    `with a budget of ${formatMoney(budget)}. This is either a bug, or we in a SF.9`)
             else
                 announce('Purchased a new server ' + purchasedServer + ' with ' + formatRam(maxRamPossibleToBuy) + ' RAM for ' + formatMoney(cost), 'success')
 
@@ -495,13 +311,12 @@ export class HostManager {
 
         // main ...
         ns.disableLog('ALL')
-        bitnodeMults = (await tryGetBitNodeMultipliers(ns)) ?? {PurchasedServerMaxRam: 1, PurchasedServerLimit: 1}
+        // bitnodeMults = (await this.nsProxy['getBitNodeMultipliers']()) ?? {PurchasedServerMaxRam: 1, PurchasedServerLimit: 1} // cant run until SF ... TODO ...
+        bitnodeMults = {PurchasedServerMaxRam: 1, PurchasedServerLimit: 1}
         maxPurchasableServerRamExponent = Math.round(20 + Math.log2(bitnodeMults.PurchasedServerMaxRam))
         maxPurchasedServers = Math.round(25 * bitnodeMults.PurchasedServerLimit)
 
         options = ns.flags(argsSchema)
-        reservedMoneyAmount = options['absolute-reserve']
-        reservedMoneyPercent = options['reserve-percent']
         utilizationTarget = options['utilization-trigger']
         minRamExponent = options['min-ram-exponent']
 
