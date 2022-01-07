@@ -29,9 +29,9 @@ export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
     // load job module
-    const upgradeHacknet = new UpgradeHacknet(ns, runner) // disabled as it costs too much ram, run on another thread
-    const rootServers = new RootServers(ns, runner)
-    const attackServer = new AttackServer(ns, runner)
+    const upgradeHacknet = new UpgradeHacknet(ns, runner.nsProxy, runner.hacknetProxy)
+    const rootServers = new RootServers(ns, runner.nsProxy)
+    const attackServer = new AttackServer(ns, runner.nsProxy)
     // print help
     if (args.help) {
         ns.tprint("\n\n\n" + [
@@ -57,7 +57,12 @@ export async function main(ns) {
         const runAfter = args['spawn'].split(' ');
         const script = runAfter.shift()
         ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
-        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run loaded, saves 2GB
+        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run() loaded, saves 2GB
     }
 }
 
+// fake method to count towards memory usage, used by nsProxy
+function countedTowardsMemory(ns) {
+    ns.run()
+    ns.isRunning(0)
+}

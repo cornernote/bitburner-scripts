@@ -10,7 +10,8 @@ run install.js
 ## Run
 
 ```sh
-work
+work # starts the worker
+stop # stops the worker
 ```
 
 
