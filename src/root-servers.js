@@ -39,6 +39,7 @@ export async function main(ns) {
         await ns.sleep(10)
     } while (args.loop)
 }
+
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
     ns.run()
@@ -48,7 +49,7 @@ function countedTowardsMemory(ns) {
 /**
  * RootServers
  *
- * Gain root access on any available servers.
+ * Gains root access on any available servers.
  */
 export class RootServers {
 
@@ -214,7 +215,7 @@ export class RootServers {
             ` -> ${this.myServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB used').join(', ')}`,
             '',
             `${this.rootedServers.length} servers have root access:`,
-            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB used').join(', ')}`,
+            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + 'GB/' + s.maxRam + 'GB used ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + ' available').join(', ')}`,
             '',
             `Memory Usage`,
             ` -> ${this.ns.nFormat(ram.used / ram.total, '0%')} - ${ram.used}GB/${ram.total}GB`,
@@ -354,7 +355,7 @@ export class RootServers {
         return [
             '',
             '',
-            'Manages and upgrades the hacknet servers.',
+            'Gains root access on any available servers.',
             '',
             `USAGE: run ${this.ns.getScriptName()}`,
             '',

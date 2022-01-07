@@ -26,11 +26,12 @@ export const settings = {
     // how often to run delay between scripts (in milliseconds)
     intervals: {
         'upgrade-hacknet': 1000, // 1s
-        'root-servers': 60 * 5 * 1000, // 5mins
+        'host-manager': 60 * 1000, // 1mins
+        'root-servers': 60 * 1000, // 1mins
     },
 
     // controls how far to upgrade hacknet servers
-    hacknetMaxPayoffTime: 0,  // in seconds
+    hacknetMaxPayoffTime: 60 * 60 * 4,  // in seconds
 
     // controls how far to upgrade hacknet servers
     hacknetMaxSpend: 0,

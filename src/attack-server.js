@@ -28,7 +28,7 @@ export async function main(ns) {
     // load job module
     let player = await runner.nsProxy['getPlayer']();
     const attackServer = new AttackServer(ns, runner.nsProxy, {
-        onlyHack: player.money < 1000000 && player.hacking < 150, // early game, just hack
+        onlyHack: player.money < 1000000 && player.hacking < 125, // early game, just hack
     })
     // print help
     if (args.help) {
@@ -570,6 +570,10 @@ export class AttackServer {
             for (const _hack of Object.values(hacks)) {
                 _hack.maxThreads += Math.floor((server.maxRam - server.ramUsed) / _hack.ram)
             }
+        }
+        // no free ram
+        if (!g.maxThreads) {
+            w.time = 10 * 1000 // wait 10 before next run
         }
         // calculate the delay required for all threads to end at the right time
         g.delay = Math.max(0, w.time - g.time - 20)

@@ -219,8 +219,24 @@ export class UpgradeHacknet {
             this.ns.print(`The next best purchase would be ${strPurchase} but the cost ${this.ns.nFormat(cost, '$0.00a')} exceeds the limit (${this.ns.nFormat(settings.hacknetMaxSpend, '$0.00a')})`)
             return false // As long as maxSpend doesn't change, we will never purchase another upgrade
         }
-        if (settings.hacknetMaxPayoffTime && payoffTimeSeconds > settings.hacknetMaxPayoffTime) {
-            this.ns.print(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${this.ns.nFormat(settings.hacknetMaxPayoffTime, '00:00:00')})`)
+
+        // is we don't have much money, only upgrade to 2h of payoffs
+        let nextPayoffTime = settings.hacknetMaxPayoffTime;
+        if (!nextPayoffTime) {
+            if (this.player.money < 1000000) { // 1m
+                nextPayoffTime = 60 * 60 // 1h
+            } else if (this.player.money < 10000000) { // 10m
+                nextPayoffTime = 60 * 60 * 2 // 2h
+            } else if (this.player.money < 100000000) { // 100m
+                nextPayoffTime = 60 * 60 * 4 // 4d
+            } else if (this.player.money < 1000000000) { // 1b
+                nextPayoffTime = 60 * 60 * 24 // 1d
+            } else { // >1b
+                nextPayoffTime = 60 * 60 * 30 // 30d
+            }
+        }
+        if (nextPayoffTime && payoffTimeSeconds > nextPayoffTime) {
+            this.ns.print(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${this.ns.nFormat(nextPayoffTime, '00:00:00')})`)
             return false // As long as maxPayoffTime doesn't change, we will never purchase another upgrade
         }
         let success = shouldBuyNewNode
