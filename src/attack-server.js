@@ -103,7 +103,21 @@ export class AttackServer {
      * List of hacks that are used to attack servers
      * @type {Object}
      */
-    hacks
+    hacks = {
+        weaken: {
+            script: '/hacks/weaken.js',
+            change: 0.05,
+        },
+        grow: {
+            script: '/hacks/grow.js',
+            change: 0.004,
+        },
+        hack: {
+            script: '/hacks/hack.js',
+            change: 0.002,
+        },
+    }
+
 
     /**
      * Information about the action taken for the cycle.
@@ -207,7 +221,7 @@ export class AttackServer {
             h = hacks['hack']
 
         // option to force the action to be hack(), handy early-game but may hack a target to $0
-        if (this.onlyHack) {
+        if (this.onlyHack && this.action !== 'weaken') {
             this.action = 'only-hack'
             w.time = h.time
         }
@@ -395,10 +409,9 @@ export class AttackServer {
             ` -> Money Growth: hack -??? | grow +${this.ns.nFormat(bestTarget.serverGrowth, '$0.0a')}`,
             ` -> Max Threads (for available RAM): weaken ${w.maxThreads} | grow ${g.maxThreads} | hack ${h.maxThreads}`,
             ` -> Threads Needed to Prepare:`,
-            `   -> ${this.ns.nFormat((bestTarget.securityLevel - bestTarget.minSecurityLevel) / w.change, '0a')} weaken`,
-            `   -> ${this.ns.nFormat((bestTarget.moneyMax - bestTarget.moneyAvailable) / bestTarget.serverGrowth, '0a')} grow`,
-            `   -> ${this.ns.nFormat(bestTarget.fullGrowThreads, '0a')} grow?`,
-            `   -> ${this.ns.nFormat(bestTarget.fullHackThreads, '0a')} hack?`,
+            `   -> ${this.ns.nFormat(bestTarget.fullWeakenThreads, '0a')} weaken`,
+            `   -> ${this.ns.nFormat(bestTarget.fullGrowThreads, '0a')} grow`,
+            `   -> ${this.ns.nFormat(bestTarget.fullHackThreads / 100, '0a')} hack?`, // maybe /100 ??
             '',
             'Attack:',
             ` -> Action: ${this.action}`,
@@ -491,6 +504,7 @@ export class AttackServer {
             server.minSecurityLevel = await this.nsProxy['getServerMinSecurityLevel'](server.hostname)
             server.fullGrowThreads = server.moneyAvailable ? await this.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
+            server.fullWeakenThreads = (server.securityLevel - server.minSecurityLevel) / this.hacks['weaken'].change
             if (this.onlyHack) {
                 server.hackValue = server.moneyAvailable
             } else {
@@ -511,47 +525,15 @@ export class AttackServer {
      */
     async loadHacks() {
         // build the hack list
-        this.hacks = {
-            // name: {
-            //     script:      // target script
-            //     ram:         // ram needed (calculated below)
-            //     time:        // time to run
-            //     delay:       // delay ensures hacks finish in order (calculated below)
-            //     maxThreads:  // the max threads that can be run on our ram (calculated below)
-            //     threads:     // the remaining threads to run (calculated during loadAttacks)
-            //     change:      // security change per thread
-            // }
-            weaken: {
-                script: '/hacks/weaken.js',
-                ram: 0,
-                time: 0,
-                delay: 0,
-                maxThreads: 0,
-                threads: 0,
-                runThreads: 0,
-                change: 0.05,
-            },
-            grow: {
-                script: '/hacks/grow.js',
-                ram: 0,
-                time: 0,
-                delay: 0,
-                maxThreads: 0,
-                threads: 0,
-                runThreads: 0,
-                change: 0.004,
-            },
-            hack: {
-                script: '/hacks/hack.js',
-                ram: 0,
-                time: 0,
-                delay: 0,
-                maxThreads: 0,
-                threads: 0,
-                runThreads: 0,
-                change: 0.002,
-            },
-        }
+        // name: {
+        //     script:      // target script
+        //     ram:         // ram needed (calculated below)
+        //     time:        // time to run
+        //     delay:       // delay ensures hacks finish in order (calculated below)
+        //     maxThreads:  // the max threads that can be run on our ram (calculated below)
+        //     threads:     // the remaining threads to run (calculated during loadAttacks)
+        //     change:      // security change per thread
+        // }
         // expose vars for shorter code below
         const bestTarget = this.targetServers[0]
         const hacks = this.hacks,
@@ -564,6 +546,9 @@ export class AttackServer {
                 _hack.time = await this.nsProxy[`get${name[0].toUpperCase()}${name.slice(1)}Time`](bestTarget.hostname) / 1000 // getGrowTime
             }
             _hack.ram = await this.nsProxy['getScriptRam'](_hack.script)
+            _hack.maxThreads = 0
+            _hack.runThreads = 0
+            _hack.threads = 0
         }
         // calculate the maximum threads based on available ram
         for (const server of this.hackingServers) {
