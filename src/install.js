@@ -38,6 +38,7 @@ export async function main(ns) {
     }
     ns.tprint('Download complete!')
     ns.tprint('Spawning worker.js (takes 10 seconds)...')
+    terminalCommand('alias work="run worker.js --loop --tail"')
     ns.spawn('worker.js')
 }
 
@@ -59,7 +60,7 @@ async function repositoryListing(ns, folder = '') {
         const folders = response.filter(f => f.type === "dir").map(f => f.path)
         let files = response.filter(f => f.type === "file").map(f => f.path)
             .filter(f => options.extension.some(ext => f.endsWith(ext)))
-        ns.tprint(`The following files exist at ${listUrl}\n${files.map(f=>` -> ${f}`).join("\n")}`)
+        ns.tprint(`The following files exist at ${listUrl}\n${files.map(f => ` -> ${f}`).join("\n")}`)
         for (const folder of folders)
             files = files.concat((await repositoryListing(ns, folder))
                 .map(f => `/${f}`)) // Game requires files to have a leading slash when using a folder
@@ -72,4 +73,13 @@ async function repositoryListing(ns, folder = '') {
         return ns.ls('home').filter(name => options.extension.some(ext => f.endsWith(ext)) &&
             !options['omit-folder'].some(dir => name.startsWith(dir)))
     }
+}
+
+function terminalCommand(message) {
+    const docs = globalThis['document']
+    const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"));
+    terminalInput.value = message;
+    const handler = Object.keys(terminalInput)[1];
+    terminalInput[handler].onChange({target: terminalInput});
+    terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null});
 }

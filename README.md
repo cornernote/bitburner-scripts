@@ -7,15 +7,11 @@ wget https://raw.githubusercontent.com/cornernote/bitburner-scripts/main/src/ins
 run install.js
 ```
 
-## Tips
-
-Use an alias to shortcut run commands: 
+## Run
 
 ```sh
-alias work="run worker.js --loop --tail"
+work
 ```
-
-Now you can run `start` from the terminal.
 
 
 ## Resources
