@@ -208,8 +208,8 @@ export class RootServers {
      */
     getRootServersReport() {
         const ram = {
-            total: this.rootedServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
-            used: this.rootedServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
+            total: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
+            used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
         }
         const report = [
             '',
@@ -314,8 +314,8 @@ export class RootServers {
 
         // get my servers
         this.myServers = this.servers
-            // exclude home/hacknet-/homenet-
-            .filter(s => s.hostname === 'home' || s.hostname.includes('hacknet-') || s.hostname.includes(settings.purchasedServerPrefix))
+            // include home/hacknet-/homenet-
+            .filter(s => s.hostname === 'home' || s.hostname.includes(settings.purchasedServerPrefix) || s.hostname.includes(settings.purchasedServerPrefix))
 
         // get rootable servers
         this.rootableServers = this.servers

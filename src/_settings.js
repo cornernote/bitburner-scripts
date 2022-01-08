@@ -5,11 +5,11 @@
 export const settings = {
 
     // reserved memory on home
-    // used to run the daemon and background runners
+    // used to run the worker and background runners
     reservedHomeRam: 1.6 + 10, // 1.6 for a background script, plus the max ram function used
 
     // the prefix given to purchased servers
-    purchasedServerPrefix: 'homenet-',
+    purchasedServerPrefix: 'homenet',
 
     // used to calculate hack value
     // hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel))

@@ -86,7 +86,7 @@ export class Runner {
         return await this.runPayload([
             // find a way to detect if we need to await, or just await all...
             `output = await ns.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
-        ].join("\n"), `-ns-${method}`)
+        ].join("\n"), `ns-${method}-`)
     }
 
     /**
@@ -100,7 +100,7 @@ export class Runner {
         return await this.runPayload([
             // find a way to detect if we need to await, or just await all...
             `output = await ns.hacknet.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
-        ].join("\n"), `-hacknet-${method}`)
+        ].join("\n"), `hacknet-${method}-`)
     }
 
     /**
