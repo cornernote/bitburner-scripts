@@ -28,6 +28,7 @@ export const settings = {
         'upgrade-hacknet': 1000, // 1s
         'host-manager': 60 * 1000, // 1mins
         'root-servers': 60 * 1000, // 1mins
+        'buy-cracks': 60 * 1000, // 1mins
     },
 
     // controls how far to upgrade hacknet servers

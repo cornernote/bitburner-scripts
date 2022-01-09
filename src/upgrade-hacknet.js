@@ -141,7 +141,10 @@ export class UpgradeHacknet {
         }
         // run
         //this.ns.tprint('UpgradeHacknet...')
-        await this.upgradeHacknet()
+        while (await this.upgradeHacknet()) {
+            // keep looping while we can upgrade
+            await this.ns.sleep(20)
+        }
         // set the last run time
         this.lastRun = new Date().getTime()
         // display the report

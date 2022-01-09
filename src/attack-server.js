@@ -26,10 +26,7 @@ export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
     // load job module
-    let player = await runner.nsProxy['getPlayer']();
-    const attackServer = new AttackServer(ns, runner.nsProxy, {
-        onlyHack: player.money < 250000000 && player.hacking < 150, // early game, just hack
-    })
+    const attackServer = new AttackServer(ns, runner.nsProxy)
     // print help
     if (args.help) {
         ns.tprint(attackServer.getHelp())
@@ -126,12 +123,6 @@ export class AttackServer {
     action
 
     /**
-     * If we should force all attacks to be hack()
-     * @type {Boolean}
-     */
-    onlyHack
-
-    /**
      * Security change for this cycle
      * @type {String}
      */
@@ -148,6 +139,18 @@ export class AttackServer {
      * @type {Number}
      */
     attackEndsAt = 1
+
+    /**
+     * List of port hacks that are used to root servers
+     * @type {Array}
+     */
+    cracks
+
+    /**
+     * List of port hacks that have been unlocked
+     * @type {Array}
+     */
+    ownedCracks
 
     /**
      * Construct the class
@@ -178,6 +181,7 @@ export class AttackServer {
         if (this.attackEndsAt) {
             this.attackEndsAt = null
             await this.loadPlayer()
+            await this.loadCracks()
             await this.loadServers()
         }
         // load the attacks
@@ -219,12 +223,6 @@ export class AttackServer {
             w = hacks['weaken'],
             g = hacks['grow'],
             h = hacks['hack']
-
-        // option to force the action to be hack(), handy early-game but may hack a target to $0
-        if (this.onlyHack && this.action !== 'weaken') {
-            this.action = 'only-hack'
-            w.time = h.time
-        }
 
         // helper, calculates how many weaken threads are needed for countering a grow/hack
         const w4 = {
@@ -505,17 +503,44 @@ export class AttackServer {
             server.fullGrowThreads = server.moneyAvailable ? await this.nsProxy['growthAnalyze'](server.hostname, server.moneyMax / server.moneyAvailable) : null
             server.fullHackThreads = Math.ceil(100 / Math.max(0.00000001, server.analyzeHack))
             server.fullWeakenThreads = (server.securityLevel - server.minSecurityLevel) / this.hacks['weaken'].change
-            if (this.onlyHack) {
-                server.hackValue = server.moneyAvailable
-            } else {
-                server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel)) // todo, should consider serverGrowth
-            }
+
+            // todo, should consider serverGrowth
+            // todo, should consider earlygame when we dont have many threads
+            server.hackValue = server.moneyMax * (settings.minSecurityWeight / (server.minSecurityLevel + server.securityLevel))
             this.targetServers.push(server)
         }
         this.targetServers.sort((a, b) => b.hackValue - a.hackValue)
 
         // load the hacks each time after servers are loaded
         await this.loadHacks()
+    }
+
+    /**
+     * Loads a list of port hacks.
+     *
+     * @returns {Promise<*[]>}
+     */
+    async loadCracks() {
+        // load port hacks
+        this.cracks = []
+        const cracks = {
+            brutessh: 'BruteSSH.exe',
+            ftpcrack: 'FTPCrack.exe',
+            relaysmtp: 'relaySMTP.exe',
+            httpworm: 'HTTPWorm.exe',
+            sqlinject: 'SQLInject.exe',
+            // nuke: 'NUKE.exe', // not a port hack
+        }
+        for (const [method, exe] of Object.entries(cracks)) {
+            this.cracks.push({
+                method: method,
+                exe: exe,
+                owned: await this.nsProxy['fileExists'](exe, 'home'),
+            })
+        }
+        // the ones we own
+        this.ownedCracks = this.cracks
+            .filter(a => a.owned)
     }
 
     /**
