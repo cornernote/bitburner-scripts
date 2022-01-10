@@ -66,6 +66,12 @@ export class RootServers {
     nsProxy
 
     /**
+     * The time we last ran
+     * @type {Number}
+     */
+    lastRun
+
+    /**
      * Player data
      * @type {Player}
      */
@@ -94,12 +100,6 @@ export class RootServers {
      * @type {Server[]}
      */
     hackingServers
-
-    /**
-     * The time we last ran
-     * @type {Number}
-     */
-    lastRun
 
     /**
      * Server data, containing servers which are rootable
@@ -161,7 +161,7 @@ export class RootServers {
         // set the last run time
         this.lastRun = new Date().getTime()
         // display the report
-        this.ns.tprint(this.getRootServersReport())
+        this.ns.tprint(this.getReport())
     }
 
 
@@ -212,7 +212,7 @@ export class RootServers {
      *
      * @returns {string}
      */
-    getRootServersReport() {
+    getReport() {
         const ram = {
             total: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
             used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
@@ -231,7 +231,7 @@ export class RootServers {
             ` -> ${this.myServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB used').join(', ')}`,
             '',
             `${this.rootedServers.length} servers have root access:`,
-            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + 'GB/' + s.maxRam + 'GB used ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + ' available').join(', ')}`,
+            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + 'GB/' + s.maxRam + 'GB ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a') ).join(', ')}`,
             '',
             `Memory Usage`,
             ` -> ${this.ns.nFormat(ram.used / ram.total, '0%')} - ${ram.used}GB/${ram.total}GB`,
