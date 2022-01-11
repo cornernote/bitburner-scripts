@@ -190,26 +190,52 @@ export class BuyCracks {
             {
                 method: 'ftpcrack',
                 exe: 'FTPCrack.exe',
-                cost: 999,
+                cost: 1500000,
                 type: 'port',
             },
             {
                 method: 'relaysmtp',
                 exe: 'relaySMTP.exe',
-                cost: 999,
+                cost: 5000000,
                 type: 'port',
             },
             {
                 method: 'httpworm',
                 exe: 'HTTPWorm.exe',
-                cost: 999,
+                cost: 30000000,
                 type: 'port',
             },
             {
                 method: 'sqlinject',
                 exe: 'SQLInject.exe',
-                cost: 999,
+                cost: 250000000,
                 type: 'port',
+            },
+
+            {
+                exe: 'ServerProfiler.exe',
+                cost: 500000,
+                type: 'tool',
+            },
+            {
+                exe: 'DeepscanV1.exe',
+                cost: 500000,
+                type: 'tool',
+            },
+            {
+                exe: 'DeepscanV2.exe',
+                cost: 25000000,
+                type: 'tool',
+            },
+            {
+                exe: 'AutoLink.exe',
+                cost: 1000000,
+                type: 'tool',
+            },
+            {
+                exe: 'Formulas.exe',
+                cost: 5000000000,
+                type: 'tool',
             },
         ]
         for (const crack of this.cracks) {

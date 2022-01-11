@@ -6,6 +6,7 @@ import {settings} from "./_settings.js"
  */
 const argsSchema = [
     ['loop', false],
+    ['proxy', false],
     ['help', false],
 ]
 
@@ -25,8 +26,12 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
+    let nsProxy = runner.nsProxy
+    if (!args['proxy']) {
+        nsProxy = ns
+    }
     // load job module
-    const rootServers = new RootServers(ns, runner.nsProxy)
+    const rootServers = new RootServers(ns, nsProxy)
     // print help
     if (args.help) {
         ns.tprint(rootServers.getHelp())
@@ -44,6 +49,18 @@ export async function main(ns) {
 function countedTowardsMemory(ns) {
     ns.run()
     ns.isRunning(0)
+    // comment below here if using nsProxy
+    ns.brutessh()
+    ns.ftpcrack()
+    ns.relaysmtp()
+    ns.httpworm()
+    ns.sqlinject()
+    ns.nuke()
+    ns.scp()
+    ns.getPlayer()
+    ns.fileExists()
+    ns.scan()
+    ns.getServer()
 }
 
 /**
@@ -193,8 +210,8 @@ export class RootServers {
                 for (const path of server.route) {
                     await this.terminalCommand(`connect ${path}`)
                 }
-                await this.terminalCommand('analyze', 5000)
-                await this.terminalCommand('backdoor', server.requiredHackingSkill * 250 + 10000) // run backdoor and wait
+                await this.terminalCommand('analyze')
+                await this.terminalCommand('backdoor')
                 await this.terminalCommand('home')
                 // add to list
                 this.newlyRootedServers.push(server)
@@ -380,14 +397,19 @@ export class RootServers {
      * @param delay
      * @returns {Promise<void>}
      */
-    async terminalCommand(message, delay = 500) {
+    async terminalCommand(message, delay = 100) {
         const docs = globalThis['document']
         const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"))
+        while (!terminalInput) {
+            await this.ns.sleep(delay)
+        }
         terminalInput.value = message
         const handler = Object.keys(terminalInput)[1]
         terminalInput[handler].onChange({target: terminalInput})
         terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-        await this.ns.sleep(delay)
+        while (terminalInput.disabled) {
+            await this.ns.sleep(delay)
+        }
     }
 
     /**

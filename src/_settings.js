@@ -24,7 +24,7 @@ export const settings = {
     maxMoneyMultiplayer: 0.9,
 
     // how much to steal per hack
-    hackPercent: 0.6, //60%
+    hackPercent: 0.8, //80%
 
     // how often to run delay between scripts (in milliseconds)
     intervals: {

@@ -30,15 +30,15 @@ export async function main(ns) {
         .map(f => f.substring(options.folder.length)) // remove remote folder name
     for (const localFilePath of filesToDownload) {
         const remoteFilePath = baseUrl + options.folder + localFilePath
-        ns.tprint(`Trying to update "${localFilePath}" from ${remoteFilePath} ...`)
+        ns.tprintf(`Trying to update "${localFilePath}" from ${remoteFilePath} ...`)
         if (await ns.wget(`${remoteFilePath}?ts=${new Date().getTime()}`, (options.subfolder ? (options.subfolder + '/') : '') + localFilePath))
-            ns.tprint(' -> SUCCESS')
+            ns.tprintf(' -> SUCCESS')
         else
-            ns.tprint(' -> FAILED')
+            ns.tprintf(' -> FAILED')
     }
     terminalCommand('alias work="run worker.js --loop"')
     terminalCommand('alias stop="kill worker.js --loop"')
-    ns.tprint([
+    ns.tprintf([
         '',
         '',
         '',
@@ -49,7 +49,7 @@ export async function main(ns) {
         '',
         '',
     ].join("\n"))
-    // ns.tprint('Spawning worker.js (takes 10 seconds)...')
+    // ns.tprintf('Spawning worker.js (takes 10 seconds)...')
     // ns.spawn('worker.js')
 }
 
@@ -71,14 +71,14 @@ async function repositoryListing(ns, folder = '') {
         const folders = response.filter(f => f.type === "dir").map(f => f.path)
         let files = response.filter(f => f.type === "file").map(f => f.path)
             .filter(f => options.extension.some(ext => f.endsWith(ext)))
-        ns.tprint(`The following files exist at ${listUrl}\n${files.map(f => ` -> ${f}`).join("\n")}`)
+        ns.tprintf(`The following files exist at ${listUrl}\n${files.map(f => ` -> ${f}`).join("\n")}`)
         for (const folder of folders)
             files = files.concat((await repositoryListing(ns, folder))
                 .map(f => `/${f}`)) // Game requires files to have a leading slash when using a folder
         return files
     } catch (error) {
         if (folder !== '') throw error // Propagate the error if this was a recursive call.
-        ns.tprint(`WARNING: Failed to get a repository listing (GitHub API request limit of 60 reached?): ${listUrl}` +
+        ns.tprintf(`WARNING: Failed to get a repository listing (GitHub API request limit of 60 reached?): ${listUrl}` +
             `\nResponse Contents (if available): ${JSON.stringify(response ?? '(N/A)')}\nError: ${String(error)}`)
         // Fallback, assume the user already has a copy of all files in the repo, and use it as a directory listing
         return ns.ls('home').filter(name => options.extension.some(ext => f.endsWith(ext)) &&
