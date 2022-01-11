@@ -192,7 +192,7 @@ export class RootServers {
                 for (const path of server.route) {
                     await this.terminalCommand(`connect ${path}`)
                 }
-                await this.terminalCommand('backdoor', 60 * 1000) // run backdoor and wait
+                await this.terminalCommand('backdoor', server.requiredHackingSkill * 1000 + 10000) // run backdoor and wait
                 await this.terminalCommand('home')
                 // add to list
                 this.newlyRootedServers.push(server)
@@ -231,7 +231,7 @@ export class RootServers {
             ` -> ${this.myServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB used').join(', ')}`,
             '',
             `${this.rootedServers.length} servers have root access:`,
-            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + 'GB/' + s.maxRam + 'GB ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a') ).join(', ')}`,
+            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + 'GB/' + s.maxRam + 'GB ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
             '',
             `Memory Usage`,
             ` -> ${this.ns.nFormat(ram.used / ram.total, '0%')} - ${ram.used}GB/${ram.total}GB`,

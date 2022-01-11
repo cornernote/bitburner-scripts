@@ -104,14 +104,17 @@ export class AttackServer {
         weaken: {
             script: '/hacks/weaken.js',
             change: 0.05,
+            ram: 1.75,
         },
         grow: {
             script: '/hacks/grow.js',
             change: 0.004,
+            ram: 1.75,
         },
         hack: {
             script: '/hacks/hack.js',
             change: 0.002,
+            ram: 1.7,
         },
     }
 
@@ -158,7 +161,7 @@ export class AttackServer {
         // set the last run time
         this.lastRun = new Date().getTime()
         // display the report
-        this.ns.tprint(this.getReport())
+        //this.ns.tprint(this.getReport())
     }
 
     /**
@@ -170,6 +173,10 @@ export class AttackServer {
         await this.loadPlayer()
         await this.loadServers()
 
+        // clean ended attacks
+        this.attacks = this.attacks
+            .filter(a => a.end > new Date().getTime())
+
         // build the attacks
         for (const server of this.targetServers) {
             const attack = await this.buildAttack(server)
@@ -177,7 +184,9 @@ export class AttackServer {
             //     this.ns.tprint(`ended on ${server.hostname}`)
             //     break
             // }
-            this.attacks.push(attack)
+            if (attack.action !== 'cancelled') {
+                this.attacks.push(attack)
+            }
         }
 
         // run the attacks
@@ -202,6 +211,7 @@ export class AttackServer {
             start: new Date().getTime(), // default, now
             end: new Date().getTime() + 60 * 60 * 1000, // default, 60 mins
             action: 'hack',
+            hacks: {},
             commands: [],
         }
 
@@ -213,32 +223,34 @@ export class AttackServer {
         //     time:        // time to run
         //     delay:       // delay ensures hacks finish in order (calculated below)
         // }
-        const hacks = {}
         for (const [name, _hack] of Object.entries(this.hacks)) {
-            hacks[name] = {};
-            hacks[name].script = _hack.script
-            hacks[name].time = await this.nsProxy[`get${name[0].toUpperCase()}${name.slice(1)}Time`](target.hostname)
-            hacks[name].ram = await this.nsProxy['getScriptRam'](hacks[name].script)
-            hacks[name].threads = 0
+            attack.hacks[name] = {};
+            attack.hacks[name].script = _hack.script
+            attack.hacks[name].change = _hack.change
+            attack.hacks[name].ram = _hack.ram
+            //attack.hacks[name].ram = await this.nsProxy['getScriptRam'](attack.hacks[name].script)
+            attack.hacks[name].time = await this.nsProxy[`get${name[0].toUpperCase()}${name.slice(1)}Time`](target.hostname)
+            attack.hacks[name].threads = 0
+            attack.hacks[name].threadsRemaining = 0
         }
         // expose vars for shorter code below
-        const w = hacks['weaken'], g = hacks['grow'], h = hacks['hack']
+        const w = attack.hacks['weaken'], g = attack.hacks['grow'], h = attack.hacks['hack']
 
         // the server values will change between these times, avoid overlapping attacks
         attack.start = new Date().getTime() + h.time
-        attack.end = new Date().getTime() + w.time
-
+        attack.end = new Date().getTime() + w.time + 5000
 
         // check if there is an overlapping attack
-        const overlappingAttacks = this.attacks
-            .filter(a => a.target === target.hostname && attack.start < a.end)
-        if (overlappingAttacks.length) {
-            this.ns.tprint('Overlapping Attacks...')
-            this.ns.tprint(overlappingAttacks)
-            attack.type = 'cancelled'
-            return attack
-        }
+        let hostAttacks = this.attacks
+            .filter(a => a.target === target.hostname)
+        let currentAttacks = hostAttacks
+            .filter(a => a.start < new Date().getTime())
 
+        // we can't trust the server data, assume we will be at min security and max money
+        if (currentAttacks.length) {
+            target.hackDifficulty = target.minDifficulty + settings.minSecurityLevelOffset
+            target.moneyAvailable = target.moneyMax * settings.maxMoneyMultiplayer
+        }
 
         // decide which action to perform
         // - if security is not min then action=weaken
@@ -252,40 +264,83 @@ export class AttackServer {
             attack.action = 'grow'
         }
 
-        // calculate the maximum threads based on available ram
-        for (const server of this.hackingServers) {
-            for (const _hack of Object.values(hacks)) {
-                _hack.threads += Math.floor((server.maxRam - server.ramUsed) / _hack.ram)
+        // check for overlapping attacks
+        const currentPrepAttacks = hostAttacks.filter(a => a.action !== 'hack')
+        if (currentPrepAttacks.length) {
+            this.ns.tprint(`${target.hostname} ${attack.action} WAIT FOR ${currentPrepAttacks.map(a => a.action + ' ' + this.formatTime((a.start - new Date().getTime()) / 1000) + ' - ' + this.formatTime((a.end - new Date().getTime()) / 1000)).join(' | ')}`) // need to wait for grow/weaken
+            attack.action = 'cancelled'
+            return attack
+        }
+        if (attack.action === 'hack') {
+            let overlappingAttacks = hostAttacks
+                .filter(a => a.start < attack.start && a.end > attack.end)
+            if (overlappingAttacks.length) {
+                this.ns.tprint(`${target.hostname} ${attack.action} OVERLAPS ${overlappingAttacks.map(a => a.action + ' ' + this.formatTime((a.start - new Date().getTime()) / 1000) + ' - ' + this.formatTime((a.end - new Date().getTime()) / 1000)).join(' | ')}`) // will overlap if we run now
+                attack.action = 'cancelled'
+                return attack
             }
         }
+
+        // // calculate the maximum threads based on available ram
+        // for (const server of this.hackingServers) {
+        //     for (const _hack of Object.values(hacks)) {
+        //         _hack.threads += Math.floor((server.maxRam - server.ramUsed) / _hack.ram)
+        //     }
+        // }
 
         // build the commands
         switch (attack.action) {
 
             // spawn threads to WEAKEN the target
             case 'weaken':
-                w.threads = Math.min(w.threads, Math.ceil((target.hackDifficulty - target.minDifficulty) / w.change)) // cores matter)
+                attack.start = new Date().getTime() + w.time
+                //w.change = await this.nsProxy['weakenAnalyze'](1) // cores matter // 0.05
+                w.threads = Math.ceil((target.hackDifficulty - target.minDifficulty) / w.change)
+                // while (w.change * w.threads < (target.hackDifficulty - target.minDifficulty)) {
+                //     w.threads = Math.ceil(w.threads * 1.2) // try 20% more
+                //     w.change = await this.nsProxy['weakenAnalyze'](w.threads) / w.threads  // cores matter
+                // }
+
+                this.ns.tprint(`${target.hostname} WEAKEN - w=${w.threads} | ${this.formatTime((attack.start - new Date().getTime()) / 1000)} - ${this.formatTime((attack.end - new Date().getTime()) / 1000)}`)
+
+                w.threadsRemaining = w.threads
                 for (const server of this.hackingServers) {
                     let weakenThreadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / w.ram))
-                    let weakenThreadsToRun = Math.max(0, Math.min(weakenThreadsFittable, w.threads))
+                    let weakenThreadsToRun = Math.max(0, Math.min(weakenThreadsFittable, w.threadsRemaining))
                     // weaken threads
                     if (weakenThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
                         attack.commands.push([w.script, server.hostname, weakenThreadsToRun, target.hostname, 0])
                         server.ramUsed += weakenThreadsToRun * w.ram
-                        w.threads -= weakenThreadsToRun
+                        w.threadsRemaining -= weakenThreadsToRun
                     }
+                }
+                if (w.threadsRemaining) {
+                    this.ns.tprint(`WARNING! ${w.threadsRemaining} weaken threads remaining`)
                 }
                 break
 
             // spawn threads to GROW the target
             case 'grow':
-                g.threads = Math.min(g.threads, Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable)))
-                w.threads = Math.ceil(g.threads * (g.change / w.change)) // threads to weaken security after grow
+                attack.start = new Date().getTime() + g.time
+                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable))
+                //g.change = await this.nsProxy['growthAnalyzeSecurity'](g.threads) / g.threads // 0.004
+
+                //w.change = await this.nsProxy['weakenAnalyze'](1)  // cores matter // 0.05
+                w.threads = Math.ceil((g.threads * g.change) / w.change)
+                // while (w.change * w.threads < g.change * g.threads) {
+                //     w.threads = Math.ceil(w.threads * 1.2) // try 20% more
+                //     w.change = await this.nsProxy['weakenAnalyze'](w.threads) / w.threads  // cores matter
+                // }
+
+                this.ns.tprint(`${target.hostname} GROW - g=${g.threads} - w=${w.threads} | ${this.formatTime((attack.start - new Date().getTime()) / 1000)} - ${this.formatTime((attack.end - new Date().getTime()) / 1000)}`)
+
+                g.threadsRemaining = g.threads
+                w.threadsRemaining = w.threads
                 for (const server of this.hackingServers) {
                     // grow/weaken threads
-                    let growThreadsToRun = Math.max(0, g.threads)
-                    let weakenThreadsToRun = Math.max(0, w.threads)
+                    let growThreadsToRun = Math.max(0, g.threadsRemaining)
+                    let weakenThreadsToRun = Math.max(0, w.threadsRemaining)
                     let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / g.ram))
                     if (threadsFittable < growThreadsToRun + weakenThreadsToRun) {
                         const ratio = threadsFittable / (growThreadsToRun + weakenThreadsToRun)
@@ -295,40 +350,81 @@ export class AttackServer {
                     if (growThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
                         attack.commands.push([g.script, server.hostname, growThreadsToRun, target.hostname, 0])
-                        server.ramUsed += weakenThreadsToRun * g.ram
-                        g.threads -= growThreadsToRun
+                        server.ramUsed += growThreadsToRun * g.ram
+                        g.threadsRemaining -= growThreadsToRun
                     }
                     if (weakenThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
                         attack.commands.push([w.script, server.hostname, weakenThreadsToRun, target.hostname, 0])
                         server.ramUsed += weakenThreadsToRun * w.ram
-                        w.threads -= weakenThreadsToRun
+                        w.threadsRemaining -= weakenThreadsToRun
                     }
+                }
+                if (g.threadsRemaining) {
+                    this.ns.tprint(`WARNING! ${g.threadsRemaining} grow threads remaining`)
+                }
+                if (w.threadsRemaining) {
+                    this.ns.tprint(`WARNING! ${w.threadsRemaining} weaken threads remaining`)
                 }
                 break
 
             // spawn threads to HACK the target
             case 'hack':
-                const hackPercent = 0.2
-                h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyMax * hackPercent))
-                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, 1 / (1 - hackPercent))) // cores matter
-                w.threads = Math.ceil(h.threads * (h.change / w.change)) + Math.ceil(g.threads * (g.change / w.change)) // threads to weaken security after hack/grow
+                attack.start = new Date().getTime() + h.time
+                if (!currentAttacks.length) {
+                    // note - if we have a current hack, this will be wrong because the grow/weaken isnt complete
+                    h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyAvailable * settings.hackPercent))
+                    g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, 1 / (1 - settings.hackPercent)))
+                    w.threads = Math.ceil(h.threads * (h.change / w.change)) + Math.ceil(g.threads * (g.change / w.change)) // threads to weaken security after hack/grow
+
+                    // h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyAvailable * settings.hackPercent))
+                    // g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, 1 / (1 - await this.nsProxy['hackAnalyze'](target.hostname) * h.threads))) // cores matter
+                    //g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, 1 / (1 - settings.hackPercent)))
+                    //g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable))
+                    //server growth = min(1 + 0.03 / d, 1.0035) ^ (threads * (g / 100) * h)
+                    //w.change = await this.nsProxy['weakenAnalyze'](1)  // cores matter // 0.05
+                    //w.threads = Math.ceil(h.threads * (h.change / w.change)) + Math.ceil(g.threads * (g.change / w.change)) // threads to weaken security after hack/grow
+                    // while (w.change * w.threads < (h.change * h.threads) + (g.change * g.threads)) {
+                    //     w.threads = Math.ceil(w.threads * 1.2) // try 20% more
+                    //     w.change = await this.nsProxy['weakenAnalyze'](w.threads) / w.threads  // cores matter
+                    // }
+
+                } else {
+                    const currentHackAttacks = currentAttacks.filter(a => a.action === 'hack')
+                    if (currentHackAttacks.length) {
+                        let currentHackAttack = currentHackAttacks.pop()
+                        h.threads = currentHackAttack.hacks['hack'].threads
+                        g.threads = currentHackAttack.hacks['grow'].threads
+                        w.threads = currentHackAttack.hacks['weaken'].threads
+                    } else {
+                        h.threads = 0
+                        g.threads = 0
+                        w.threads = 0
+                        attack.action = 'cancelled, unexpected'
+                    }
+                }
+
+                this.ns.tprint(`${target.hostname} HACK - h=${h.threads} - g=${g.threads} - w=${w.threads} | ${this.formatTime((attack.start - new Date().getTime()) / 1000)} - ${this.formatTime((attack.end - new Date().getTime()) / 1000)}`)
+
+                h.threadsRemaining = h.threads
+                g.threadsRemaining = g.threads
+                w.threadsRemaining = w.threads
                 // calculate the delay required for all threads to end at the right time
                 //g.delay = Math.max(0, w.time - g.time + 5000)
                 //h.delay = Math.max(0, g.time + g.delay - h.time + 5000)
                 for (const server of this.hackingServers) {
                     // hack threads
                     let threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / h.ram))
-                    const hackThreadsToRun = Math.max(0, Math.min(threadsFittable, h.threads))
+                    const hackThreadsToRun = Math.max(0, Math.min(threadsFittable, h.threadsRemaining))
                     if (hackThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
-                        attack.commands.push([h.script, server.hostname, hackThreadsToRun, target.hostname, h.delay])
-                        h.threads -= hackThreadsToRun
+                        attack.commands.push([h.script, server.hostname, hackThreadsToRun, target.hostname, 0])
+                        h.threadsRemaining -= hackThreadsToRun
                         server.ramUsed += hackThreadsToRun * h.ram
                     }
                     // grow/weaken threads
-                    let growThreadsToRun = Math.max(0, g.threads)
-                    let weakenThreadsToRun = Math.max(0, w.threads)
+                    let growThreadsToRun = Math.max(0, g.threadsRemaining)
+                    let weakenThreadsToRun = Math.max(0, w.threadsRemaining)
                     threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / g.ram))
                     if (threadsFittable < growThreadsToRun + weakenThreadsToRun) {
                         const ratio = threadsFittable / (growThreadsToRun + weakenThreadsToRun)
@@ -337,16 +433,25 @@ export class AttackServer {
                     }
                     if (growThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
-                        attack.commands.push([g.script, server.hostname, growThreadsToRun, target.hostname, g.delay])
-                        g.threads -= growThreadsToRun
+                        attack.commands.push([g.script, server.hostname, growThreadsToRun, target.hostname, 0])
+                        g.threadsRemaining -= growThreadsToRun
                         server.ramUsed += growThreadsToRun * g.ram
                     }
                     if (weakenThreadsToRun) {
                         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock (ignored)]
-                        attack.commands.push([w.script, server.hostname, weakenThreadsToRun, target.hostname, w.delay])
-                        w.threads -= weakenThreadsToRun
+                        attack.commands.push([w.script, server.hostname, weakenThreadsToRun, target.hostname, 0])
+                        w.threadsRemaining -= weakenThreadsToRun
                         server.ramUsed += weakenThreadsToRun * w.ram
                     }
+                }
+                if (h.threadsRemaining) {
+                    this.ns.tprint(`WARNING! ${h.threadsRemaining} hack threads remaining`)
+                }
+                if (g.threadsRemaining) {
+                    this.ns.tprint(`WARNING! ${g.threadsRemaining} grow threads remaining`)
+                }
+                if (w.threadsRemaining) {
+                    this.ns.tprint(`WARNING! ${w.threadsRemaining} weaken threads remaining`)
                 }
                 break
 
@@ -384,7 +489,7 @@ export class AttackServer {
         //     '',
         //     'Attack:',
         //     ` -> Action: ${this.action}`,
-        //     ` -> Duration: ${this.ns.nFormat(w.time, '00:00:00')}`,
+        //     ` -> Duration: ${this.formatTime(w.time/1000)}`,
         //     ` -> Memory: ${this.ns.nFormat(h.runThreads * h.ram + g.runThreads * g.ram + w.runThreads * w.ram, '0.00')}GB`,
         //     ` -> Threads Run: hack ${h.runThreads} | grow ${g.runThreads} | weaken ${w.runThreads}`,
         // ]
@@ -466,6 +571,8 @@ export class AttackServer {
                 && !s.hostname.includes(settings.purchasedServerPrefix))
             // include servers with root access
             .filter(s => s.hasAdminRights)
+            // include servers with money
+            .filter(s => s.moneyMax > 0)
         // get some more info about the servers
         for (const server of this.targetServers) {
             // todo, should consider serverGrowth
@@ -474,6 +581,16 @@ export class AttackServer {
         }
         // get servers in order of hack value
         this.targetServers = this.targetServers.sort((a, b) => b.hackValue - a.hackValue)
+    }
+
+    formatTime(value) {
+        let hours = Math.floor(Math.abs(value) / 60 / 60),
+            minutes = Math.floor((Math.abs(value) - (hours * 60 * 60)) / 60),
+            seconds = Math.round(Math.abs(value) - (hours * 60 * 60) - (minutes * 60));
+        return (value < 0 ? '-' : '')
+            + (hours ? hours + ':' : '')
+            + (minutes < 10 ? '0' + minutes : minutes)
+            + ':' + (seconds < 10 ? '0' + seconds : seconds);
     }
 
     /**

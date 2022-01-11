@@ -23,12 +23,15 @@ export const settings = {
     // if (bestTarget.money < bestTarget.moneyMax * settings.maxMoneyMultiplayer) action = 'grow'
     maxMoneyMultiplayer: 0.9,
 
+    // how much to steal per hack
+    hackPercent: 0.6, //60%
+
     // how often to run delay between scripts (in milliseconds)
     intervals: {
         'upgrade-hacknet': 1000, // 1s
         'host-manager': 60 * 1000, // 1mins
         'root-servers': 60 * 1000, // 1mins
-        'attack-server': 60 * 1000, // 1mins
+        'attack-server': 10 * 1000, // 1mins
         'buy-cracks': 60 * 1000, // 1mins
     },
 

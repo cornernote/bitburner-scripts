@@ -115,7 +115,15 @@ export class Runner {
      */
     async runScript(filename, numThreads, ...args) {
         // run the task, and wait for it to complete
-        let pid = this.ns['run'](filename, numThreads, ...args)
+        let retry = 5,
+            pid = 0
+        for (let i = retry; i > 0; i--) {
+            pid = this.ns['run'](filename, numThreads, ...args)
+            if (pid) {
+                break
+            }
+            await this.ns.sleep(100)
+        }
         if (!pid) {
             throw `Could not run process ${filename}, not enough RAM?`
         }
