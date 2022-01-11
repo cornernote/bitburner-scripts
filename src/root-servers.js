@@ -236,6 +236,8 @@ export class RootServers {
             total: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
             used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
         }
+        const unrootedServers = this.servers
+            .filter(s => !s.hasAdminRights)
         const report = [
             '',
             '',
@@ -243,17 +245,17 @@ export class RootServers {
             `|| 🖥 Root Servers ||`,
             '=====================',
             '',
-            `${this.servers.length} servers found in the network:`,
-            ` -> ${this.servers.map(s => s.hostname).join(', ')}`,
+            `${unrootedServers.length} locked servers:`,
+            ` -> ${unrootedServers.map(s => s.hostname).join(', ')}`,
             '',
-            `${this.myServers.length} servers are mine:`,
-            ` -> ${this.myServers.map(s => s.hostname + ' = ' + s.ramUsed + '/' + s.maxRam + 'GB used').join(', ')}`,
+            `${this.myServers.length} owned servers:`,
+            ` -> ${this.myServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam)).join(', ')}`,
             '',
-            `${this.rootedServers.length} servers have root access:`,
-            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + s.ramUsed + 'GB/' + s.maxRam + 'GB ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
+            `${this.rootedServers.length} pwnt servers:`,
+            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam) + ' ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
             '',
             `Memory Usage`,
-            ` -> ${this.ns.nFormat(ram.used / ram.total, '0%')} - ${ram.used}GB/${ram.total}GB`,
+            ` -> ${this.ns.nFormat(ram.used / ram.total, '0%')} - ${this.formatRam(ram.used)}/${this.formatRam(ram.total)}`,
         ]
         if (this.rootableServers.length) {
             report.push('')
@@ -410,6 +412,16 @@ export class RootServers {
         while (terminalInput.disabled) {
             await this.ns.sleep(delay)
         }
+    }
+
+    /**
+     * Format RAM as string
+     *
+     * @param gb
+     * @returns {string}
+     */
+    formatRam(gb) {
+        return this.ns.nFormat(gb * 1024 * 1000 * 1000, '0.0b')
     }
 
     /**

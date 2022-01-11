@@ -348,6 +348,7 @@ export class AttackServers {
                     `${target.hostname} WEAKEN`,
                     `w=${w.threads}`,
                     `${this.formatDelays(attack.delay, attack.end)}`,
+                    `${this.formatRam(w.threads * w.ram)}`,
                     `existing: ${hostAttackString}`
                 ].join(' | ')
                 this.ns.tprint(log)
@@ -386,6 +387,7 @@ export class AttackServers {
                     `${target.hostname} GROW`,
                     `g=${g.threads}/w=${w.threads}`,
                     `${this.formatDelays(attack.delay, attack.end)}`,
+                    `${this.formatRam(g.threads * g.ram + w.threads * w.ram)}`,
                     `existing: ${hostAttackString}`
                 ].join(' | ')
                 this.ns.tprint(log)
@@ -464,6 +466,7 @@ export class AttackServers {
                     `${target.hostname} HACK`,
                     `h=${h.threads}/g=${g.threads}/w=${w.threads}`,
                     `${this.formatDelays(attack.delay, attack.end)}`,
+                    `${this.formatRam(h.threads * h.ram + g.threads * g.ram + w.threads * w.ram)}`,
                     `${this.ns.nFormat(attack.value, '$0.0a')}`,
                     `existing: ${hostAttackString}`
                 ].join(' | ')
@@ -645,6 +648,16 @@ export class AttackServers {
         }
         // get servers in order of hack value
         this.targetServers = this.targetServers.sort((a, b) => b.hackValue - a.hackValue)
+    }
+
+    /**
+     * Format RAM as string
+     *
+     * @param gb
+     * @returns {string}
+     */
+    formatRam(gb) {
+        return this.ns.nFormat(gb * 1024 * 1000 * 1000, '0.0b')
     }
 
     /**
