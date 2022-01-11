@@ -1,7 +1,7 @@
 import {Runner} from "./lib/Runner.js"
 import {UpgradeHacknet} from "./upgrade-hacknet.js"
 import {RootServers} from "./root-servers.js"
-import {AttackServer} from "./attack-server.js"
+import {AttackServers} from "./attack-servers.js"
 
 /**
  * Command options
@@ -32,14 +32,14 @@ export async function main(ns) {
     let player = await runner.nsProxy['getPlayer']();
     const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy because .hacknet is too much ram for a background script if we only have 8gb
     const rootServers = new RootServers(ns, runner.nsProxy)
-    const attackServer = new AttackServer(ns, runner.nsProxy)
+    const attackServers = new AttackServers(ns, runner.nsProxy)
     // print help
     if (args.help) {
         ns.tprint("\n\n\n" + [
             'Worker runs multiple jobs in a loop...',
             upgradeHacknet.getHelp(),
             rootServers.getHelp(),
-            attackServer.getHelp(),
+            attackServers.getHelp(),
         ].join("\n\n\n"))
         ns.exit()
     }
@@ -47,7 +47,7 @@ export async function main(ns) {
     do {
         await upgradeHacknet.doJob();
         await rootServers.doJob();
-        await attackServer.doJob();
+        await attackServers.doJob();
         await ns.sleep(10)
     } while (args['loop'])
     // spawn another task before we exit
