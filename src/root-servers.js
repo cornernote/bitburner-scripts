@@ -236,8 +236,10 @@ export class RootServers {
             total: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
             used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
         }
-        const unrootedServers = this.servers
+        let unrootedServers = this.servers
             .filter(s => !s.hasAdminRights)
+        unrootedServers = unrootedServers.sort((a, b) => a.requiredHackingSkill - b.requiredHackingSkill)
+
         const report = [
             '',
             '',
@@ -246,7 +248,7 @@ export class RootServers {
             '=====================',
             '',
             `${unrootedServers.length} locked servers:`,
-            ` -> ${unrootedServers.map(s => s.hostname).join(', ')}`,
+            ` -> ${unrootedServers.map(s => s.hostname + ' = ' + s.requiredHackingSkill).join(', ')}`,
             '',
             `${this.myServers.length} owned servers:`,
             ` -> ${this.myServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam)).join(', ')}`,
