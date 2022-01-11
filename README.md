@@ -24,3 +24,4 @@ stop # stops the worker
 - https://github.com/ChaelCodes/bitburner-scripts
 - https://github.com/edusig/bitburner
 - https://github.com/Naliwe/bitBurnerTsProject
+- https://playgame.tips/bitburner-unachievable-and-any-other-achievement-you-want
