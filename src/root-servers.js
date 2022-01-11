@@ -189,10 +189,12 @@ export class RootServers {
                 // copy hack scripts
                 await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
                 // run backdoor
+                server.route.shift() // remove home
                 for (const path of server.route) {
                     await this.terminalCommand(`connect ${path}`)
                 }
-                await this.terminalCommand('backdoor', server.requiredHackingSkill * 1000 + 10000) // run backdoor and wait
+                await this.terminalCommand('analyze', 5000)
+                await this.terminalCommand('backdoor', server.requiredHackingSkill * 250 + 10000) // run backdoor and wait
                 await this.terminalCommand('home')
                 // add to list
                 this.newlyRootedServers.push(server)

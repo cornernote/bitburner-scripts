@@ -237,8 +237,8 @@ export class AttackServer {
         const w = attack.hacks['weaken'], g = attack.hacks['grow'], h = attack.hacks['hack']
 
         // the server values will change between these times, avoid overlapping attacks
-        attack.start = new Date().getTime() + h.time
-        attack.end = new Date().getTime() + w.time + 5000
+        attack.start = new Date().getTime() // start is changed during hack below
+        attack.end = new Date().getTime() + w.time + 10000
 
         // check if there is an overlapping attack
         let hostAttacks = this.attacks
