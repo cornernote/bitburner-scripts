@@ -257,7 +257,7 @@ export class RootServers {
             ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam) + ' ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
             '',
             `Memory Usage`,
-            ` -> ${this.ns.nFormat(ram.used / ram.max, '0%')} - ${this.formatRam(ram.used)}/${this.formatRam(ram.total)}`,
+            ` -> ${this.ns.nFormat(ram.used / ram.max, '0%')} - ${this.formatRam(ram.used)}/${this.formatRam(ram.max)}`,
         ]
         if (this.rootableServers.length) {
             report.push('')
