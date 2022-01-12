@@ -370,6 +370,7 @@ export class AttackServers {
             used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
         }
         if (attack.ram > ram.max - ram.used) {
+            this.ns.tprint(`attack on ${target.hostname} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(ram.max - ram.used)} available`)
             attack.action = 'cancelled'
             return attack
         }
