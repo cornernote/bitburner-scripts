@@ -239,7 +239,7 @@ export class BuyCracks {
             },
         ]
         for (const crack of this.cracks) {
-            crack.owned = await this.nsProxy['fileExists'](exe, 'home')
+            crack.owned = await this.nsProxy['fileExists'](crack.exe, 'home')
         }
     }
 

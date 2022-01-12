@@ -423,7 +423,7 @@ export class RootServers {
      * @returns {string}
      */
     formatRam(gb) {
-        return this.ns.nFormat(gb * 1024 * 1000 * 1000, '0.0b')
+        return this.ns.nFormat(gb * 1000 * 1000 * 1000, '0.0b')
     }
 
     /**

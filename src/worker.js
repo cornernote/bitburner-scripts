@@ -1,4 +1,5 @@
 import {Runner} from "./lib/Runner.js"
+import {BuyCracks} from "./buy-cracks.js"
 import {UpgradeHacknet} from "./upgrade-hacknet.js"
 import {RootServers} from "./root-servers.js"
 import {AttackServers} from "./attack-servers.js"
@@ -30,6 +31,7 @@ export async function main(ns) {
     const runner = new Runner(ns)
     // load job modules
     let player = await runner.nsProxy['getPlayer']()
+    const buyCracks = new BuyCracks(ns, runner.nsProxy)
     const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy because .hacknet is too much ram for a background script if we only have 8gb
     const rootServers = new RootServers(ns, runner.nsProxy)
     const attackServers = new AttackServers(ns, runner.nsProxy)
@@ -37,6 +39,7 @@ export async function main(ns) {
     if (args.help) {
         ns.tprint("\n\n\n" + [
             'Worker runs multiple jobs in a loop...',
+            buyCracks.getHelp(),
             upgradeHacknet.getHelp(),
             rootServers.getHelp(),
             attackServers.getHelp(),
@@ -46,6 +49,7 @@ export async function main(ns) {
     // work, sleep, repeat
     do {
         localStorage.clear() // clear each loop so localstorage doesn't overflow
+        await buyCracks.doJob()
         await upgradeHacknet.doJob()
         await rootServers.doJob()
         await attackServers.doJob()
