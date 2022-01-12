@@ -51,10 +51,10 @@ export async function main(ns) {
     } while (args.loop)
     // spawn another task before we exit
     if (args['spawn']) {
-        const runAfter = args['spawn'].split(' ');
+        const runAfter = args['spawn'].split(' ')
         const script = runAfter.shift()
         ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
-        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run loaded, saves 2GB
+        ns.run(script, 1, ...runAfter) // use run instead of spawn, we already have run loaded, saves 2GB
     }
 }
 
@@ -171,7 +171,7 @@ export class UpgradeHacknet {
         let cost = 0
         let upgradedValue = 0
         let worstNodeProduction = Number.MAX_VALUE // Used to how productive a newly purchased node might be
-        let numNodes = await this.hacknetProxy['numNodes']();
+        let numNodes = await this.hacknetProxy['numNodes']()
         for (let i = 0; i < numNodes; i++) {
             let nodeStats = await this.hacknetProxy['getNodeStats'](i)
             if (formulas && this.haveHacknetServers) { // When a hacknet server runs scripts, nodeStats.production lags behind what it should be for current ram usage. Get the "raw" rate
@@ -224,7 +224,7 @@ export class UpgradeHacknet {
         }
 
         // is we don't have much money, limit payoff time
-        let nextPayoffTime = settings.hacknetMaxPayoffTime;
+        let nextPayoffTime = settings.hacknetMaxPayoffTime
         if (!nextPayoffTime) {
             if (this.player.money < 1000000) { // 1m
                 nextPayoffTime = 60 * 10 // 10m

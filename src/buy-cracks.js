@@ -132,7 +132,7 @@ export class BuyCracks {
         }
 
         // buy unowned cracks
-        const unownedCracks = this.cracks.filter(c => c.cost && !c.owned);
+        const unownedCracks = this.cracks.filter(c => c.cost && !c.owned)
         for (const crack of unownedCracks) {
             if (this.player.money > crack.cost) {
                 await this.terminalCommand('connect darkweb')

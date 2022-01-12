@@ -233,7 +233,7 @@ export class RootServers {
      */
     getReport() {
         const ram = {
-            total: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
+            max: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
             used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
         }
         let unrootedServers = this.servers
@@ -257,7 +257,7 @@ export class RootServers {
             ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam) + ' ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
             '',
             `Memory Usage`,
-            ` -> ${this.ns.nFormat(ram.used / ram.total, '0%')} - ${this.formatRam(ram.used)}/${this.formatRam(ram.total)}`,
+            ` -> ${this.ns.nFormat(ram.used / ram.max, '0%')} - ${this.formatRam(ram.used)}/${this.formatRam(ram.total)}`,
         ]
         if (this.rootableServers.length) {
             report.push('')

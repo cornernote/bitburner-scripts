@@ -49,10 +49,10 @@ export async function main(ns) {
     } while (args.loop)
     // spawn another task before we exit
     if (args['spawn']) {
-        const runAfter = args['spawn'].split(' ');
+        const runAfter = args['spawn'].split(' ')
         const script = runAfter.shift()
         ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
-        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run loaded, saves 2GB
+        ns.run(script, 1, ...runAfter) // use run instead of spawn, we already have run loaded, saves 2GB
     }
 }
 

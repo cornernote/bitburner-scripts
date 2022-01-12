@@ -6,7 +6,7 @@ export const settings = {
 
     // reserved memory on home
     // used to run the worker and background runners
-    reservedHomeRam: 1.6 + 10, // 1.6 for a background script, plus the max ram function used
+    reservedHomeRam: 1.6 + 4, // 1.6 for a background script, plus the max ram function used
 
     // the prefix given to purchased servers
     purchasedServerPrefix: 'homenet',
@@ -24,7 +24,7 @@ export const settings = {
     maxMoneyMultiplayer: 0.9,
 
     // how much to steal per hack
-    hackPercent: 0.8, //80%
+    hackPercent: 0.2, // 20% is good if you don't have enough ram, maybe automate this...
 
     // how often to run delay between scripts (in milliseconds)
     intervals: {
@@ -32,7 +32,7 @@ export const settings = {
         'host-manager': 60 * 1000, // 1mins
         'root-servers': 60 * 1000, // 1mins
         'buy-cracks': 60 * 1000, // 1mins
-        'attack-server': 1000, // 1sec
+        'attack-servers': 1000, // 1sec
     },
 
     // controls how far to upgrade hacknet servers

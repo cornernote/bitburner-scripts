@@ -29,7 +29,7 @@ export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
     // load job modules
-    let player = await runner.nsProxy['getPlayer']();
+    let player = await runner.nsProxy['getPlayer']()
     const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy because .hacknet is too much ram for a background script if we only have 8gb
     const rootServers = new RootServers(ns, runner.nsProxy)
     const attackServers = new AttackServers(ns, runner.nsProxy)
@@ -45,17 +45,18 @@ export async function main(ns) {
     }
     // work, sleep, repeat
     do {
-        await upgradeHacknet.doJob();
-        await rootServers.doJob();
-        await attackServers.doJob();
+        localStorage.clear() // clear each loop so localstorage doesn't overflow
+        await upgradeHacknet.doJob()
+        await rootServers.doJob()
+        await attackServers.doJob()
         await ns.sleep(10)
     } while (args['loop'])
     // spawn another task before we exit
     if (args['spawn']) {
-        const runAfter = args['spawn'].split(' ');
+        const runAfter = args['spawn'].split(' ')
         const script = runAfter.shift()
         ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
-        ns.run(script, 1, ...runAfter); // use run instead of spawn, we already have run() loaded, saves 2GB
+        ns.run(script, 1, ...runAfter) // use run instead of spawn, we already have run() loaded, saves 2GB
     }
 }
 
@@ -63,5 +64,8 @@ export async function main(ns) {
 function countedTowardsMemory(ns) {
     ns.run()
     ns.isRunning(0)
-    ns.getPlayer() // adds 0.5gb, which is enough to run .hacknet locally
+    // adds 0.5gb, which is enough to run .hacknet locally
+    ns.getPlayer()
+    // uncomment if you want to be legit about ram used, however it wont run background scripts if you have only 8gb
+    //ns.hacknet.numNodes()
 }

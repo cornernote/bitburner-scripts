@@ -88,9 +88,9 @@ async function repositoryListing(ns, folder = '') {
 
 function terminalCommand(message) {
     const docs = globalThis['document']
-    const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"));
-    terminalInput.value = message;
-    const handler = Object.keys(terminalInput)[1];
-    terminalInput[handler].onChange({target: terminalInput});
-    terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null});
+    const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"))
+    terminalInput.value = message
+    const handler = Object.keys(terminalInput)[1]
+    terminalInput[handler].onChange({target: terminalInput})
+    terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
 }
