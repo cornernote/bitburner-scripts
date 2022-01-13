@@ -184,7 +184,7 @@ export class BuyCracks {
             {
                 method: 'brutessh',
                 exe: 'BruteSSH.exe',
-                cost: 100000,
+                cost: 500000,
                 type: 'port',
             },
             {

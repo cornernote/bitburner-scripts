@@ -137,7 +137,6 @@ export class HostManager {
         // The name to give all purchased servers. Also used to determine which servers were purchased
         const purchasedServerName = settings.purchasedServerPrefix
         // Frequency of update
-        const interval = 10000
 
         let _ns = this.ns
         let keepRunning = false
@@ -219,10 +218,10 @@ export class HostManager {
             let budget = _ns.getServerMoneyAvailable("home")
 
             // Reserve at least enough money to buy the final hack tool, if we do not already have it (once we do, remember and stop checking)
-            if (!ns.fileExists("SQLInject.exe", "home")) {
-                prefix += '(reserving an extra 250M for SQLInject) '
-                budget = Math.max(0, budget - 250000000)
-            }
+            // if (!ns.fileExists("SQLInject.exe", "home")) {
+            //     prefix += '(reserving an extra 250M for SQLInject) '
+            //     budget = Math.max(0, budget - 250000000)
+            // }
             // Additional reservations
             if (budget === 0)
                 return setStatus(prefix + 'all cash is currently reserved.')
@@ -290,7 +289,7 @@ export class HostManager {
 
                 // It's only worth deleting our old server if the new server will be 16x bigger or more (or if it's the biggest we can buy)
                 if (exponentLevel === maxPurchasableServerRamExponent || worstServerRam * 16 <= maxRamPossibleToBuy) {
-                    ns.run("remove-worst-server.js")
+                    await that.removeWorstServer()
                     return setStatus(`hostmanager.js requested to delete server ${worstServerName} (${formatRam(worstServerRam)} RAM) ` +
                         `to make room for a new ${formatRam(maxRamPossibleToBuy)} Server.`)
                 } else {
@@ -320,9 +319,38 @@ export class HostManager {
         utilizationTarget = options['utilization-trigger']
         minRamExponent = options['min-ram-exponent']
 
+        let that = this
+
         await tryToBuyBestServerPossible()
 
 
+    }
+
+    async removeWorstServer() {
+        let worstServerName = null;
+        let worstServerRam = Math.pow(2, 20);
+        let purchasedServers = await this.nsProxy['getPurchasedServers']();
+        if (!purchasedServers.length) {
+            this.ns.print("Nothing to delete - you have purchased no servers.");
+            return;
+        }
+        for (const serverName of purchasedServers){
+            let ram = await this.nsProxy['getServerMaxRam'](serverName);
+            if (ram < worstServerRam) {
+                worstServerName = serverName;
+                worstServerRam = ram;
+            }
+        }
+        if (worstServerName == null) {
+            this.ns.print("Nothing to delete - all " + purchasedServers.length + " servers have the maximum " + worstServerRam + " GB of RAM");
+            return;
+        }
+        // Flag the server for deletion with a file - daemon should check for this and stop scheduling against it.
+        let success = await this.nsProxy['deleteServer'](worstServerName);
+        if (success)
+            this.ns.print("Deleted " + worstServerName + " which had only " + worstServerRam + " GB of RAM. " + (purchasedServers.length - 1) + " servers remain.");
+        else
+            this.ns.print("Tried to delete " + worstServerName + " with " + worstServerRam + " GB RAM, but it failed (scripts still running)");
     }
 
     /**

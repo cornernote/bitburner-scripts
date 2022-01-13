@@ -183,10 +183,7 @@ export class AttackServers {
 
         // clean ended attacks
         this.attacks = this.attacks
-            .filter(a => !a.start || a.start + a.end > new Date().getTime())
-
-        // max ram allowed for an attack (90% of total ram)
-        const maxAttackRam = this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next) * 0.9
+            .filter(a => !a.start || a.start + a.time > new Date().getTime())
 
         // get new attacks
         let attacks = []
@@ -195,21 +192,64 @@ export class AttackServers {
             if (!attack) {
                 continue
             }
-            if (attack.ram > maxAttackRam) {
-                this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}`)
-                continue
-            }
             attacks.push(attack)
         }
 
-        // assign attacks to a server
-        for (let attack of attacks) {
+        // sort hacks at the top, preps last
+        const prepAttacks = attacks.filter(a => a.action !== 'hack')
+        const hackAttacks = attacks.filter(a => a.action === 'hack')
+
+        let maxedHackAttacks = []
+
+        // assign hack attacks to a server
+        for (let attack of hackAttacks) {
+            // check for free ram
+            let freeRam = this.hackingServers
+                .map(s => (s.maxRam - s.ramUsed) >= 1.75 ? (s.maxRam - s.ramUsed) : 0)
+                .reduce((prev, next) => prev + next)
+            if (attack.ram > freeRam) {
+                //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
+                continue
+            }
+            // assign and launch
             attack = await this.assignAttack(attack)
             if (!attack) {
                 continue
             }
             attack = await this.launchAttack(attack)
+            // if we have at least an attack every 2 seconds
+            const hostAttacks = this.attacks
+                .filter(a => a.target === attack.target)
+            maxedHackAttacks.push({
+                target: attack.target,
+                maxed: hostAttacks.length > attack.time / 1000 / 2,
+            })
+            // add to the stack
             this.attacks.push(attack)
+        }
+
+        // if all hack attacks are maxed
+        if (!maxedHackAttacks.map(a => !a.maxed).length) {
+            this.ns.tprint(`no maxedHackAttacks`)
+            // assign prep attacks to a server
+            for (let attack of prepAttacks) {
+                // check for free ram
+                let freeRam = this.hackingServers
+                    .map(s => (s.maxRam - s.ramUsed) >= 1.75 ? (s.maxRam - s.ramUsed) : 0)
+                    .reduce((prev, next) => prev + next)
+                if (attack.ram > freeRam) {
+                    //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
+                    continue
+                }
+                // assign and launch
+                attack = await this.assignAttack(attack, true)
+                if (!attack) {
+                    continue
+                }
+                attack = await this.launchAttack(attack)
+                // add to the stack
+                this.attacks.push(attack)
+            }
         }
 
         // write the attacks to disk
@@ -220,7 +260,7 @@ export class AttackServers {
      * Launches an attack
      *
      * @param attack
-     * @returns {Promise<number>}
+     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, time: number, commands: *[], target: any, ram: number}>}
      */
     async launchAttack(attack) {
         for (const command of attack.commands) {
@@ -244,7 +284,7 @@ export class AttackServers {
         const log = this.formatTime() + ': ' + [
             `${attack.target} ${attack.action} `,
             `h=${h.threads}/g=${g.threads}/w=${w.threads}`,
-            `${this.formatDelay(attack.end)}`,
+            `${this.formatDelay(attack.time)}`,
             `${this.formatRam(attack.ram)}`,
             `${this.ns.nFormat(attack.value, '$0.0a')}`,
             `existing=${this.attacks.filter(a => a.target === attack.target).length}`
@@ -259,9 +299,10 @@ export class AttackServers {
      * Distribute the attack threads between our hacking servers
      *
      * @param attack
-     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, commands: *[], target: any, ram: number}>}
+     * @param allowRamOverflow
+     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, time: number, commands: *[], target: any, ram: number}>}
      */
-    async assignAttack(attack) {
+    async assignAttack(attack, allowRamOverflow = false) {
         const w = attack.hacks['weaken'], g = attack.hacks['grow'], h = attack.hacks['hack']
         h.threadsRemaining = h.threads
         g.threadsRemaining = g.threads
@@ -296,11 +337,9 @@ export class AttackServers {
             }
         }
         // check for overflow
-        if (h.threadsRemaining || g.threadsRemaining || w.threadsRemaining) {
-            this.ns.tprint(`WARNING! some threads do not fit in ram - h=${h.threadsRemaining}/g=${g.threadsRemaining}/w=${w.threadsRemaining}`)
-            if (!attack.commands.length) {
-                return false
-            }
+        if (!allowRamOverflow && (h.threadsRemaining || g.threadsRemaining || w.threadsRemaining)) {
+            //this.ns.tprint(`WARNING! some threads do not fit in ram - h=${h.threadsRemaining}/g=${g.threadsRemaining}/w=${w.threadsRemaining}`)
+            return false
         }
         return attack
     }
@@ -309,7 +348,7 @@ export class AttackServers {
      * Build the attack plan
      *
      * @param target
-     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, commands: *[], target: any, ram: number}>}
+     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, time: number, commands: *[], target: any, ram: number}>}
      */
     async buildAttack(target) {
 
@@ -320,7 +359,7 @@ export class AttackServers {
             value: 0,
             ram: 0,
             start: 0,
-            end: 0,
+            time: 0,
             action: 'hack',
             hacks: {},
             commands: [],
@@ -351,17 +390,9 @@ export class AttackServers {
         const w = attack.hacks['weaken'], g = attack.hacks['grow'], h = attack.hacks['hack']
 
         // the server values will change after hack, until weaken, ensure this time is minimised
-        h.delay = w.time - h.time - 40
-        g.delay = w.time - g.time - 20
-        attack.end = w.time + 20
-
-        // check for overlapping grow/weaken attacks
-        const currentPrepAttacks = this.attacks
-            .filter(a => a.target === target.hostname)
-            .filter(a => a.action !== 'hack')
-        if (currentPrepAttacks.length) {
-            return false
-        }
+        h.delay = w.time - h.time - 20
+        g.delay = w.time - g.time - 10
+        attack.time = w.time + 10
 
         // decide which action to perform
         // - if security is not min then action=weaken
@@ -373,6 +404,19 @@ export class AttackServers {
         } else if (target.moneyAvailable < target.moneyMax * settings.maxMoneyMultiplayer) {
             // money is too low, need to grow
             attack.action = 'grow'
+        }
+
+        // check for overlapping grow/weaken attacks
+        const hostAttacks = this.attacks
+            .filter(a => a.target === target.hostname)
+        const currentPrepAttacks = hostAttacks
+            .filter(a => a.action !== 'hack')
+        if (currentPrepAttacks.length) {
+            return false
+        }
+        if (attack.action !== 'hack' && hostAttacks.length) {
+            // hacks are happening, however we detected we need to prep... wait for hacks to complete
+            return false
         }
 
         // calculate the thread counts
@@ -534,10 +578,10 @@ export class AttackServers {
             .filter(s => s.moneyMax > 0)
         // get some more info about the servers
         for (const server of this.targetServers) {
-            const skillMult = (1.75 * this.player.hacking) + (0.2 * this.player.intelligence);
+            const skillMult = (1.75 * this.player.hacking) + (0.2 * this.player.intelligence)
             const skillChance = 1 - (server.requiredHackingSkill / skillMult)
-            const difficultyMult = (100 - server.minDifficulty) / 100;
-            server.successChance = skillChance * difficultyMult * this.player.hacking_chance_mult;
+            const difficultyMult = (100 - server.minDifficulty) / 100
+            server.successChance = skillChance * difficultyMult * this.player.hacking_chance_mult
             server.hackValue = server.moneyMax * server.successChance * settings.hackPercent
         }
         // get servers in order of hack value
