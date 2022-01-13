@@ -12,11 +12,11 @@ export async function main(ns) {
         await ns.sleep(delay)
     }
     const amount = await ns.weaken(target);
-    if (amount) {
-        if (toast) {
+    if (toast) {
+        if (amount) {
             ns.toast(`WEAKEN ${target} reduced ${ns.nFormat(amount, '0.0a')} security! ${JSON.stringify(ns.args)}`, 'success')
+        } else {
+            ns.toast(`WEAKEN ${target} reduced 0 security. ${JSON.stringify(ns.args)}`, 'warning')
         }
-    } else {
-        ns.toast(`WEAKEN ${target} reduced 0 security. Might be a misfire. ${JSON.stringify(ns.args)}`, 'warning')
     }
 }
