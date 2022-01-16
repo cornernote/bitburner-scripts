@@ -46,6 +46,10 @@ export async function main(ns) {
         }
     }
 
+    // remove data
+    ns.rm('/data/stats.json.txt')
+    ns.rm('/data/attacks.json.txt')
+
     // wait to kill these. This kills itself, obviously.
     ns.killall(startingNode)
 }
