@@ -123,10 +123,10 @@ export class HackingStats {
      */
     async hackingStats() {
         await this.loadPlayer()
-        const stats = this.nsProxy['fileExists']('/data/stats.json.txt')
+        const stats = await this.nsProxy['fileExists']('/data/stats.json.txt')
             ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
             : {}
-        const attacks = this.nsProxy['fileExists']('/data/attacks.json.txt')
+        const attacks = await this.nsProxy['fileExists']('/data/attacks.json.txt')
             ? JSON.parse(await this.ns.read('/data/attacks.json.txt'))
             : []
 

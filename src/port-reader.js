@@ -113,7 +113,7 @@ export class PortReader {
      * @returns {Promise<void>}
      */
     async portReader() {
-        const stats = this.nsProxy['fileExists']('/data/stats.json.txt')
+        const stats = await this.nsProxy['fileExists']('/data/stats.json.txt')
             ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
             : {}
         while (this.ns.peek(1) !== 'NULL PORT DATA') {

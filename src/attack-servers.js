@@ -184,7 +184,7 @@ export class AttackServers {
         // this.ns.tprint('----------')
 
         // load attacks from disk
-        this.attacks = this.nsProxy['fileExists']('/data/attacks.json.txt')
+        this.attacks = await this.nsProxy['fileExists']('/data/attacks.json.txt')
             ? JSON.parse(await this.ns.read('/data/attacks.json.txt'))
             : []
 
@@ -453,7 +453,7 @@ export class AttackServers {
 
         // check for low percent of success, and kill the attack
         if (attack.action === 'force') {
-            const stats = this.nsProxy['fileExists']('/data/stats.json.txt')
+            const stats = await this.nsProxy['fileExists']('/data/stats.json.txt')
                 ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
                 : {}
             const stat = stats[attack.target]

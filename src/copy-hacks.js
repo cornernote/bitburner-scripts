@@ -141,16 +141,13 @@ export class CopyHacks {
      */
     async copyHacks() {
         // refresh data
-        await this.loadPlayer()
         await this.loadServers()
-
         // get servers used for hacking
         const hackingServers = this.servers
-            // exclude hacknet-
-            .filter(s => !s.hostname.includes('hacknet-'))
+            // exclude hacknet
+            .filter(s => !s.hostname.includes('hacknet'))
             // include servers with root access
             .filter(s => s.hasAdminRights)
-
         // copy hack scripts (needed for purchased servers, ideally do this somewhere else, maybe RootServers?)
         for (const server of hackingServers) {
             await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
