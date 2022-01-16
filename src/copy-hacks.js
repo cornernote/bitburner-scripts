@@ -31,16 +31,16 @@ export async function main(ns) {
         nsProxy = ns
     }
     // load job module
-    const rootServers = new RootServers(ns, nsProxy)
+    const copyHacks = new CopyHacks(ns, nsProxy)
     // print help
     if (args.help) {
-        ns.tprint(rootServers.getHelp())
+        ns.tprint(copyHacks.getHelp())
         ns.exit()
     }
     // get ready
     do {
         // work, sleep, repeat
-        await rootServers.doJob()
+        await copyHacks.doJob()
         await ns.sleep(10)
     } while (args.loop)
 }
@@ -64,11 +64,11 @@ function countedTowardsMemory(ns) {
 }
 
 /**
- * RootServers
+ * CopyHacks
  *
- * Gains root access on any available servers.
+ * Copies hack script to all hacking servers.
  */
-export class RootServers {
+export class CopyHacks {
 
     /**
      * The BitBurner instance
@@ -99,12 +99,6 @@ export class RootServers {
      * @type {Server[]}
      */
     servers
-
-    /**
-     * List of port cracks that are used to root servers
-     * @type {Array}
-     */
-    cracks
 
     /**
      * List of hacks that are used to attack servers
@@ -147,47 +141,34 @@ export class RootServers {
             return
         }
         // run
-        this.ns.tprint('RootServers...')
-        await this.rootServers()
+        this.ns.tprint('CopyHacks...')
+        await this.copyHacks()
         // set the last run time
         this.lastRun = new Date().getTime()
     }
 
 
     /**
-     * Gain root access on any available servers.
+     * Copies hack script to all hacking servers.
      *
      * @returns {Promise<void>}
      */
-    async rootServers() {
+    async copyHacks() {
         // refresh data
         await this.loadPlayer()
-        await this.loadCracks()
         await this.loadServers()
 
-        // get the cracks we own
-        const ownedCracks = this.cracks
-            .filter(a => a.owned)
+        // get servers used for hacking
+        const hackingServers = this.servers
+            // exclude hacknet-
+            .filter(s => !s.hostname.includes('hacknet-'))
+            // include servers with root access
+            .filter(s => s.hasAdminRights)
 
-        // get servers we can root
-        const rootableServers = this.servers
-            // exclude servers with root access
-            .filter(s => !s.hasAdminRights)
-            // include servers within hacking level and where we own enough port cracks
-            .filter(s => s.requiredHackingSkill <= this.player.hacking && s.numOpenPortsRequired <= ownedCracks.length)
-
-        // run owned port hacks on rootable servers
-        for (const server of rootableServers) {
-            // run port cracks
-            for (const crack of ownedCracks) {
-                await this.nsProxy[crack.method](server.hostname)
-            }
-            // run nuke
-            await this.nsProxy['nuke'](server.hostname)
-            // copy hack scripts
+        // copy hack scripts (needed for purchased servers, ideally do this somewhere else, maybe RootServers?)
+        for (const server of hackingServers) {
             await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
         }
-
     }
 
     /**
@@ -197,30 +178,6 @@ export class RootServers {
      */
     async loadPlayer() {
         this.player = await this.nsProxy['getPlayer']()
-    }
-
-    /**
-     * Loads a list of port cracks.
-     *
-     * @returns {Promise<*[]>}
-     */
-    async loadCracks() {
-        this.cracks = []
-        const cracks = {
-            brutessh: 'BruteSSH.exe',
-            ftpcrack: 'FTPCrack.exe',
-            relaysmtp: 'relaySMTP.exe',
-            httpworm: 'HTTPWorm.exe',
-            sqlinject: 'SQLInject.exe',
-            // nuke: 'NUKE.exe', // not a port hack
-        }
-        for (const [method, exe] of Object.entries(cracks)) {
-            this.cracks.push({
-                method: method,
-                exe: exe,
-                owned: await this.nsProxy['fileExists'](exe, 'home'),
-            })
-        }
     }
 
     /**
@@ -248,29 +205,7 @@ export class RootServers {
             // add this server to the list
             this.servers.push(server)
         }
-    }
 
-
-    /**
-     * Hacky way to run a terminal command
-     *
-     * @param message
-     * @param delay
-     * @returns {Promise<void>}
-     */
-    async terminalCommand(message, delay = 100) {
-        const docs = globalThis['document']
-        const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"))
-        while (!terminalInput) {
-            await this.ns.sleep(delay)
-        }
-        terminalInput.value = message
-        const handler = Object.keys(terminalInput)[1]
-        terminalInput[handler].onChange({target: terminalInput})
-        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-        while (terminalInput.disabled) {
-            await this.ns.sleep(delay)
-        }
     }
 
     /**
@@ -281,15 +216,16 @@ export class RootServers {
      * @returns {string}
      */
     getHelp() {
+        const script = this.ns.getScriptName()
         return [
             '',
             '',
-            'Gains root access on any available servers.',
+            'Copies hack script to all hacking servers.',
             '',
-            `USAGE: run ${this.ns.getScriptName()}`,
+            `USAGE: run ${script}`,
             '',
             'Example:',
-            `> run ${this.ns.getScriptName()}`,
+            `> run ${script}`,
             '',
             '',
         ].join("\n")

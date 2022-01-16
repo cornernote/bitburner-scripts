@@ -3,6 +3,7 @@ import {BuyCracks} from "./buy-cracks.js"
 import {UpgradeHacknet} from "./upgrade-hacknet.js"
 import {RootServers} from "./root-servers.js"
 import {AttackServers} from "./attack-servers.js"
+import {HostManager} from "./host-manager";
 
 /**
  * Command options
@@ -34,6 +35,7 @@ export async function main(ns) {
     const buyCracks = new BuyCracks(ns, runner.nsProxy)
     const upgradeHacknet = new UpgradeHacknet(ns, ns, ns['hacknet']) // no proxy because .hacknet is too much ram for a background script if we only have 8gb
     const rootServers = new RootServers(ns, runner.nsProxy)
+    const hostManager = new HostManager(ns, runner.nsProxy)
     const attackServers = new AttackServers(ns, runner.nsProxy)
     // print help
     if (args.help) {
@@ -42,6 +44,7 @@ export async function main(ns) {
             buyCracks.getHelp(),
             upgradeHacknet.getHelp(),
             rootServers.getHelp(),
+            hostManager.getHelp(),
             attackServers.getHelp(),
         ].join("\n\n\n"))
         ns.exit()
@@ -52,6 +55,7 @@ export async function main(ns) {
         await buyCracks.doJob()
         await upgradeHacknet.doJob()
         await rootServers.doJob()
+        await hostManager.doJob()
         await attackServers.doJob()
         await ns.sleep(10)
     } while (args['loop'])

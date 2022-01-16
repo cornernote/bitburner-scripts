@@ -112,8 +112,6 @@ export class BuyCracks {
         await this.buyCracks()
         // set the last run time
         this.lastRun = new Date().getTime()
-        // display the report
-        this.ns.tprint(this.getBuyCracksReport())
     }
 
 
@@ -127,37 +125,39 @@ export class BuyCracks {
         await this.loadPlayer()
         await this.loadCracks()
 
+        // recommend the player buy the tor router
         if (!this.player.tor && this.player.money > 200000) {
-            // recommend the player buy the tor router (see report)
+            this.ns.tprint("\n\n\n" + [
+                '============================',
+                `|| 🖥 Tor Router Required ||`,
+                '============================',
+                '',
+                `You should buy the TOR Router at City > alpha ent.`
+            ].join("\n") + "\n\n\n")
         }
 
         // buy unowned cracks
-        const unownedCracks = this.cracks.filter(c => c.cost && !c.owned)
-        for (const crack of unownedCracks) {
-            if (this.player.money > crack.cost) {
-                await this.terminalCommand('connect darkweb')
-                await this.terminalCommand(`buy ${crack.exe}`)
-                await this.terminalCommand('home')
+        if (this.player.tor) {
+            const unownedCracks = this.cracks.filter(c => c.cost && !c.owned)
+            for (const crack of unownedCracks) {
+                if (this.player.money > crack.cost) {
+                    this.ns.tprint("\n\n\n" + [
+                        '=====================',
+                        `|| 🖥 Buying Crack ||`,
+                        '=====================',
+                        '',
+                        `About to purchase ${crack.exe}...`
+                    ].join("\n") + "\n\n\n")
+                    await this.terminalCommand('connect darkweb')
+                    await this.terminalCommand(`buy ${crack.exe}`)
+                    await this.terminalCommand('home')
+                    await this.loadPlayer()
+                }
             }
         }
 
     }
 
-    /**
-     * Report for the attack.
-     *
-     * @returns {string}
-     */
-    getBuyCracksReport() {
-        const report = [
-            '===============',
-            `|| 🖥 Cracks ||`,
-            '===============',
-            '',
-            '... insert useful info here ...',
-        ]
-        return "\n\n\n" + report.join("\n") + "\n\n\n"
-    }
 
     /**
      * Loads the player information.

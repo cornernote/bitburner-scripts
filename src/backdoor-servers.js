@@ -31,16 +31,16 @@ export async function main(ns) {
         nsProxy = ns
     }
     // load job module
-    const rootServers = new RootServers(ns, nsProxy)
+    const backdoorServers = new BackdoorServers(ns, nsProxy)
     // print help
     if (args.help) {
-        ns.tprint(rootServers.getHelp())
+        ns.tprint(backdoorServers.getHelp())
         ns.exit()
     }
     // get ready
     do {
         // work, sleep, repeat
-        await rootServers.doJob()
+        await backdoorServers.doJob()
         await ns.sleep(10)
     } while (args.loop)
 }
@@ -50,25 +50,17 @@ function countedTowardsMemory(ns) {
     ns.run()
     ns.isRunning(0)
     // comment below here if using nsProxy
-    ns.brutessh()
-    ns.ftpcrack()
-    ns.relaysmtp()
-    ns.httpworm()
-    ns.sqlinject()
-    ns.nuke()
-    ns.scp()
     ns.getPlayer()
-    ns.fileExists()
     ns.scan()
     ns.getServer()
 }
 
 /**
- * RootServers
+ * BackdoorServers
  *
- * Gains root access on any available servers.
+ * Installs backdoor on any available servers.
  */
-export class RootServers {
+export class BackdoorServers {
 
     /**
      * The BitBurner instance
@@ -101,28 +93,6 @@ export class RootServers {
     servers
 
     /**
-     * List of port cracks that are used to root servers
-     * @type {Array}
-     */
-    cracks
-
-    /**
-     * List of hacks that are used to attack servers
-     * @type {Object}
-     */
-    hacks = {
-        weaken: {
-            script: '/hacks/weaken.js',
-        },
-        grow: {
-            script: '/hacks/grow.js',
-        },
-        hack: {
-            script: '/hacks/hack.js',
-        },
-    }
-
-    /**
      * Construct the class
      *
      * @param {NS} ns - the NS instance passed into the scripts main() entry method
@@ -143,51 +113,43 @@ export class RootServers {
      */
     async doJob() {
         // check if we need to run
-        if (this.lastRun + settings.intervals['root-servers'] > new Date().getTime()) {
+        if (this.lastRun + settings.intervals['backdoor-servers'] > new Date().getTime()) {
             return
         }
         // run
-        this.ns.tprint('RootServers...')
-        await this.rootServers()
+        this.ns.tprint('BackdoorServers...')
+        await this.backdoorServers()
         // set the last run time
         this.lastRun = new Date().getTime()
     }
 
 
     /**
-     * Gain root access on any available servers.
+     * Installs backdoor on any available servers.
      *
      * @returns {Promise<void>}
      */
-    async rootServers() {
+    async backdoorServers() {
         // refresh data
         await this.loadPlayer()
-        await this.loadCracks()
         await this.loadServers()
-
-        // get the cracks we own
-        const ownedCracks = this.cracks
-            .filter(a => a.owned)
-
-        // get servers we can root
-        const rootableServers = this.servers
-            // exclude servers with root access
-            .filter(s => !s.hasAdminRights)
-            // include servers within hacking level and where we own enough port cracks
-            .filter(s => s.requiredHackingSkill <= this.player.hacking && s.numOpenPortsRequired <= ownedCracks.length)
-
-        // run owned port hacks on rootable servers
-        for (const server of rootableServers) {
-            // run port cracks
-            for (const crack of ownedCracks) {
-                await this.nsProxy[crack.method](server.hostname)
+        // get backdoorable servers
+        const backdoorableServers = this.servers
+            // include servers with root access and no backdoor
+            .filter(s => s.hasAdminRights && !s.backdoorInstalled)
+            // exclude owned servers
+            .filter(s => !s.hostname.includes('home') && !s.hostname.includes('hacknet') && !s.hostname.includes(settings.purchasedServerPrefix))
+        // run backdoor on backdoorable servers
+        for (const server of backdoorableServers) {
+            // run backdoor
+            server.route.shift() // remove home
+            for (const path of server.route) {
+                await this.terminalCommand(`connect ${path}`)
             }
-            // run nuke
-            await this.nsProxy['nuke'](server.hostname)
-            // copy hack scripts
-            await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
+            await this.terminalCommand('analyze')
+            await this.terminalCommand('backdoor')
+            await this.terminalCommand('home')
         }
-
     }
 
     /**
@@ -200,30 +162,6 @@ export class RootServers {
     }
 
     /**
-     * Loads a list of port cracks.
-     *
-     * @returns {Promise<*[]>}
-     */
-    async loadCracks() {
-        this.cracks = []
-        const cracks = {
-            brutessh: 'BruteSSH.exe',
-            ftpcrack: 'FTPCrack.exe',
-            relaysmtp: 'relaySMTP.exe',
-            httpworm: 'HTTPWorm.exe',
-            sqlinject: 'SQLInject.exe',
-            // nuke: 'NUKE.exe', // not a port hack
-        }
-        for (const [method, exe] of Object.entries(cracks)) {
-            this.cracks.push({
-                method: method,
-                exe: exe,
-                owned: await this.nsProxy['fileExists'](exe, 'home'),
-            })
-        }
-    }
-
-    /**
      * Loads a list of servers in the network.
      *
      * @returns {Promise<*[]>}
@@ -232,6 +170,7 @@ export class RootServers {
         // get servers in network
         this.servers = []
         const spider = ['home']
+        const routes = {home: ["home"]}
         // run until the spider array is empty
         for (let i = 0; i < spider.length; i++) {
             const hostname = spider[i]
@@ -241,10 +180,14 @@ export class RootServers {
                 if (this.servers.filter(s => s.hostname === scannedHostName).length === 0) {
                     // add them to the spider list
                     spider.push(scannedHostName)
+                    // record the route
+                    routes[scannedHostName] = routes[hostname].slice()
+                    routes[scannedHostName].push(scannedHostName)
                 }
             }
             // get the server info
             const server = await this.nsProxy['getServer'](hostname)
+            server.route = routes[hostname]
             // add this server to the list
             this.servers.push(server)
         }
@@ -274,6 +217,16 @@ export class RootServers {
     }
 
     /**
+     * Format RAM as string
+     *
+     * @param gb
+     * @returns {string}
+     */
+    formatRam(gb) {
+        return this.ns.nFormat(gb * 1000 * 1000 * 1000, '0.0b')
+    }
+
+    /**
      * Help text
      *
      * Player boss is stuck, let's get them some help.
@@ -284,7 +237,7 @@ export class RootServers {
         return [
             '',
             '',
-            'Gains root access on any available servers.',
+            'Installs backdoor on any available servers.',
             '',
             `USAGE: run ${this.ns.getScriptName()}`,
             '',

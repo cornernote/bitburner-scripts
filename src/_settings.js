@@ -24,13 +24,14 @@ export const settings = {
     maxMoneyMultiplayer: 0.9,
 
     // how much to steal per hack
-    hackPercent: 0.2,
+    hackPercent: 0.5,
 
     // how often to run delay between scripts (in milliseconds)
     intervals: {
         'upgrade-hacknet': 1000, // 1s
         'host-manager': 60 * 1000, // 1mins
         'root-servers': 60 * 1000, // 1mins
+        'backdoor-servers': 60 * 1000, // 1mins
         'buy-cracks': 60 * 1000, // 1mins
         'attack-servers': 1000, // 1sec
     },

@@ -6,7 +6,7 @@ import {settings} from "./_settings.js"
  */
 const argsSchema = [
     ['loop', false],
-    ['proxy', true], // run the NS methods through the proxy
+    ['proxy', false], // run the NS methods through the proxy
     ['spawn', ''], // name of a script to spawn after this
     ['help', false],
 ]
@@ -56,6 +56,26 @@ export async function main(ns) {
     }
 }
 
+// fake method to count towards memory usage, used by nsProxy
+function countedTowardsMemory(ns) {
+    ns.run()
+    ns.isRunning(0)
+    // comment below here if using nsProxy
+    // ns.getPlayer()
+    // ns.scan()
+    ns.scp()
+    ns.getServer()
+
+    ns.getServerMoneyAvailable()
+    ns.getPurchasedServers()
+    ns.deleteServer()
+    ns.purchaseServer()
+    ns.getPurchasedServerCost()
+    ns.getServerMaxRam()
+    ns.getServerUsedRam()
+    ns.hasRootAccess()
+}
+
 /**
  * HostManager
  *
@@ -80,6 +100,22 @@ export class HostManager {
      * @type {Number}
      */
     lastRun
+
+    /**
+     * List of hacks that are used to attack servers
+     * @type {Object}
+     */
+    hacks = {
+        weaken: {
+            script: '/hacks/weaken.js',
+        },
+        grow: {
+            script: '/hacks/grow.js',
+        },
+        hack: {
+            script: '/hacks/hack.js',
+        },
+    }
 
     /**
      * Construct the class
@@ -183,15 +219,15 @@ export class HostManager {
                     continue
                 ns.scan(hostName).forEach(connectedHost => hostsToScan.push(connectedHost))
 
-                let serverMaxRam = ns.getServerMaxRam(hostName)
+                let serverMaxRam = await that.nsProxy['getServerMaxRam'](hostName)
                 // Don't count unrooted or useless servers
-                if (ns.getServerMaxRam(hostName) <= 0 || ns.hasRootAccess(hostName) === false) {
+                if (await that.nsProxy['getServerMaxRam'](hostName) <= 0 || await that.nsProxy['hasRootAccess'](hostName) === false) {
                     ignoredServers.push(hostName)
                     continue
                 }
                 rootedServers.push(hostName)
                 totalMaxRam += serverMaxRam
-                utilizationTotal += ns.getServerUsedRam(hostName)
+                utilizationTotal += await that.nsProxy['getServerUsedRam'](hostName)
             }
             if (infLoopProtection <= 0)
                 return announce('host-manager.js Infinite Loop Detected!', 'error')
@@ -215,7 +251,7 @@ export class HostManager {
             // Check for other reasons not to go ahead with the purchase
             let prefix = 'Host-manager wants to buy another server, but '
 
-            let budget = _ns.getServerMoneyAvailable("home")
+            let budget = await that.nsProxy['getServerMoneyAvailable']('home')
 
             // Reserve at least enough money to buy the final hack tool, if we do not already have it (once we do, remember and stop checking)
             // if (!ns.fileExists("SQLInject.exe", "home")) {
@@ -229,26 +265,26 @@ export class HostManager {
             // Determine the most ram we can buy with this money
             let exponentLevel = 1
             for (; exponentLevel < maxPurchasableServerRamExponent; exponentLevel++)
-                if (ns.getPurchasedServerCost(Math.pow(2, exponentLevel + 1)) > budget)
+                if (await that.nsProxy['getPurchasedServerCost'](Math.pow(2, exponentLevel + 1)) > budget)
                     break
 
             let maxRamPossibleToBuy = Math.pow(2, exponentLevel)
 
             // Abort if it would put us below our reserve (shouldn't happen, since we calculated how much to buy based on reserve amount)
-            let cost = ns.getPurchasedServerCost(maxRamPossibleToBuy)
+            let cost = await that.nsProxy['getPurchasedServerCost'](maxRamPossibleToBuy)
             if (budget < cost)
                 return setStatus(prefix + 'budget (' + formatMoney(budget) + ') is less than the cost (' + formatMoney(cost) + ')')
 
             if (exponentLevel < minRamExponent)
                 return setStatus(`${prefix}The highest ram exponent we can afford (2^${exponentLevel} for ${formatMoney(cost)}) on our budget of ${formatMoney(budget)} ` +
-                    `is less than the minimum ram exponent (2^${minRamExponent} for ${formatMoney(ns.getPurchasedServerCost(Math.pow(2, minRamExponent)))})'`)
+                    `is less than the minimum ram exponent (2^${minRamExponent} for ${formatMoney(await that.nsProxy['getPurchasedServerCost'](Math.pow(2, minRamExponent)))})'`)
 
             // Under some conditions, we consider the new server "not worthwhile". but only if it isn't the biggest possible server we can buy
             if (exponentLevel < maxPurchasableServerRamExponent) {
                 // Abort if our home server is more than 2x bettter (rough guage of how much we 'need' Daemon RAM at the current stage of the game?)
                 // Unless we're looking at buying the maximum purchasable server size - in which case we can do no better
-                if (maxRamPossibleToBuy < ns.getServerMaxRam("home") / 4)
-                    return setStatus(prefix + 'the most RAM we can buy (' + formatRam(maxRamPossibleToBuy) + ') is way less than (<0.25*) home RAM ' + formatRam(ns.getServerMaxRam("home")))
+                if (maxRamPossibleToBuy < await that.nsProxy['getServerMaxRam']("home") / 4)
+                    return setStatus(prefix + 'the most RAM we can buy (' + formatRam(maxRamPossibleToBuy) + ') is way less than (<0.25*) home RAM ' + formatRam(await that.nsProxy['getServerMaxRam']("home")))
                 // Abort if purchasing this server wouldn't improve our total RAM by more than 10% (ensures we buy in meaningful increments)
                 if (maxRamPossibleToBuy / totalMaxRam < 0.1)
                     return setStatus(prefix + 'the most RAM we can buy (' + formatRam(maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(totalMaxRam) + ')')
@@ -260,7 +296,7 @@ export class HostManager {
             let bestServerName = null
             let bestServerRam = 0
             for (const server of purchasedServers) {
-                let ram = ns.getServerMaxRam(server)
+                let ram = await that.nsProxy['getServerMaxRam'](server)
                 if (ram < worstServerRam) {
                     worstServerName = server
                     worstServerRam = ram
@@ -298,7 +334,10 @@ export class HostManager {
                 }
             }
 
-            let purchasedServer = ns.purchaseServer(purchasedServerName, maxRamPossibleToBuy)
+            let purchasedServer = await that.nsProxy['purchaseServer'](purchasedServerName, maxRamPossibleToBuy)
+            if (purchasedServer) {
+                await that.nsProxy['scp'](Object.values(that.hacks).map(h => h.script), purchasedServer)
+            }
             if (!purchasedServer)
                 setStatus(prefix + `Could not purchase a server with ${formatRam(maxRamPossibleToBuy)} RAM for ${formatMoney(cost)} ` +
                     `with a budget of ${formatMoney(budget)}. This is either a bug, or we in a SF.9`)
@@ -334,7 +373,7 @@ export class HostManager {
             this.ns.print("Nothing to delete - you have purchased no servers.");
             return;
         }
-        for (const serverName of purchasedServers){
+        for (const serverName of purchasedServers) {
             let ram = await this.nsProxy['getServerMaxRam'](serverName);
             if (ram < worstServerRam) {
                 worstServerName = serverName;
