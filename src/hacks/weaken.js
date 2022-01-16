@@ -12,7 +12,11 @@ export async function main(ns) {
     if (delay > 0) {
         await ns.sleep(delay)
     }
+    // weaken()
     const amount = await ns.weaken(target);
+    // write data to a port for stats collection
+    await ns.writePort(1, JSON.stringify({target: target, action: 'weaken', amount: amount}))
+    // tprint the message
     if (tprint) {
         if (amount) {
             ns.tprint(`WEAKEN ${target} reduced ${ns.nFormat(amount, '0.0a')} security! ${JSON.stringify(ns.args)}`)
@@ -20,6 +24,7 @@ export async function main(ns) {
             ns.tprint(`WEAKEN ${target} reduced 0 security. ${JSON.stringify(ns.args)}`)
         }
     }
+    // toast the message
     if (toast) {
         if (amount) {
             ns.toast(`WEAKEN ${target} reduced ${ns.nFormat(amount, '0.0a')} security! ${JSON.stringify(ns.args)}`, 'success')

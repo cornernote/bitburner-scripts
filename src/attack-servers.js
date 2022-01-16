@@ -168,8 +168,6 @@ export class AttackServers {
         await this.attackServers()
         // set the last run time
         this.lastRun = new Date().getTime()
-        // display the report
-        //this.ns.tprint(this.getReport())
     }
 
     /**
@@ -181,7 +179,12 @@ export class AttackServers {
         await this.loadPlayer()
         await this.loadServers()
 
-        this.ns.tprint('----------')
+        // this.ns.tprint('----------')
+
+        // load attacks from disk
+        this.attacks = this.nsProxy['fileExists']('/data/attacks.json.txt')
+            ? JSON.parse(await this.ns.read('/data/attacks.json.txt'))
+            : []
 
         // clean ended attacks
         this.attacks = this.attacks
@@ -198,7 +201,7 @@ export class AttackServers {
         }
 
         // sort hacks at the top, preps last
-        const hackAttacks = attacks.filter(a => a.action === 'hack' || a.action === 'force').splice(0, 20)
+        const hackAttacks = attacks.filter(a => a.action === 'hack' || a.action === 'force').splice(0, 10)
         const prepAttacks = attacks.filter(a => a.action !== 'hack' && a.action !== 'force')
 
         // assign hack attacks to a server
@@ -247,7 +250,7 @@ export class AttackServers {
         // }
 
         // write the attacks to disk
-        //await this.ns.write('/logs/attack-servers.json.txt', JSON.stringify(this.attacks), 'a')
+        await this.ns.write('/data/attacks.json.txt', JSON.stringify(this.attacks), 'w')
     }
 
     /**
@@ -273,24 +276,24 @@ export class AttackServers {
         }
         attack.start = new Date().getTime()
 
-        // log the calculations
-        let hostAttacks = this.attacks.filter(a => a.target === attack.target)
-        const hacks = attack.hacks,
-            h = hacks['hack'],
-            hw = hacks['hackWeaken'],
-            g = hacks['grow'],
-            gw = hacks['growWeaken'],
-            w = hacks['weaken']
-        const log = this.formatTime() + ': ' + [
-            `${attack.target} ${attack.action} `,
-            `h=${h.threads}+${hw.threads}/g=${g.threads}+${gw.threads}/w=${w.threads}`,
-            `${this.formatDelay(attack.time)}`,
-            `${this.formatRam(attack.ram)}`,
-            `${this.ns.nFormat(attack.value, '$0.0a')}`,
-            `(${hostAttacks.length})`
-        ].join(' | ')
-        this.ns.tprint(log)
-        //await this.ns.write('/logs/attack-servers.log.txt', log + "\n", 'a')
+        // // log the calculations
+        // let hostAttacks = this.attacks.filter(a => a.target === attack.target)
+        // const hacks = attack.hacks,
+        //     h = hacks['hack'],
+        //     hw = hacks['hackWeaken'],
+        //     g = hacks['grow'],
+        //     gw = hacks['growWeaken'],
+        //     w = hacks['weaken']
+        // const log = this.formatTime() + ': ' + [
+        //     `${attack.target} ${attack.action} `,
+        //     `h=${h.threads}+${hw.threads}/g=${g.threads}+${gw.threads}/w=${w.threads}`,
+        //     `${this.formatDelay(attack.time)}`,
+        //     `${this.formatRam(attack.ram)}`,
+        //     `${this.ns.nFormat(attack.value, '$0.0a')}`,
+        //     `(${hostAttacks.length})`
+        // ].join(' | ')
+        // this.ns.tprint(log)
+        // //await this.ns.write('/logs/attack-servers.log.txt', log + "\n", 'a')
 
         return attack
     }
@@ -386,10 +389,10 @@ export class AttackServers {
 
         // the server values will change after hack, until weaken, ensure this time is minimised
         // plan delays so order lands as: hack(), weaken(), grow(), weaken()
-        h.delay = hw.time - h.time - 100
-        gw.delay = 200
-        g.delay = gw.time + gw.delay - g.time - 100
-        attack.time = gw.time + gw.delay + 100
+        h.delay = hw.time - h.time - 200
+        gw.delay = 400
+        g.delay = gw.time + gw.delay - g.time - 200
+        attack.time = gw.time + gw.delay + 200
 
         // decide which action to perform
         // - if security is not min or money is not max then action=prep
@@ -450,60 +453,6 @@ export class AttackServers {
             + w.threads * w.ram
 
         return attack
-    }
-
-    /**
-     * Report for the attack.
-     *
-     * @returns {string}
-     */
-    getReport() {
-        return this.attacks
-        //
-        // const bestTarget = this.targetServers[0]
-        // const hacks = this.hacks,
-        //     w = hacks['weaken'],
-        //     g = hacks['grow'],
-        //     h = hacks['hack']
-        // const report = [
-        //     '======================',
-        //     `|| 🖧 Attack Server ||`,
-        //     '======================',
-        //     '',
-        //     `Best target is ${bestTarget.hostname} for ${this.ns.nFormat(bestTarget.hackValue, '$0.0a')}:`,
-        //     ` -> Hack Value: ???`, // todo how we get the hackValue
-        //     ` -> Security: ${this.ns.nFormat(bestTarget.hackDifficulty, '0.0000a')} / ${bestTarget.minDifficulty}`,
-        //     ` -> Money: ${this.ns.nFormat(bestTarget.moneyAvailable, '$0.0a')} / ${this.ns.nFormat(bestTarget.moneyMax, '$0.0a')}`,
-        //     ` -> Security Change: hack +${h.change} | grow +${g.change} | weaken -${w.change}`,
-        //     ` -> Money Growth: hack -??? | grow +${this.ns.nFormat(bestTarget.serverGrowth, '$0.0a')}`,
-        //     ` -> Max Threads (for available RAM): weaken ${w.maxThreads} | grow ${g.maxThreads} | hack ${h.maxThreads}`,
-        //     ` -> Threads Needed (for attack): weaken ${bestTarget.fullWeakenThreads} | grow ${bestTarget.fullGrowThreads} | hack ${bestTarget.fullHackThreads}`,
-        //     '',
-        //     'Attack:',
-        //     ` -> Action: ${this.action}`,
-        //     ` -> Duration: ${this.formatTime(w.time/1000)}`,
-        //     ` -> Memory: ${this.ns.nFormat(h.runThreads * h.ram + g.runThreads * g.ram + w.runThreads * w.ram, '0.00')}GB`,
-        //     ` -> Threads Run: hack ${h.runThreads} | grow ${g.runThreads} | weaken ${w.runThreads}`,
-        // ]
-        // if (this.attacks.length) {
-        //     report.push('')
-        //     report.push('Attacks Launched:')
-        //     for (const a of this.attacks) {
-        //         //args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock]
-        //         const baseUrl = `hbbp://${a[1]}${a[0].substr(0, 1) === '/' ? '' : '/'}${a[0]}?`
-        //         const params = [
-        //             `threads=${a[2]}`,
-        //             `target=${a[3]}`,
-        //         ]
-        //         if (a[4]) params.push(`delay=${Math.round(a[4] * 1000) / 1000}`)
-        //         if (a[5]) params.push(`uuid=${a[5]}`)
-        //         if (a[6]) params.push(`stock=${a[6]}`)
-        //         report.push(' -> ' + baseUrl + params.join('&'))
-        //     }
-        // }
-        //
-        // // glue it together
-        // return "\n\n" + report.join("\n") + "\n\n\n"
     }
 
     /**
@@ -572,7 +521,7 @@ export class AttackServers {
             const skillMult = (1.75 * this.player.hacking) + (0.2 * this.player.intelligence)
             const skillChance = 1 - (server.requiredHackingSkill / skillMult)
             const difficultyMult = (100 - server.minDifficulty) / 100
-            server.successChance = skillChance * difficultyMult * this.player.hacking_chance_mult
+            server.successChance = Math.min(1, skillChance * difficultyMult * this.player.hacking_chance_mult)
             server.hackValue = server.moneyMax * server.successChance * settings.hackPercent
         }
         // get servers in order of hack value

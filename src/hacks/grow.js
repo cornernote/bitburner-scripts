@@ -13,7 +13,11 @@ export async function main(ns) {
     if (delay > 0) {
         await ns.sleep(delay)
     }
+    // grow()
     const amount = await ns.grow(target, {stock: stock})
+    // write data to a port for stats collection
+    await ns.writePort(1, JSON.stringify({target: target, action: 'grow', amount: amount}))
+    // tprint the message
     if (tprint) {
         if (amount) {
             ns.tprint(`GROW ${target} increased x${ns.nFormat(amount, '0.00a')} money! ${JSON.stringify(ns.args)}`)
@@ -21,6 +25,7 @@ export async function main(ns) {
             ns.tprint(`GROW ${target} increased x0 money. ${JSON.stringify(ns.args)}`)
         }
     }
+    // toast the message
     if (toast) {
         if (amount) {
             ns.toast(`GROW ${target} increased x${ns.nFormat(amount, '0.00a')} money! ${JSON.stringify(ns.args)}`, 'success')

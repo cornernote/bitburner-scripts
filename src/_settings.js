@@ -34,6 +34,8 @@ export const settings = {
         'backdoor-servers': 60 * 1000, // 1mins
         'buy-cracks': 60 * 1000, // 1mins
         'attack-servers': 1000, // 1sec
+        'port-reader': 50, // quite often
+        'hacking-stats': 1000, // 1sec
     },
 
     // controls how far to upgrade hacknet servers

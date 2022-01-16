@@ -250,29 +250,6 @@ export class RootServers {
         }
     }
 
-
-    /**
-     * Hacky way to run a terminal command
-     *
-     * @param message
-     * @param delay
-     * @returns {Promise<void>}
-     */
-    async terminalCommand(message, delay = 100) {
-        const docs = globalThis['document']
-        const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"))
-        while (!terminalInput) {
-            await this.ns.sleep(delay)
-        }
-        terminalInput.value = message
-        const handler = Object.keys(terminalInput)[1]
-        terminalInput[handler].onChange({target: terminalInput})
-        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-        while (terminalInput.disabled) {
-            await this.ns.sleep(delay)
-        }
-    }
-
     /**
      * Help text
      *

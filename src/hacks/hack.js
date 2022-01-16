@@ -13,7 +13,11 @@ export async function main(ns) {
     if (delay > 0) {
         await ns.sleep(delay)
     }
+    // hack()
     const amount = await ns.hack(target, {stock: stock});
+    // write data to a port for stats collection
+    await ns.writePort(1, JSON.stringify({target: target, action: 'hack', amount: amount}))
+    // tprint the message
     if (tprint) {
         if (amount) {
             ns.tprint(`HACK ${target} stole ${ns.nFormat(amount, '$0.0a')} money! ${JSON.stringify(ns.args)}`)
@@ -21,6 +25,7 @@ export async function main(ns) {
             ns.tprint(`HACK ${target} stole 0 money. ${JSON.stringify(ns.args)}`)
         }
     }
+    // toast the message
     if (toast) {
         if (amount) {
             ns.toast(`HACK ${target} stole ${ns.nFormat(amount, '$0.0a')} money! ${JSON.stringify(ns.args)}`, 'success')
