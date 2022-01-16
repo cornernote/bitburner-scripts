@@ -47,15 +47,7 @@ export async function main(ns) {
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run()
-    ns.isRunning(0)
-    // comment below here if using nsProxy
-    ns.brutessh()
-    ns.ftpcrack()
-    ns.relaysmtp()
-    ns.httpworm()
-    ns.sqlinject()
-    ns.nuke()
+    // comment if using nsProxy
     ns.scp()
     ns.getPlayer()
     ns.fileExists()
@@ -87,12 +79,6 @@ export class CopyHacks {
      * @type {Number}
      */
     lastRun
-
-    /**
-     * Player data
-     * @type {Player}
-     */
-    player
 
     /**
      * Server data
@@ -169,15 +155,6 @@ export class CopyHacks {
         for (const server of hackingServers) {
             await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
         }
-    }
-
-    /**
-     * Loads the player information.
-     *
-     * @returns {Promise<*[]>}
-     */
-    async loadPlayer() {
-        this.player = await this.nsProxy['getPlayer']()
     }
 
     /**

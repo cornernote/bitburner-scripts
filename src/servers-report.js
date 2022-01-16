@@ -31,36 +31,35 @@ export async function main(ns) {
         nsProxy = ns
     }
     // load job module
-    const rootServers = new RootServers(ns, nsProxy)
+    const serversReport = new ServersReport(ns, nsProxy)
     // print help
     if (args.help) {
-        ns.tprint(rootServers.getHelp())
+        ns.tprint(serversReport.getHelp())
         ns.exit()
     }
     // get ready
     do {
         // work, sleep, repeat
-        await rootServers.doJob()
+        await serversReport.doJob()
         await ns.sleep(10)
     } while (args.loop)
 }
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run()
-    ns.isRunning(0)
-    // comment below here if using nsProxy
+    // comment if using nsProxy
     ns.getPlayer()
+    ns.fileExists()
     ns.scan()
     ns.getServer()
 }
 
 /**
- * RootServers
+ * ServersReport
  *
  * Gains root access on any available servers.
  */
-export class RootServers {
+export class ServersReport {
 
     /**
      * The BitBurner instance
@@ -91,30 +90,6 @@ export class RootServers {
      * @type {Server[]}
      */
     servers
-
-    /**
-     * Server data, containing servers we own (home and purchased)
-     * @type {Server[]}
-     */
-    myServers
-
-    /**
-     * Server data, containing servers we can run scripts on
-     * @type {Server[]}
-     */
-    hackingServers
-
-    /**
-     * Server data, containing servers which are rootable
-     * @type {Server[]}
-     */
-    rootableServers
-
-    /**
-     * Server data, containing servers with root access
-     * @type {Server[]}
-     */
-    rootedServers
 
     /**
      * List of port cracks that are used to root servers
@@ -169,8 +144,8 @@ export class RootServers {
             return
         }
         // run
-        this.ns.tprint('RootServers...')
-        await this.rootServers()
+        this.ns.tprint('ServersReport...')
+        await this.serversReport()
         // set the last run time
         this.lastRun = new Date().getTime()
         // display the report
@@ -183,28 +158,11 @@ export class RootServers {
      *
      * @returns {Promise<void>}
      */
-    async rootServers() {
-        // refresh data
+    async serversReport() {
         await this.loadPlayer()
         await this.loadCracks()
         await this.loadServers()
-        // run owned port cracks on rootable servers
-        if (this.rootableServers.length) {
-            for (const server of this.rootableServers) {
-                // run port cracks
-                for (const crack of this.ownedCracks) {
-                    await this.nsProxy[crack.method](server.hostname)
-                }
-                // run nuke
-                await this.nsProxy['nuke'](server.hostname)
-                // copy hack scripts
-                await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
-            }
-        }
-        // copy hack scripts (needed for purchased servers, ideally do this somewhere else, maybe RootServers?)
-        for (const server of this.hackingServers) {
-            await this.nsProxy['scp'](Object.values(this.hacks).map(h => h.script), server.hostname)
-        }
+        this.ns.tprint(this.getReport())
     }
 
     /**
@@ -213,37 +171,66 @@ export class RootServers {
      * @returns {string}
      */
     getReport() {
-        const ram = {
-            max: this.hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
-            used: this.hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
-        }
+
+        // get unrooted servers
         let unrootedServers = this.servers
             .filter(s => !s.hasAdminRights)
         unrootedServers = unrootedServers.sort((a, b) => a.requiredHackingSkill - b.requiredHackingSkill)
 
+        // get my servers
+        const myServers = this.servers
+            // include home//homenet-
+            .filter(s => s.hostname === 'home' || s.hostname.includes(settings.purchasedServerPrefix))
+
+        // get rootable servers
+        const rootableServers = this.servers
+            // exclude servers with root access
+            .filter(s => !s.hasAdminRights)
+            // include servers within hacking level and where we own enough port cracks
+            .filter(s => s.requiredHackingSkill <= this.player.hacking && s.numOpenPortsRequired <= this.ownedCracks.length)
+
+        // get rooted servers
+        const rootedServers = this.servers
+            // exclude home/hacknet-/homenet-
+            .filter(s => s.hostname !== 'home' && !s.hostname.includes('hacknet-') && !s.hostname.includes(settings.purchasedServerPrefix))
+            // include servers with root access
+            .filter(s => s.hasAdminRights)
+
+        // get servers used for hacking
+        const hackingServers = this.servers
+            // exclude hacknet-
+            .filter(s => !s.hostname.includes('hacknet-'))
+            // include servers with root access
+            .filter(s => s.hasAdminRights)
+
+        const ram = {
+            max: hackingServers.map(s => s.maxRam).reduce((prev, next) => prev + next),
+            used: hackingServers.map(s => s.ramUsed).reduce((prev, next) => prev + next),
+        }
+
         const report = [
             '',
             '',
-            '=====================',
-            `|| 🖥 Root Servers ||`,
-            '=====================',
+            '=======================',
+            `|| 🖥 Servers Report ||`,
+            '=======================',
             '',
             `${unrootedServers.length} locked servers:`,
             ` -> ${unrootedServers.map(s => s.hostname + ' = ' + s.requiredHackingSkill).join(', ')}`,
             '',
-            `${this.myServers.length} owned servers:`,
-            ` -> ${this.myServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam)).join(', ')}`,
+            `${myServers.length} owned servers:`,
+            ` -> ${myServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam)).join(', ')}`,
             '',
-            `${this.rootedServers.length} pwnt servers:`,
-            ` -> ${this.rootedServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam) + ' ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
+            `${rootedServers.length} pwnt servers:`,
+            ` -> ${rootedServers.map(s => s.hostname + ' = ' + this.formatRam(s.ramUsed) + '/' + this.formatRam(s.maxRam) + ' ' + this.ns.nFormat(s.moneyAvailable, '$0.0a') + '/' + this.ns.nFormat(s.moneyMax, '$0.0a') + ' ' + this.ns.nFormat(s.hackDifficulty, '0.0a') + '/' + this.ns.nFormat(s.minDifficulty, '0.0a')).join(', ')}`,
             '',
             `Memory Usage`,
             ` -> ${this.ns.nFormat(ram.used / ram.max, '0%')} - ${this.formatRam(ram.used)}/${this.formatRam(ram.max)}`,
         ]
-        if (this.rootableServers.length) {
+        if (rootableServers.length) {
             report.push('')
-            report.push(`${this.rootableServers.length} servers are within hacking level (${this.player.hacking})`)
-            report.push(` -> ${this.rootableServers.map(s => s.hostname).join(', ')}`)
+            report.push(`${rootableServers.length} servers are within hacking level (${this.player.hacking})`)
+            report.push(` -> ${rootableServers.map(s => s.hostname).join(', ')}`)
         }
 
         return "\n\n" + report.join("\n") + "\n\n\n"
@@ -294,7 +281,6 @@ export class RootServers {
         // get servers in network
         this.servers = []
         const spider = ['home']
-        const routes = {home: ["home"]}
         // run until the spider array is empty
         for (let i = 0; i < spider.length; i++) {
             const hostname = spider[i]
@@ -304,14 +290,10 @@ export class RootServers {
                 if (this.servers.filter(s => s.hostname === scannedHostName).length === 0) {
                     // add them to the spider list
                     spider.push(scannedHostName)
-                    // record the route
-                    routes[scannedHostName] = routes[hostname].slice()
-                    routes[scannedHostName].push(scannedHostName)
                 }
             }
             // get the server info
             const server = await this.nsProxy['getServer'](hostname)
-            server.route = routes[hostname]
             // reserve memory on home
             if (server.hostname === 'home') {
                 server.ramUsed = Math.min(server.ramUsed + settings.reservedHomeRam, server.maxRam)
@@ -320,54 +302,6 @@ export class RootServers {
             this.servers.push(server)
         }
 
-        // get my servers
-        this.myServers = this.servers
-            // include home//homenet-
-            .filter(s => s.hostname === 'home' || s.hostname.includes(settings.purchasedServerPrefix))
-
-        // get rootable servers
-        this.rootableServers = this.servers
-            // exclude servers with root access
-            .filter(s => !s.hasAdminRights)
-            // include servers within hacking level and where we own enough port cracks
-            .filter(s => s.requiredHackingSkill <= this.player.hacking && s.numOpenPortsRequired <= this.ownedCracks.length)
-
-        // get rooted servers
-        this.rootedServers = this.servers
-            // exclude home/hacknet-/homenet-
-            .filter(s => s.hostname !== 'home' && !s.hostname.includes('hacknet-') && !s.hostname.includes(settings.purchasedServerPrefix))
-            // include servers with root access
-            .filter(s => s.hasAdminRights)
-
-        // get servers used for hacking
-        this.hackingServers = this.servers
-            // exclude hacknet-
-            .filter(s => !s.hostname.includes('hacknet-'))
-            // include servers with root access
-            .filter(s => s.hasAdminRights)
-
-    }
-
-    /**
-     * Hacky way to run a terminal command
-     *
-     * @param message
-     * @param delay
-     * @returns {Promise<void>}
-     */
-    async terminalCommand(message, delay = 100) {
-        const docs = globalThis['document']
-        const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"))
-        while (!terminalInput) {
-            await this.ns.sleep(delay)
-        }
-        terminalInput.value = message
-        const handler = Object.keys(terminalInput)[1]
-        terminalInput[handler].onChange({target: terminalInput})
-        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-        while (terminalInput.disabled) {
-            await this.ns.sleep(delay)
-        }
     }
 
     /**

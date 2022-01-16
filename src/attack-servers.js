@@ -47,9 +47,9 @@ export async function main(ns) {
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run('fake.js')
-    ns.isRunning(0)
-    // comment below here if using nsProxy
+    // comment if using nsProxy
+    ns.fileExists()
+    ns.exec()
     ns.getPlayer()
     ns.scan()
     ns.getServer('home')
@@ -58,7 +58,9 @@ function countedTowardsMemory(ns) {
     ns.getHackTime('home')
     ns.getWeakenTime('home')
     ns.hackAnalyzeThreads('home', 1)
+    ns.hackAnalyze('home')
     ns.growthAnalyze('home', 1)
+    ns.kill()
 }
 
 
@@ -192,12 +194,39 @@ export class AttackServers {
 
         // get new attacks
         let attacks = []
+        let freeRam = this.hackingServers
+            .map(s => (s.maxRam - s.ramUsed) >= 1.75 ? (s.maxRam - s.ramUsed) : 0)
+            .reduce((prev, next) => prev + next)
         for (const server of this.targetServers) {
             let attack = await this.buildAttack(server)
             if (!attack) {
                 continue
             }
+            // initial check for free ram, needed to retry if we aren't running any attacks
+            if (attack.ram > freeRam) {
+                //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
+                continue
+            }
             attacks.push(attack)
+        }
+
+        // no attacks, try with less percent
+        if (!this.attacks.length) {
+            let hackPercent = 1
+            while (!attacks.length) {
+                hackPercent *= 0.5
+                for (const server of this.targetServers) {
+                    let attack = await this.buildAttack(server, hackPercent)
+                    if (!attack) {
+                        continue
+                    }
+                    if (attack.ram > freeRam) {
+                        // this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
+                        continue
+                    }
+                    attacks.push(attack)
+                }
+            }
         }
 
         // sort hacks at the top, preps last
@@ -257,7 +286,7 @@ export class AttackServers {
      * Launches an attack
      *
      * @param attack
-     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, time: number, delay: number, commands: *[], target: any, ram: number}>}
+     * @returns {Promise<Boolean|{hacks: {}, pids: [], action: string, uuid: string, value: number, start: number, time: number, delay: number, commands: *[], target: any, ram: number}>}
      */
     async launchAttack(attack) {
         for (const command of attack.commands) {
@@ -273,6 +302,7 @@ export class AttackServers {
             if (!pid) {
                 this.ns.tprint(`WARNING! could not start command: ${JSON.stringify(command)}`)
             }
+            attack.pids.push(pid)
         }
         attack.start = new Date().getTime()
 
@@ -303,7 +333,7 @@ export class AttackServers {
      *
      * @param attack
      * @param allowRamOverflow
-     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, time: number, delay: number, commands: *[], target: any, ram: number}>}
+     * @returns {Promise<Boolean|{hacks: {}, pids: [], action: string, uuid: string, value: number, start: number, time: number, delay: number, commands: *[], target: any, ram: number}>}
      */
     async assignAttack(attack, allowRamOverflow = false) {
         for (const hack of Object.values(attack.hacks)) {
@@ -331,9 +361,10 @@ export class AttackServers {
      * Build the attack plan
      *
      * @param target
-     * @returns {Promise<Boolean|{hacks: {}, action: string, uuid: string, value: number, start: number, time: number, delay: number, commands: *[], target: any, ram: number}>}
+     * @param hackPercent
+     * @returns {Promise<Boolean|{hacks: {}, pids: [], action: string, uuid: string, value: number, start: number, time: number, delay: number, commands: *[], target: any, ram: number}>}
      */
-    async buildAttack(target) {
+    async buildAttack(target, hackPercent = 1) {
 
         // create the attack structure
         const attack = {
@@ -347,6 +378,7 @@ export class AttackServers {
             action: 'hack',
             hacks: {},
             commands: [],
+            pids: [],
         }
 
         // build the hack list
@@ -414,21 +446,56 @@ export class AttackServers {
             attack.action = 'force'
         }
 
+        if (attack.action === 'prep') {
+            // notify the stats to reset
+            await this.ns.writePort(1, JSON.stringify({target: target.hostname, action: 'start'}))
+        }
+
+        // check for low percent of success, and kill the attack
+        if (attack.action === 'force') {
+            const stats = this.nsProxy['fileExists']('/data/stats.json.txt')
+                ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
+                : {}
+            const stat = stats[attack.target]
+            if (stat && (stat.success / stat.attempts < target.successChance * 0.8 || stat.consecutiveFailures > 50)) {
+                // this.ns.tprint(`WARNING: ${stat.target} percent too low (${(stat.success / stat.attempts)} vs ${target.successChance})... killing ${hostAttacks.length} attacks...`)
+                for (const attack of hostAttacks) {
+                    for (const pid of attack.pids) {
+                        if (pid) {
+                            await this.nsProxy['kill'](pid)
+                        }
+                    }
+                }
+                // wait a bit for any port data to clear
+                await this.ns.sleep(200)
+                // remove the host from the list
+                this.attacks = this.attacks.filter(a => a.target !== attack.target)
+                // notify the stats to reset
+                await this.ns.writePort(1, JSON.stringify({target: target.hostname, action: 'restart'}))
+                return false
+            }
+        }
+
+        const cores = 1
+
         // calculate the thread counts
         switch (attack.action) {
 
             // calculate threads to PREP the target
             case 'prep':
                 w.threads = Math.ceil((target.hackDifficulty - target.minDifficulty) / w.change)
-                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable))
+                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable, cores))
                 gw.threads = Math.ceil((g.threads * g.change) / gw.change)
                 break
 
             // calculate threads to HACK the target
             case 'hack':
-                h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyAvailable * settings.hackPercent))
+                h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyAvailable * settings.hackPercent * hackPercent))
                 const hackedPercent = await this.nsProxy['hackAnalyze'](target.hostname) * h.threads
-                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, 1 / (1 - hackedPercent)))
+                if (1 / (1 - hackedPercent) < 1) {
+                    return false // maybe an overlap?
+                }
+                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, 1 / (1 - hackedPercent), cores))
                 hw.threads = Math.ceil(h.threads * (h.change / w.change))
                 gw.threads = Math.ceil(g.threads * (g.change / w.change))
                 attack.value = target.moneyAvailable * hackedPercent

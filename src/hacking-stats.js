@@ -48,9 +48,7 @@ export async function main(ns) {
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run()
-    ns.isRunning(0)
-    // comment below here if using nsProxy
+    // comment if using nsProxy
     ns.fileExists()
     ns.getPlayer()
     ns.getServer()
@@ -125,9 +123,12 @@ export class HackingStats {
      */
     async hackingStats() {
         await this.loadPlayer()
-        const stats = this.nsProxy['fileExists']('/data/hacks.json.txt')
-            ? JSON.parse(await this.ns.read('/data/hacks.json.txt'))
+        const stats = this.nsProxy['fileExists']('/data/stats.json.txt')
+            ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
             : {}
+        const attacks = this.nsProxy['fileExists']('/data/attacks.json.txt')
+            ? JSON.parse(await this.ns.read('/data/attacks.json.txt'))
+            : []
 
         const report = [
             '===================',
@@ -145,17 +146,58 @@ export class HackingStats {
             const difficultyMult = (100 - server.minDifficulty) / 100
             const successChance = Math.min(1, skillChance * difficultyMult * this.player.hacking_chance_mult)
             const hackValue = server.moneyMax * successChance * settings.hackPercent
+            const hostAttacks = attacks.filter(a => a.target === stat.target)
+            const hostHackAttacks = hostAttacks.filter(a => a.action === 'hack' || a.action === 'force')
+            const hostPrepAttacks = hostAttacks.filter(a => a.action !== 'hack' && a.action !== 'force')
 
-            report.push([
+            const serverReport = [
                 `${stat.target.padEnd(20, ' ')}`,
                 `${this.ns.nFormat(stat.average, '$0.0a')} average VS ${this.ns.nFormat(hackValue, '$0.0a')} expected`,
-                `${this.ns.nFormat(stat.total, '$0.0a')}/${stat.attempts}`,
+                `${this.ns.nFormat(stat.total, '$0.0a')} / ${stat.attempts}`,
                 `${this.ns.nFormat(stat.success / stat.attempts, '0%')} vs ${this.ns.nFormat(successChance, '0%')}`,
-            ].join(' | '))
+            ]
+            if (hostHackAttacks.length) {
+                const length = hostHackAttacks.length;
+                const hostHackAttack = hostHackAttacks.pop()
+                serverReport.push(`+${length} hacks, last one ends ${this.formatDelay(hostHackAttack.start + hostHackAttack.time - (new Date().getTime()))}`)
+            }
+            if (hostPrepAttacks.length) {
+                const hostPrepAttack = hostPrepAttacks.pop()
+                serverReport.push(`prep ends ${this.formatDelay(hostPrepAttack.start + hostPrepAttack.time - (new Date().getTime()))}`)
+            }
+            report.push(serverReport.join(' | '))
         }
 
-        this.ns.tprint("\n\n\n" + report.join("\n") + "\n\n\n")
+        // const hackAttacksList = attacks.filter(a => a.action === 'hack' || a.action === 'force')
+        // if (hackAttacksList.length) {
+        //     const hostHackAttacks = {}
+        //     for (const hostAttack of hackAttacksList) {
+        //         if (!hostAttack.target) {
+        //             continue;
+        //         }
+        //         if (!hostHackAttacks[hostAttack.target]) {
+        //             hackAttacksList[hostAttack.target] = []
+        //         }
+        //         hackAttacksList[hostAttack.target].push(hostAttack)
+        //     }
+        //     report.push('')
+        //     for (const [hostname, hostHackAttacks] of Object.entries(hackAttacksList)) {
+        //         this.ns.tprint(hostname)
+        //         // this.ns.tprint(hostHackAttacks)
+        //         // hostHackAttacks.sort((a, b) => (a.start + a.time) - (b.start + b.time))
+        //         // report.push(`${hostname}: ${hostHackAttacks.length} attacks ${hostHackAttacks.map(a => that.formatDelay(a.start + a.time - (new Date().getTime()))).join(', ')}`)
+        //     }
+        // }
+        //
+        // const prepAttacks = attacks.filter(a => a.action !== 'hack' && a.action !== 'force')
+        // prepAttacks.sort((a, b) => (a.start + a.time) - (b.start + b.time))
+        // if (prepAttacks.length) {
+        //     report.push('')
+        //     report.push(`${prepAttacks.length} prepping servers:`)
+        //     report.push(` -> ${prepAttacks.map(a => a.target + ' ' + this.formatDelay(a.start + a.time - (new Date().getTime()))).join(', ')}`)
+        // }
 
+        this.ns.tprint("\n\n\n" + report.join("\n") + "\n\n\n")
     }
 
     /**
@@ -165,6 +207,24 @@ export class HackingStats {
      */
     async loadPlayer() {
         this.player = await this.nsProxy['getPlayer']()
+    }
+
+    /**
+     * Format a delay in MM:SS
+     * Allows negative times (nsFormat didn't work)
+     *
+     * @param value time in milliseconds
+     * @returns {string}
+     */
+    formatDelay(value) {
+        value = value / 1000
+        let hours = Math.floor(Math.abs(value) / 60 / 60),
+            minutes = Math.floor((Math.abs(value) - (hours * 60 * 60)) / 60),
+            seconds = Math.round(Math.abs(value) - (hours * 60 * 60) - (minutes * 60))
+        return (value < 0 ? '-' : '')
+            + (hours ? hours + ':' : '')
+            + minutes
+            + ':' + (seconds < 10 ? '0' + seconds : seconds)
     }
 
     /**

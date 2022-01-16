@@ -47,9 +47,7 @@ export async function main(ns) {
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run()
-    ns.isRunning(0)
-    // comment below here if using nsProxy
+    // comment if using nsProxy
     ns.fileExists()
 }
 
@@ -115,31 +113,51 @@ export class PortReader {
      * @returns {Promise<void>}
      */
     async portReader() {
-        const stats = this.nsProxy['fileExists']('/data/hacks.json.txt')
-            ? JSON.parse(await this.ns.read('/data/hacks.json.txt'))
+        const stats = this.nsProxy['fileExists']('/data/stats.json.txt')
+            ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
             : {}
         while (this.ns.peek(1) !== 'NULL PORT DATA') {
             const data = JSON.parse(this.ns.readPort(1))
-            if (data.action === 'hack') {
-                if (!stats[data.target]) {
+
+            switch (data.action) {
+
+                case 'hack':
+                    if (!stats[data.target]) {
+                        stats[data.target] = {
+                            target: data.target,
+                            total: 0,
+                            attempts: 0,
+                            average: 0,
+                            success: 0,
+                            consecutiveFailures: 0,
+                        }
+                    }
+                    if (data.amount > 0) {
+                        stats[data.target].total += data.amount
+                        stats[data.target].success++
+                        stats[data.target].consecutiveFailures = 0
+                    } else {
+                        stats[data.target].consecutiveFailures++
+                    }
+                    stats[data.target].attempts++
+                    stats[data.target].average = stats[data.target].total / stats[data.target].attempts
+                    break;
+
+                case 'start':
+                case 'restart':
                     stats[data.target] = {
                         target: data.target,
                         total: 0,
                         attempts: 0,
                         average: 0,
                         success: 0,
+                        consecutiveFailures: 0,
                     }
-                }
-                if (data.amount) {
-                    stats[data.target].total += data.amount
-                    stats[data.target].success++
-                }
-                stats[data.target].attempts++
-                stats[data.target].average = stats[data.target].total / stats[data.target].attempts
-                //this.ns.tprint(`hacked ${this.ns.nFormat(data.amount, '$0.0a')} from ${data.target}`)
+                    break;
             }
+
         }
-        await this.ns.write('/data/hacks.json', JSON.stringify(stats), 'w')
+        await this.ns.write('/data/stats.json', JSON.stringify(stats), 'w')
     }
 
     /**

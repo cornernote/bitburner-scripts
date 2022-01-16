@@ -47,9 +47,7 @@ export async function main(ns) {
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run()
-    ns.isRunning(0)
-    // comment below here if using nsProxy
+    // comment if using nsProxy
     ns.brutessh()
     ns.ftpcrack()
     ns.relaysmtp()
@@ -147,7 +145,6 @@ export class RootServers {
             return
         }
         // run
-        this.ns.tprint('RootServers...')
         await this.rootServers()
         // set the last run time
         this.lastRun = new Date().getTime()

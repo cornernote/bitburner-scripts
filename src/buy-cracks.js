@@ -42,8 +42,9 @@ export async function main(ns) {
 
 // fake method to count towards memory usage, used by nsProxy
 function countedTowardsMemory(ns) {
-    ns.run()
-    ns.isRunning(0)
+    // comment if using nsProxy
+    ns.getPlayer()
+    ns.fileExists()
 }
 
 /**
