@@ -109,7 +109,6 @@ export class BuyCracks {
             return
         }
         // run
-        this.ns.tprint('BuyCracks...')
         await this.buyCracks()
         // set the last run time
         this.lastRun = new Date().getTime()
