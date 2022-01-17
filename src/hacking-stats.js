@@ -8,7 +8,6 @@ const argsSchema = [
     ['loop', false],
     ['proxy', false],
     ['help', false],
-    ['stats', false],
 ]
 
 /**
@@ -124,10 +123,10 @@ export class HackingStats {
     async hackingStats() {
         await this.loadPlayer()
         const stats = await this.nsProxy['fileExists']('/data/stats.json.txt')
-            ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
+            ? JSON.parse(this.ns.read('/data/stats.json.txt'))
             : {}
         const attacks = await this.nsProxy['fileExists']('/data/attacks.json.txt')
-            ? JSON.parse(await this.ns.read('/data/attacks.json.txt'))
+            ? JSON.parse(this.ns.read('/data/attacks.json.txt'))
             : []
 
         const report = [
@@ -168,26 +167,24 @@ export class HackingStats {
             report.push(serverReport.join(' | '))
         }
 
-        // const hackAttacksList = attacks.filter(a => a.action === 'hack' || a.action === 'force')
-        // if (hackAttacksList.length) {
-        //     const hostHackAttacks = {}
-        //     for (const hostAttack of hackAttacksList) {
-        //         if (!hostAttack.target) {
-        //             continue;
-        //         }
-        //         if (!hostHackAttacks[hostAttack.target]) {
-        //             hackAttacksList[hostAttack.target] = []
-        //         }
-        //         hackAttacksList[hostAttack.target].push(hostAttack)
-        //     }
-        //     report.push('')
-        //     for (const [hostname, hostHackAttacks] of Object.entries(hackAttacksList)) {
-        //         this.ns.tprint(hostname)
-        //         // this.ns.tprint(hostHackAttacks)
-        //         // hostHackAttacks.sort((a, b) => (a.start + a.time) - (b.start + b.time))
-        //         // report.push(`${hostname}: ${hostHackAttacks.length} attacks ${hostHackAttacks.map(a => that.formatDelay(a.start + a.time - (new Date().getTime()))).join(', ')}`)
-        //     }
-        // }
+        const hackAttacksList = attacks.filter(a => a.action === 'hack' || a.action === 'force')
+        if (hackAttacksList.length) {
+            const hostHackAttacks = {}
+            for (const hostAttack of hackAttacksList) {
+                if (!hostAttack.target) {
+                    continue;
+                }
+                if (!hostHackAttacks[hostAttack.target]) {
+                    hostHackAttacks[hostAttack.target] = []
+                }
+                hostHackAttacks[hostAttack.target].push(hostAttack)
+            }
+            report.push('')
+            for (const [hostname, hostHackAttacksList] of Object.entries(hostHackAttacks)) {
+                hostHackAttacksList.sort((a, b) => (a.start + a.time) - (b.start + b.time))
+                report.push(`${hostname}: ${hostHackAttacksList.length} attacks ${hostHackAttacksList.map(a => this.formatDelay(a.start + a.time - (new Date().getTime()))).join(', ')}`)
+            }
+        }
         //
         // const prepAttacks = attacks.filter(a => a.action !== 'hack' && a.action !== 'force')
         // prepAttacks.sort((a, b) => (a.start + a.time) - (b.start + b.time))

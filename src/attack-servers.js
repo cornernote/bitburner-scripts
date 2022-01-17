@@ -178,6 +178,7 @@ export class AttackServers {
      * @returns {Promise<void>}
      */
     async attackServers() {
+        // this.ns.tprint('init')
         await this.loadPlayer()
         await this.loadServers()
 
@@ -185,12 +186,14 @@ export class AttackServers {
 
         // load attacks from disk
         this.attacks = await this.nsProxy['fileExists']('/data/attacks.json.txt')
-            ? JSON.parse(await this.ns.read('/data/attacks.json.txt'))
+            ? JSON.parse(this.ns.read('/data/attacks.json.txt'))
             : []
 
         // clean ended attacks
         this.attacks = this.attacks
             .filter(a => !a.start || a.start + a.time > new Date().getTime())
+
+        // this.ns.tprint('get new attacks')
 
         // get new attacks
         let attacks = []
@@ -203,17 +206,21 @@ export class AttackServers {
                 continue
             }
             // initial check for free ram, needed to retry if we aren't running any attacks
-            if (attack.ram > freeRam) {
+            if ((attack.action === 'hack' || attack.action === 'force') && attack.ram > freeRam) {
                 //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
                 continue
             }
+            // this.ns.tprint(`added ${attack.target} to ${attack.action}`)
             attacks.push(attack)
         }
 
+        // this.ns.tprint('no attacks, try with less percent')
+
         // no attacks, try with less percent
-        if (!this.attacks.length) {
+        if (!this.attacks.filter(a => a.action === 'hack' || a.action === 'force').length) {
             let hackPercent = 1
-            while (!attacks.length) {
+            while (!attacks.filter(a => a.action === 'hack' || a.action === 'force').length) {
+                // this.ns.tprint(`NO ATTACKS, lower percent...`)
                 hackPercent *= 0.5
                 for (const server of this.targetServers) {
                     let attack = await this.buildAttack(server, hackPercent)
@@ -224,6 +231,7 @@ export class AttackServers {
                         // this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
                         continue
                     }
+                    // this.ns.tprint(`added ${attack.target} to ${attack.action}`)
                     attacks.push(attack)
                 }
             }
@@ -232,6 +240,8 @@ export class AttackServers {
         // sort hacks at the top, preps last
         const hackAttacks = attacks.filter(a => a.action === 'hack' || a.action === 'force').splice(0, 10)
         const prepAttacks = attacks.filter(a => a.action !== 'hack' && a.action !== 'force')
+
+        // this.ns.tprint('assign hack attacks to a server')
 
         // assign hack attacks to a server
         for (let attack of hackAttacks) {
@@ -254,9 +264,8 @@ export class AttackServers {
             this.attacks.push(attack)
         }
 
-        // if all hack attacks are maxed
-        // if (maxedHackAttacks) {
-        // this.ns.tprint(`no maxedHackAttacks`)
+        // this.ns.tprint('assign prep attacks to a server, use all free ram, only if we have a hack running')
+
         // assign prep attacks to a server
         for (let attack of prepAttacks) {
             // check for free ram
@@ -267,19 +276,22 @@ export class AttackServers {
                 //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
                 continue
             }
-            // assign and launch
+            // assign the commands and server ram
             attack = await this.assignAttack(attack, true)
             if (!attack) {
                 continue
             }
+            // run the commands
             attack = await this.launchAttack(attack)
             // add to the stack
             this.attacks.push(attack)
         }
-        // }
+
+        this.ns.tprint('write the attacks to disk')
 
         // write the attacks to disk
         await this.ns.write('/data/attacks.json.txt', JSON.stringify(this.attacks), 'w')
+        this.ns.tprint('done!')
     }
 
     /**
@@ -295,6 +307,7 @@ export class AttackServers {
             for (let i = retry; i > 0; i--) {
                 pid = await this.nsProxy['exec'](...command)
                 if (pid) {
+                    await this.ns.sleep(1) // sleep to prevent error: cannot be run because it does not have a main function.
                     break
                 }
                 await this.ns.sleep(100)
@@ -418,6 +431,9 @@ export class AttackServers {
             gw = attack.hacks['growWeaken'],
             w = attack.hacks['weaken']
 
+        const totalRam = this.hackingServers
+            .map(s => s.maxRam)
+            .reduce((prev, next) => prev + next)
 
         // the server values will change after hack, until weaken, ensure this time is minimised
         // plan delays so order lands as: hack(), weaken(), grow(), weaken()
@@ -428,8 +444,12 @@ export class AttackServers {
 
         // decide which action to perform
         // - if security is not min or money is not max then action=prep
-        if (target.hackDifficulty > target.minDifficulty + settings.minSecurityLevelOffset
-            || target.moneyAvailable < target.moneyMax * settings.maxMoneyMultiplayer) {
+        if (target.hackDifficulty > target.minDifficulty + settings.minSecurityLevelOffset) {
+            attack.action = 'weaken'
+        } else if (target.moneyAvailable < target.moneyMax * settings.maxMoneyMultiplayer) {
+            attack.action = 'grow'
+        }
+        if (totalRam > 100000 && (attack.action === 'weaken' || attack.action === 'grow')) {
             attack.action = 'prep'
         }
 
@@ -454,7 +474,7 @@ export class AttackServers {
         // check for low percent of success, and kill the attack
         if (attack.action === 'force') {
             const stats = await this.nsProxy['fileExists']('/data/stats.json.txt')
-                ? JSON.parse(await this.ns.read('/data/stats.json.txt'))
+                ? JSON.parse(this.ns.read('/data/stats.json.txt'))
                 : {}
             const stat = stats[attack.target]
             if (stat && (stat.success / stat.attempts < target.successChance * 0.8 || stat.consecutiveFailures > 50)) {
@@ -463,6 +483,7 @@ export class AttackServers {
                     for (const pid of attack.pids) {
                         if (pid) {
                             await this.nsProxy['kill'](pid)
+                            await this.ns.sleep(10) // prevent freezing
                         }
                     }
                 }
@@ -481,8 +502,19 @@ export class AttackServers {
         // calculate the thread counts
         switch (attack.action) {
 
+            // calculate threads to WEAKEN the target
+            case 'weaken':
+                w.threads = Math.ceil((target.hackDifficulty - target.minDifficulty) / w.change)
+                break
+
+            // calculate threads to GROW the target
+            case 'grow':
+                g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable, cores))
+                gw.threads = Math.ceil((g.threads * g.change) / gw.change)
+                break
+
             // calculate threads to PREP the target
-            case 'prep':
+            case 'prep': // weaken+grow
                 w.threads = Math.ceil((target.hackDifficulty - target.minDifficulty) / w.change)
                 g.threads = Math.ceil(await this.nsProxy['growthAnalyze'](target.hostname, target.moneyMax / target.moneyAvailable, cores))
                 gw.threads = Math.ceil((g.threads * g.change) / gw.change)
@@ -568,7 +600,8 @@ export class AttackServers {
             .filter(s => !s.hostname.includes('hacknet') && !s.hostname.includes('darkweb'))
             // include servers with root access
             .filter(s => s.hasAdminRights)
-        this.hackingServers = this.hackingServers.sort((a, b) => b.maxRam - a.maxRam)
+            // order by ram
+            .sort((a, b) => b.maxRam - a.maxRam)
 
         // get target servers (servers to attack)
         this.targetServers = this.servers

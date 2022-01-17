@@ -6,6 +6,7 @@ import {settings} from "./_settings.js"
  */
 const argsSchema = [
     ['loop', false],
+    ['proxy', false],
     ['help', false],
 ]
 
@@ -25,8 +26,12 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     const args = ns.flags(argsSchema)
     const runner = new Runner(ns)
+    let nsProxy = runner.nsProxy
+    if (!args['proxy']) {
+        nsProxy = ns
+    }
     // load job module
-    const buyCracks = new BuyCracks(ns, runner.nsProxy)
+    const buyCracks = new BuyCracks(ns, nsProxy)
     // print help
     if (args.help) {
         ns.tprint(buyCracks.getHelp())
@@ -253,11 +258,13 @@ export class BuyCracks {
     async terminalCommand(message, delay = 500) {
         const docs = globalThis['document']
         const terminalInput = /** @type {HTMLInputElement} */ (docs.getElementById("terminal-input"))
-        terminalInput.value = message
-        const handler = Object.keys(terminalInput)[1]
-        terminalInput[handler].onChange({target: terminalInput})
-        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-        await this.ns.sleep(delay)
+        if (terminalInput) {
+            terminalInput.value = message
+            const handler = Object.keys(terminalInput)[1]
+            terminalInput[handler].onChange({target: terminalInput})
+            terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
+            await this.ns.sleep(delay)
+        }
     }
 
     /**

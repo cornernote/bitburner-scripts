@@ -12,7 +12,7 @@ import {HackingStats} from "./hacking-stats";
  */
 const argsSchema = [
     ['loop', false], // if we should loop
-    ['spawn', ''], // name of a script to spawn after this
+    ['spawn', false],
     ['help', false],
 ]
 
@@ -67,13 +67,6 @@ export async function main(ns) {
         await hackingStats.doJob()
         await ns.sleep(10)
     } while (args['loop'])
-    // spawn another task before we exit
-    if (args['spawn']) {
-        const runAfter = args['spawn'].split(' ')
-        const script = runAfter.shift()
-        ns.tprint(`starting ${script} with args ${JSON.stringify(runAfter)}`)
-        ns.run(script, 1, ...runAfter) // use run instead of spawn, we already have run() loaded, saves 2GB
-    }
 }
 
 // fake method to count towards memory usage, used by nsProxy
