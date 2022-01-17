@@ -122,12 +122,14 @@ export class HackingStats {
      */
     async hackingStats() {
         await this.loadPlayer()
-        const stats = await this.nsProxy['fileExists']('/data/stats.json.txt')
-            ? JSON.parse(this.ns.read('/data/stats.json.txt'))
+        const statsContents = this.ns.read('/data/stats.json.txt')
+        const stats = statsContents
+            ? JSON.parse(statsContents)
             : {}
-        const attacks = await this.nsProxy['fileExists']('/data/attacks.json.txt')
-            ? JSON.parse(this.ns.read('/data/attacks.json.txt'))
-            : []
+        const attacksContents = this.ns.read('/data/attacks.json.txt')
+        const attacks = attacksContents
+            ? JSON.parse(attacksContents)
+            : {}
 
         const report = [
             '===================',
@@ -167,7 +169,7 @@ export class HackingStats {
             report.push(serverReport.join(' | '))
         }
 
-        const hackAttacksList = attacks.filter(a => a.action === 'hack' || a.action === 'force')
+        const hackAttacksList = attacks
         if (hackAttacksList.length) {
             const hostHackAttacks = {}
             for (const hostAttack of hackAttacksList) {
@@ -182,7 +184,7 @@ export class HackingStats {
             report.push('')
             for (const [hostname, hostHackAttacksList] of Object.entries(hostHackAttacks)) {
                 hostHackAttacksList.sort((a, b) => (a.start + a.time) - (b.start + b.time))
-                report.push(`${hostname}: ${hostHackAttacksList.length} attacks ${hostHackAttacksList.map(a => this.formatDelay(a.start + a.time - (new Date().getTime()))).join(', ')}`)
+                report.push(`${hostname}: ${hostHackAttacksList.length} attacks ${hostHackAttacksList.map(a => a.action + '=' + this.formatDelay(a.start + a.time - (new Date().getTime()))).join(', ')}`)
             }
         }
         //

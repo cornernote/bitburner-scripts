@@ -165,7 +165,6 @@ export class AttackServers {
         if (this.lastRun + settings.intervals['attack-servers'] > new Date().getTime()) {
             return
         }
-        this.ns.print('AttackServers...')
         // run the attacks
         await this.attackServers()
         // set the last run time
@@ -185,9 +184,12 @@ export class AttackServers {
         // this.ns.tprint('----------')
 
         // load attacks from disk
-        this.attacks = await this.nsProxy['fileExists']('/data/attacks.json.txt')
-            ? JSON.parse(this.ns.read('/data/attacks.json.txt'))
-            : []
+        if (!this.attacks.length) {
+            const attacksContents = this.ns.read('/data/attacks.json.txt')
+            this.attacks = attacksContents
+                ? JSON.parse(attacksContents)
+                : []
+        }
 
         // clean ended attacks
         this.attacks = this.attacks
@@ -234,6 +236,10 @@ export class AttackServers {
                     // this.ns.tprint(`added ${attack.target} to ${attack.action}`)
                     attacks.push(attack)
                 }
+                if (hackPercent < 0.03125) {
+                    this.ns.tprint(`WARNING: could not find a hack target with available ram.`)
+                    break
+                }
             }
         }
 
@@ -264,34 +270,38 @@ export class AttackServers {
             this.attacks.push(attack)
         }
 
-        // this.ns.tprint('assign prep attacks to a server, use all free ram, only if we have a hack running')
+        // this.ns.tprint('assign prep attacks to a server')
 
-        // assign prep attacks to a server
-        for (let attack of prepAttacks) {
-            // check for free ram
-            let freeRam = this.hackingServers
-                .map(s => (s.maxRam - s.ramUsed) >= 1.75 ? (s.maxRam - s.ramUsed) : 0)
-                .reduce((prev, next) => prev + next)
-            if (attack.ram > freeRam) {
-                //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
-                continue
+        // if we have at least 10 hacks going on
+        if (this.attacks.filter(a => a.action === 'hack' || a.action === 'force').length >= 10) {
+            // assign prep attacks to a server
+            for (let attack of prepAttacks) {
+                // check for free ram
+                let freeRam = this.hackingServers
+                    .map(s => (s.maxRam - s.ramUsed) >= 1.75 ? (s.maxRam - s.ramUsed) : 0)
+                    .reduce((prev, next) => prev + next)
+                if (attack.ram > freeRam) {
+                    //this.ns.tprint(`${attack.target} ${attack.action} needs ${this.formatRam(attack.ram)}, only ${this.formatRam(freeRam)} available`)
+                    continue
+                }
+                // assign the commands and server ram
+                attack = await this.assignAttack(attack, true)
+                if (!attack) {
+                    continue
+                }
+                // run the commands
+                attack = await this.launchAttack(attack)
+                // add to the stack
+                this.attacks.push(attack)
             }
-            // assign the commands and server ram
-            attack = await this.assignAttack(attack, true)
-            if (!attack) {
-                continue
-            }
-            // run the commands
-            attack = await this.launchAttack(attack)
-            // add to the stack
-            this.attacks.push(attack)
         }
 
-        this.ns.tprint('write the attacks to disk')
+        // this.ns.tprint('write the attacks to disk')
 
         // write the attacks to disk
         await this.ns.write('/data/attacks.json.txt', JSON.stringify(this.attacks), 'w')
-        this.ns.tprint('done!')
+
+        // this.ns.tprint('done!')
     }
 
     /**
@@ -307,7 +317,8 @@ export class AttackServers {
             for (let i = retry; i > 0; i--) {
                 pid = await this.nsProxy['exec'](...command)
                 if (pid) {
-                    await this.ns.sleep(1) // sleep to prevent error: cannot be run because it does not have a main function.
+                    // sleep to prevent error: cannot be run because it does not have a main function.
+                    await this.ns.sleep(1)
                     break
                 }
                 await this.ns.sleep(100)
@@ -478,7 +489,7 @@ export class AttackServers {
                 : {}
             const stat = stats[attack.target]
             if (stat && (stat.success / stat.attempts < target.successChance * 0.8 || stat.consecutiveFailures > 50)) {
-                // this.ns.tprint(`WARNING: ${stat.target} percent too low (${(stat.success / stat.attempts)} vs ${target.successChance})... killing ${hostAttacks.length} attacks...`)
+                this.ns.tprint(`WARNING: ${stat.target} percent too low (${(stat.success / stat.attempts)} vs ${target.successChance})... killing ${hostAttacks.length} attacks...`)
                 for (const attack of hostAttacks) {
                     for (const pid of attack.pids) {
                         if (pid) {
