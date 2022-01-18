@@ -533,8 +533,10 @@ export class AttackServers {
 
             // calculate threads to HACK the target
             case 'hack':
-                h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyAvailable * settings.hackPercent * hackPercent))
-                const hackedPercent = await this.nsProxy['hackAnalyze'](target.hostname) * h.threads
+                // h.threads = Math.ceil(await this.nsProxy['hackAnalyzeThreads'](target.hostname, target.moneyAvailable * settings.hackPercent * hackPercent))
+                const hackAnalyze = await this.nsProxy['hackAnalyze'](target.hostname)
+                h.threads = Math.floor(hackPercent / hackAnalyze) // threads to hack the amount we want, floor so that we don't over-hack
+                const hackedPercent = hackAnalyze * h.threads
                 if (1 / (1 - hackedPercent) < 1) {
                     return false // maybe an overlap?
                 }
@@ -629,11 +631,14 @@ export class AttackServers {
 
         // get some more info about the servers
         for (const server of this.targetServers) {
-            const skillMult = (1.75 * this.player.hacking) + (0.2 * this.player.intelligence)
-            const skillChance = 1 - (server.requiredHackingSkill / skillMult)
-            const difficultyMult = (100 - server.minDifficulty) / 100
-            server.successChance = Math.min(1, skillChance * difficultyMult * this.player.hacking_chance_mult)
-            server.hackValue = server.moneyMax * server.successChance * settings.hackPercent
+
+            const hackFactor = 1.75;
+            const difficultyMult = (100 - server.hackDifficulty) / 100;
+            const skillMult = hackFactor * this.player.hacking;
+            const skillChance = (skillMult - server.requiredHackingSkill) / skillMult;
+            let chance = skillChance * difficultyMult * this.player.hacking_chance_mult;
+            chance = Math.max(0, Math.min(1, chance))
+            server.hackValue = server.moneyMax * chance * settings.hackPercent
         }
         // get servers in order of hack value
         this.targetServers = this.targetServers.sort((a, b) => b.hackValue - a.hackValue)
