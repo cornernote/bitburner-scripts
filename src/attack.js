@@ -93,18 +93,19 @@ export async function manageAttacks(ns, currentAttacks) {
     // split attacks into hack/prep
     // remove completed attacks from the list
     const now = new Date().getTime()
+    currentAttacks = currentAttacks
+        .filter(ca => ca.nextCycle || ca.attack.end > now)
+
     const currentHackAttacks = currentAttacks
         .filter(ca => ca.type === 'hack')
-        .filter(ca => ca.nextCycle || ca.attack.end < now)
     const currentPrepAttacks = currentAttacks
         .filter(ca => ca.type === 'prep')
-        .filter(ca => ca.nextCycle || ca.attack.end < now)
 
     // load some data
     const player = ns.getPlayer()
     const servers = getServers(ns)
     const cores = 1 // assume we won't run on home, or home has 1 core
-    const hackingServers = getHackingServers(ns, servers)
+    const hackingServers = getHackingServers(ns, servers) //.filter(s => s.hostname !== 'home') // exclude if it has a different number of cores
     const hackTargetServers = getHackTargetServers(ns, servers)
         .filter(s => currentHackAttacks.filter(ca => ca.attack.target === s.hostname).length === 0) // exclude current attacks
     const prepTargetServers = getPrepTargetServers(ns, servers)
@@ -133,7 +134,7 @@ export async function manageAttacks(ns, currentAttacks) {
             const freeThreads = getFreeThreads(ns, hackingServers)
             if (hackAttack.info.cycleThreads > getFreeThreads(ns, hackingServers)) {
                 ns.print(`${hackAttack.info.cycleThreads} threads needed, ${freeThreads} were available... delaying`)
-                currentHackTarget.nextCycle += 10 * 1000
+                currentHackTarget.nextCycle += 1000
                 continue
             }
             // continue the attack
@@ -152,11 +153,10 @@ export async function manageAttacks(ns, currentAttacks) {
     const hackAttack = getBestAttack(ns, player, hackTargetServers, 'hackValue', getFreeThreads(ns, hackingServers), cores)
     if (hackAttack && assignAttack(ns, hackAttack, hackingServers, 'launch', hackAttack.cycles)) {
         await launchAttack(ns, hackAttack)
-        let nextCycle = hackAttack.end + 10 * 1000
-        currentHackAttacks.push({
+        currentAttacks.push({
             type: 'hack',
             attack: hackAttack,
-            nextCycle: nextCycle,
+            nextCycle: hackAttack.end + 1000,
         })
         ns.print(formatAttack(ns, hackAttack, 'hack'))
     }
@@ -165,7 +165,7 @@ export async function manageAttacks(ns, currentAttacks) {
     const prepAttack = getBestAttack(ns, player, prepTargetServers, 'prepValue', getFreeThreads(ns, hackingServers), cores)
     if (prepAttack && assignAttack(ns, prepAttack, hackingServers, 'prep', 1, true)) {
         await launchAttack(ns, prepAttack)
-        currentPrepAttacks.push({
+        currentAttacks.push({
             type: 'prep',
             attack: prepAttack,
             nextCycle: false,
@@ -173,8 +173,8 @@ export async function manageAttacks(ns, currentAttacks) {
         ns.print(formatAttack(ns, prepAttack, 'prep'))
     }
 
-    // return merged attacks
-    return currentHackAttacks.concat(currentPrepAttacks)
+    // return attacks
+    return currentAttacks
 }
 
 

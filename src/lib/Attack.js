@@ -320,29 +320,12 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     hw.threads = Math.ceil(h.threads * (ATTACK.scripts.h.change / ATTACK.scripts.w.change)) // weaken threads for hack, ceil so that we don't under-weaken
     gw.threads = Math.ceil(g.threads * (ATTACK.scripts.g.change / ATTACK.scripts.w.change)) // weaken threads for grow, ceil so that we don't under-weaken
 
-    // get the time needed for threads
-    h.time = ns.getHackTime(server.hostname)
-    g.time = pg.time = ns.getGrowTime(server.hostname)
-    hw.time = gw.time = pw.time = pgw.time = ns.getWeakenTime(server.hostname)
-
-    // calculate the delays to land all attacks together
-    // order -> PW PG PGW H HW G GW <- with 100ms between
-    const delay = 100
-    pw.delay = 0
-    pg.delay = pgw.time - pg.time + delay
-    pgw.delay = (delay * 2)
-    h.delay = hw.time - h.time + (delay * 3)
-    hw.delay = (delay * 4)
-    g.delay = gw.time - g.time + (delay * 5)
-    gw.delay = (delay * 6)
-    attack.time = gw.time + gw.delay + (delay * 2)
-
     // get the count of threads
     info.prepThreads = pw.threads + pg.threads + pgw.threads * ATTACK.scripts.w.ram
     info.cycleThreads = h.threads + hw.threads + g.threads + gw.threads
     info.valuePerThread = info.cycleValue / info.cycleThreads
     // what percentage of the time can we fill with tasks before availableThreads fills
-    info.maxCycles = attack.time / 1000 // attacks at 1/sec
+    info.maxCycles = ns.getWeakenTime(server.hostname) / 1000 // attacks at 1/sec
     attack.cycles = Math.min(Math.floor(availableThreads / info.cycleThreads), info.maxCycles)
     info.activePercent = attack.cycles / info.maxCycles // 0.2 = 20%
     info.attackThreads = info.cycleThreads * attack.cycles
@@ -365,19 +348,6 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
 }
 
 /**
- * Generate a UUIDv4 string
- * @returns {string}
- */
-export function generateUUID() {
-    let dt = new Date().getTime()
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        let r = (dt + Math.random() * 16) % 16 | 0
-        dt = Math.floor(dt / 16)
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-    })
-}
-
-/**
  * Assign the attack threads between our hacking servers
  *
  * @param {NS} ns
@@ -393,10 +363,39 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
     for (let cycle = 1; cycle <= cycles; cycle++) {
         let cycleCommands = []
         const serverRam = {}
-        const parts = cycleType === 'prep'
+
+        // some shortcuts
+        const parts = attack.parts,
+            pw = parts.pw,   // prep-weaken
+            pg = parts.pg,   // prep-grow
+            pgw = parts.pgw, // prep-grow-weaken
+            h = parts.h,     // hack
+            hw = parts.hw,   // hack-weaken
+            g = parts.g,     // grow
+            gw = parts.gw    // grow-weaken
+
+        // get the time needed for threads
+        h.time = ns.getHackTime(attack.target)
+        g.time = pg.time = ns.getGrowTime(attack.target)
+        hw.time = gw.time = pw.time = pgw.time = ns.getWeakenTime(attack.target)
+
+        // calculate the delays to land all attacks together
+        // order -> PW PG PGW H HW G GW <- with 100ms between
+        const delay = 100
+        pw.delay = 0
+        pg.delay = pgw.time - pg.time + delay
+        pgw.delay = (delay * 2)
+        h.delay = hw.time - h.time + (delay * 3)
+        hw.delay = (delay * 4)
+        g.delay = gw.time - g.time + (delay * 5)
+        gw.delay = (delay * 6)
+        attack.time = gw.time + gw.delay + (delay * 2)
+
+        const attackParts = cycleType === 'prep'
             ? [attack.parts.pw, attack.parts.pg, attack.parts.pgw]
             : [attack.parts.h, attack.parts.hw, attack.parts.g, attack.parts.gw]
-        for (const part of parts) {
+
+        for (const part of attackParts) {
             let threadsRemaining = part.threads
             for (const server of servers) {
                 const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
@@ -481,7 +480,20 @@ export async function launchAttack(ns, attack) {
         }
     }
     attack.start = new Date().getTime()
-    attack.end = attack.start + attack.time
+    attack.end = attack.start + attack.time + 1000
 }
 
+
+/**
+ * Generate a UUIDv4 string
+ * @returns {string}
+ */
+export function generateUUID() {
+    let dt = new Date().getTime()
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        let r = (dt + Math.random() * 16) % 16 | 0
+        dt = Math.floor(dt / 16)
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+    })
+}
 

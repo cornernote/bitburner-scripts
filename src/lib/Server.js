@@ -20,11 +20,11 @@ export const SERVER = {
     // the max number of servers you can have in your farm
     maxPurchasedServers: 25,
     // Don't attempt to buy any new servers if we're under this utilization
-    utilizationTarget: 0.5,
+    utilizationTarget: 0.05,
     // the max server ram you can buy (it's a petabyte) as an exponent (power of 2)
     maxRamExponent: 20,
     // the min server ram you will buy
-    minRamExponent: 10,
+    minRamExponent: 1,
 }
 
 /**
@@ -99,7 +99,6 @@ export function getPrepTargetServers(ns, servers) {
  */
 export function getHackingServers(ns, servers) {
     return servers
-        .filter(s => s.hostname !== 'home') // exclude because it has a different number of cores
         .filter(s => s.hasAdminRights)
         .sort((a, b) => b.maxRam - a.maxRam)
 }

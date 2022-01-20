@@ -133,6 +133,7 @@ export async function manageHosts(ns) {
 
         // It's only worth deleting our old server if the new server will be 16x bigger or more (or if it's the biggest we can buy)
         if (exponentLevel === SERVER.maxRamExponent || worstServerRam * 16 <= maxRamPossibleToBuy) {
+            ns.killall(worstServerName)
             if (ns.deleteServer(worstServerName)) {
                 ns.print(`deleted server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM) ` +
                     `to make room for a new ${formatRam(ns, maxRamPossibleToBuy)} Server.`)
