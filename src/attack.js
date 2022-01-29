@@ -7,7 +7,7 @@ import {
     getFreeThreads,
     getTotalThreads,
     getFreeRam,
-    getTotalRam, SERVER
+    getTotalRam, SERVER, getCracks
 } from './lib/Server'
 import {formatAttack, formatAttacks, formatDelay, updateHUD} from "./lib/Helpers";
 
@@ -31,6 +31,14 @@ export function autocomplete(data, _) {
     return []
 }
 
+// fake method to count towards memory usage to prevent error
+function countedTowardsMemory(ns) {
+    ns.brutessh()
+    ns.ftpcrack()
+    ns.relaysmtp()
+    ns.httpworm()
+    ns.sqlinject()
+}
 
 /**
  * Entry point
@@ -112,6 +120,22 @@ export async function manageAttacks(ns, currentAttacks, stats) {
     const prepTargetServers = getPrepTargetServers(ns, servers)
         .filter(s => currentHackAttacks.filter(ca => ca.attack.target === s.hostname).length === 0) // exclude currentHackAttacks
         .filter(s => currentPrepAttacks.filter(ca => ca.attack.target === s.hostname).length === 0) // exclude currentPrepAttacks
+
+    // run owned port hacks on rootable servers
+    const ownedCracks = getCracks(ns).filter(c => c.owned)
+    const rootableServers = servers.filter(s => !s.hasAdminRights
+        && s.requiredHackingSkill <= ns.getPlayer().hacking
+        && s.numOpenPortsRequired <= ownedCracks.length)
+    for (const server of rootableServers) {
+        // run port cracks
+        for (const crack of ownedCracks) {
+            ns[crack.method](server.hostname)
+        }
+        // run nuke
+        ns.nuke(server.hostname)
+        // copy hack scripts
+        await ns.scp(Object.values(this.hacks).map(h => h.script), server.hostname)
+    }
 
     // update HUD
     if (lastHudUpdate + 1000 < now) {

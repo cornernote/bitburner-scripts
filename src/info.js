@@ -1,5 +1,5 @@
-import {getServers, scanAll} from "./lib/Server";
-import {detailView, formatMoney, formatRam, gridView} from "./lib/Helpers";
+import {getCracks, getServers, scanAll} from "./lib/Server";
+import {detailView, formatMoney, formatRam, listView} from "./lib/Helpers";
 
 /**
  * Command options
@@ -15,10 +15,13 @@ const argsSchema = [
  */
 export function autocomplete(data, args) {
     data.flags(argsSchema)
-    if (args[0] === 'servers') {
+    if (args[0] === 'server') {
         return data.servers
     }
-    return ['player', 'servers', 'files']
+    if (args[0] === 'servers') {
+        return ['all', 'purchased', 'rooted', 'rootable']
+    }
+    return ['player', 'servers', 'server', 'files']
 }
 
 
@@ -39,11 +42,10 @@ export async function main(ns) {
             ns.tprintf(playerInfo(ns))
             break
         case 'servers':
-            if (args['_'][1]) {
-                ns.tprintf(serverInfo(ns, args['_'][1]))
-            } else {
-                ns.tprintf(serversInfo(ns))
-            }
+            ns.tprintf(serversInfo(ns, args['_'][1]))
+            break
+        case 'server':
+            ns.tprintf(serverInfo(ns, args['_'][1] ? args['_'][1] : 'home'))
             break
         case 'files':
             ns.tprintf(filesInfo(ns))
@@ -69,6 +71,8 @@ function helpInfo(ns) {
         '',
         'TYPES:',
         '- player',
+        '- servers',
+        '  - entity=[all|purchased|rooted|rootable]',
         '- server',
         '  - entity=hostname',
         '- files',
@@ -76,7 +80,8 @@ function helpInfo(ns) {
         '',
         'Examples:',
         `> run ${scriptName} player`,
-        `> run ${scriptName} servers n00dles`,
+        `> run ${scriptName} servers rooted`,
+        `> run ${scriptName} server n00dles`,
     ].join("\n")
 }
 
@@ -104,9 +109,22 @@ function playerInfo(ns) {
  * Information about the Servers
  *
  * @param {NS} ns
+ * @param {string} group
  */
-function serversInfo(ns) {
-    return gridView(getServers(ns).map(s => {
+function serversInfo(ns, group) {
+    let servers = getServers(ns)
+    if (group === 'purchased') {
+        servers = servers.filter(s => s.purchasedByPlayer)
+    }
+    if (group === 'rooted') {
+        servers = servers.filter(s => s.hasAdminRights && !s.purchasedByPlayer)
+    }
+    if (group === 'rootable') {
+        servers = servers.filter(s => !s.hasAdminRights
+            && s.requiredHackingSkill <= ns.getPlayer().hacking
+            && s.numOpenPortsRequired <= getCracks(ns).filter(c => c.owned).length)
+    }
+    return listView(servers.map(s => {
         return {
             hostname: s.hostname,
             //purchased: s.purchasedByPlayer,
@@ -151,7 +169,7 @@ function serverInfo(ns, hostname) {
  * @param {NS} ns
  */
 function filesInfo(ns) {
-    return gridView(ns.ls('home').map(f => {
+    return listView(ns.ls('home').map(f => {
         return {
             filename: f,
             ramCost: ns.getScriptRam(f, 'home'),

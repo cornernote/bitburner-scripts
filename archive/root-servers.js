@@ -168,10 +168,8 @@ export class RootServers {
 
         // get servers we can root
         const rootableServers = this.servers
-            // exclude servers with root access
-            .filter(s => !s.hasAdminRights)
-            // include servers within hacking level and where we own enough port cracks
-            .filter(s => s.requiredHackingSkill <= this.player.hacking && s.numOpenPortsRequired <= ownedCracks.length)
+            // include servers without admin rights and within hacking level and where we own enough port cracks
+            .filter(s => !s.hasAdminRights && s.requiredHackingSkill <= this.player.hacking && s.numOpenPortsRequired <= ownedCracks.length)
 
         // run owned port hacks on rootable servers
         for (const server of rootableServers) {

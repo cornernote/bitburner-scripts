@@ -165,3 +165,28 @@ export function getTotalThreads(ns, servers) {
         .map(s => Math.floor(s.maxRam / 1.75))
         .reduce((prev, next) => prev + next)
 }
+
+/**
+ *
+ * @param {NS} ns
+ * @return {Object[]}
+ */
+export function getCracks(ns) {
+    const cracks = []
+    const c = {
+        brutessh: 'BruteSSH.exe',
+        ftpcrack: 'FTPCrack.exe',
+        relaysmtp: 'relaySMTP.exe',
+        httpworm: 'HTTPWorm.exe',
+        sqlinject: 'SQLInject.exe',
+        // nuke: 'NUKE.exe', // not a port hack
+    }
+    for (const [method, exe] of Object.entries(c)) {
+        cracks.push({
+            method: method,
+            exe: exe,
+            owned: ns.fileExists(exe),
+        })
+    }
+    return cracks
+}

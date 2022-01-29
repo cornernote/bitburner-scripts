@@ -149,7 +149,10 @@ export function formatAttack(ns, attack, type) {
  * Create a Grid View display of the provided objects
  * @param  {Object[]} objects Array of data objects
  */
-export function gridView(objects) {
+export function listView(objects) {
+    if (!objects.length) {
+        return '-- empty list --'
+    }
 
     // Build header array
     const headers = Object.keys(objects[0])
