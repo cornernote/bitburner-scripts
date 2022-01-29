@@ -287,12 +287,12 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
         gw = parts.gw    // grow-weaken
 
     // expected hack value for a full attack
-    const hackFactor = 1.75;
-    const difficultyMult = (100 - server.hackDifficulty) / 100;
-    const skillMult = hackFactor * player.hacking;
-    const skillChance = (skillMult - server.requiredHackingSkill) / skillMult;
+    const hackFactor = 1.75
+    const difficultyMult = (100 - server.minDifficulty) / 100 // assume server has min security
+    const skillMult = hackFactor * player.hacking
+    const skillChance = (skillMult - server.requiredHackingSkill) / skillMult
     const chance = Math.max(0, Math.min(1, skillChance * difficultyMult * player.hacking_chance_mult))
-    info.cycleValue = server.moneyMax * chance * hackPercent
+    info.cycleValue = server.moneyMax * chance * hackPercent // assume server has max money
 
     // get threads for prep-weaken
     if (server.hackDifficulty > server.minDifficulty + 1) {
@@ -300,7 +300,8 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     }
     // get threads for prep-grow and prep-weaken
     if (server.moneyAvailable < server.moneyMax * 0.9) {
-        pg.threads = Math.ceil(ns.growthAnalyze(server.hostname, server.moneyMax / server.moneyAvailable, cores))
+        const growthAmount = server.moneyAvailable ? server.moneyMax / server.moneyAvailable : 100
+        pg.threads = Math.ceil(ns.growthAnalyze(server.hostname, growthAmount, cores))
         pgw.threads = Math.ceil((pg.threads * ATTACK.scripts.g.change) / ATTACK.scripts.w.change)
         // only fit this if we can
         if (pw.threads && availableThreads < pw.threads + pg.threads + pgw.threads) {
@@ -311,6 +312,9 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     // get the threads for a full hack (HWGW) - this doesn't matter what values the server has now
     const hackAnalyze = ns.hackAnalyze(server.hostname) // percent of money stolen with a single thread
     h.threads = Math.floor(hackPercent / hackAnalyze) // threads to hack the amount we want, floor so that we don't over-hack
+    // if (!h.threads) {
+    //     h.threads = ns.hackAnalyzeThreads(server.hostname, hackPercent * server.moneyAvailable) // fallback to detect hack threads
+    // }
     info.hackedPercent = h.threads * hackAnalyze // < ~0.8 - the percent we actually hacked
     const remainingPercent = 1 - info.hackedPercent // > ~0.2 - the percent remaining on the server
     const growthRequiredEstimated = 1 / (1 - hackPercent) // 5
@@ -325,22 +329,23 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     info.cycleThreads = h.threads + hw.threads + g.threads + gw.threads
     info.valuePerThread = info.cycleValue / info.cycleThreads
     // what percentage of the time can we fill with tasks before availableThreads fills
-    info.maxCycles = ns.getWeakenTime(server.hostname) / 1000 // attacks at 1/sec
+    info.maxCycles = Math.floor(ns.getWeakenTime(server.hostname) / 1000) // attacks at 1/sec
     attack.cycles = Math.min(Math.floor(availableThreads / info.cycleThreads), info.maxCycles)
     info.activePercent = attack.cycles / info.maxCycles // 0.2 = 20%
     info.attackThreads = info.cycleThreads * attack.cycles
     // attack value per thread used per second (excluding the wait for the first attack to land)
     info.averageValuePerThreadPerSecond = info.valuePerThread * info.activePercent
-    info.hackTotalPerSecond = info.cycleValue * info.activePercent // assuming we launch every second
+    info.hackTotalPerSecond = info.cycleValue * attack.cycles // assuming we launch every second
 
-    // if we can fit one attack in ram
-    if (info.cycleThreads < availableThreads) {
-        attack.hackValue = info.hackTotalPerSecond + info.averageValuePerThreadPerSecond
-        //attack.hackValue = Number.parseFloat(attack.hackValue).toPrecision(1) + info.averageValuePerThreadPerSecond
+    // if we can fit all attacks in ram
+    if (info.attackThreads && info.attackThreads <= availableThreads) {
+        // attack.hackValue = info.cycleValue * attack.cycles
+        attack.hackValue = info.valuePerThread * attack.cycles
+        //attack.hackValue = info.hackTotalPerSecond + info.averageValuePerThreadPerSecond
     }
     // if we can fit prep attack in ram
-    if (info.prepThreads < availableThreads) {
-        attack.prepValue = info.averageValuePerThreadPerSecond
+    if (info.prepThreads) { // && info.prepThreads <= availableThreads) {
+        attack.prepValue = info.cycleValue
     }
 
     // return an Attack object
@@ -480,7 +485,7 @@ export async function launchAttack(ns, attack) {
         }
     }
     attack.start = new Date().getTime()
-    attack.end = attack.start + attack.time + 1000
+    attack.end = attack.start + attack.time + (attack.cycles * 1000) + 1000
 }
 
 

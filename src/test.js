@@ -1,13 +1,16 @@
+import {getServers} from "./lib/Server";
+import {detailView, gridView} from "./lib/Helpers";
+
 /**
  * @param {NS} ns
  */
 export async function main(ns) {
-
-
-    ns.tprint(ns['getServer']('home').hostname)
-
-}
-
-export function foo(ns) {
-    ns.getServer('home')
+    const servers = getServers(ns)
+    ns.tprint(gridView(servers.map(s => {
+        return {
+            hostname: `<a href="foo.js">${s.hostname}</a>`,
+            serverGrowth: s.serverGrowth,
+        }
+    })))
+    // ns.tprint(detailView(servers[0]))
 }

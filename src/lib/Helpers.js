@@ -82,17 +82,20 @@ export function formatTime(value = 0) {
  *
  * @param {Object} update - the KEY/VALUE pair to update
  * EG: {'Money':'100','Health':'10/10'}
+ * @param {Boolean} replace
  */
-export function updateHUD(update) {
+export function updateHUD(update, replace = false) {
     const doc = eval('document')
     const hook0 = doc.getElementById('overview-extra-hook-0')
     const hook1 = doc.getElementById('overview-extra-hook-1')
     const keys = hook0.innerText.split("\n")
     const values = hook1.innerText.split("\n")
     const hud = {}
-    for (let i = 0; i < keys.length; i++) {
-        if (keys[i]) {
-            hud[keys[i]] = values[i]
+    if (!replace) {
+        for (let i = 0; i < keys.length; i++) {
+            if (keys[i]) {
+                hud[keys[i]] = values[i]
+            }
         }
     }
     for (const [k, v] of Object.entries(update)) {
@@ -140,4 +143,109 @@ export function formatAttack(ns, attack, type) {
         output.push(`pt ${ns.nFormat(attack.info.prepThreads, '0a')} ${[attack.parts.pw.threads, attack.parts.pg.threads, attack.parts.pgw.threads].join('|')}`)
     }
     return output.join(' | ')
+}
+
+/**
+ * Create a Grid View display of the provided objects
+ * @param  {Object[]} objects Array of data objects
+ */
+export function gridView(objects) {
+
+    // Build header array
+    const headers = Object.keys(objects[0])
+
+    // Build column arrays
+    const columns = objects.map(o => Object.values(o).map(p => formatProperty(p)))
+
+    // Calculate widths
+    const widths = []
+    for (const cell in headers) {
+        widths[cell] = columns.map(o => o[cell])
+            .concat([headers[cell]])
+            .map(s => s.toString().length)
+            .reduce((a, b) => a > b ? a : b)
+    }
+
+    // Calculate alignment
+    const align = []
+    for (const cell in headers) {
+        align[cell] = typeof columns[0][cell] === 'number' ? 'right' : 'left'
+    }
+
+    // Write headers
+    let output = "|"
+    for (const cell in headers) {
+        output += ` ${headers[cell].toString().padEnd(widths[cell], " ")} |`
+    }
+
+    // Write separator
+    output += "\n|"
+    for (const cell in headers) {
+        output += `${"".padEnd(widths[cell] + 2, "=")}|`
+    }
+
+    // Write rows
+    for (const row in columns) {
+        output += "\n|"
+        for (const cell in columns[row]) {
+            if (align[cell] === 'left') {
+                output += ` ${columns[row][cell].toString().padEnd(widths[cell], " ")} |`
+            } else {
+                output += ` ${columns[row][cell].toString().padStart(widths[cell], " ")} |`
+            }
+        }
+    }
+
+    output += "\n"
+    return output
+}
+
+
+/**
+ * Create a Detail View display of the provided object
+ * @param  {Object} object Data object
+ */
+export function detailView(object) {
+
+    // Build header array
+    const headers = Object.keys(object)
+
+    // Build column arrays
+    const columns = Object.values(object).map(p => formatProperty(p))
+
+    // Calculate widths
+    const widths = {
+        headers: headers.map(s => s.toString().length).reduce((a, b) => a > b ? a : b),
+        columns: columns.map(s => s.toString().length).reduce((a, b) => a > b ? a : b),
+    }
+
+    // Write output
+    let output = ""
+    for (const cell in headers) {
+        output += "|"
+        output += ` ${headers[cell].toString().padEnd(widths.headers, " ")} |`
+        output += ` ${columns[cell].toString().padEnd(widths.columns, " ")} |`
+        output += "\n"
+    }
+
+    return output
+}
+
+/**
+ * Format anything to a string or a number, for gridView()/detailView()
+ *
+ * @param {*} property
+ * @return {string|number}
+ */
+export function formatProperty(property) {
+    if (typeof property === 'string' || typeof property === 'number') {
+        return property
+    }
+    if (typeof property === 'boolean') {
+        return property ? 'Y' : 'N'
+    }
+    if (property) {
+        return JSON.stringify(property)
+    }
+    return ''
 }
