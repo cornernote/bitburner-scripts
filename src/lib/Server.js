@@ -18,7 +18,7 @@ export const SERVER = {
     // the name prefixed to purchased servers
     purchasedServerName: 'homenet',
     // the max number of servers you can have in your farm
-    maxPurchasedServers: 25,
+    maxPurchasedServers: 25 + 1, // +1 for home
     // Don't attempt to buy any new servers if we're under this utilization
     utilizationTarget: 0.05,
     // the max server ram you can buy (it's a petabyte) as an exponent (power of 2)

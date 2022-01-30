@@ -128,8 +128,8 @@ export function formatAttacks(ns, attacks, type) {
  *
  * @param {NS} ns
  * @param {Attack} attack
- * @param {String} type
- * @return {String}
+ * @param {string} type
+ * @return {string}
  */
 export function formatAttack(ns, attack, type) {
     const output = [
@@ -148,10 +148,11 @@ export function formatAttack(ns, attack, type) {
 /**
  * Create a Grid View display of the provided objects
  * @param  {Object[]} objects Array of data objects
+ * @return {string}
  */
 export function listView(objects) {
     if (!objects.length) {
-        return '-- empty list --'
+        return "\n-> " + columns.length.toString() + ' rows'
     }
 
     // Build header array
@@ -175,8 +176,14 @@ export function listView(objects) {
         align[cell] = typeof columns[0][cell] === 'number' ? 'right' : 'left'
     }
 
-    // Write headers
+    // Write separator
     let output = "|"
+    for (const cell in headers) {
+        output += `${"".padEnd(widths[cell] + 2, "=")}|`
+    }
+
+    // Write headers
+    output += "\n|"
     for (const cell in headers) {
         output += ` ${headers[cell].toString().padEnd(widths[cell], " ")} |`
     }
@@ -198,6 +205,15 @@ export function listView(objects) {
             }
         }
     }
+
+    // Write separator
+    output += "\n|"
+    for (const cell in headers) {
+        output += `${"".padEnd(widths[cell] + 2, "=")}|`
+    }
+
+    // Write row count
+    output += "\n-> " + columns.length.toString() + ' rows'
 
     output += "\n"
     return output
@@ -222,14 +238,25 @@ export function detailView(object) {
         columns: columns.map(s => s.toString().length).reduce((a, b) => a > b ? a : b),
     }
 
+    // Write separator
+    let output = "|"
+    output += `${"".padEnd(widths.headers + 2, "=")}|`
+    output += `${"".padEnd(widths.columns + 2, "=")}|`
+
     // Write output
-    let output = ""
+    output += "\n"
     for (const cell in headers) {
         output += "|"
         output += ` ${headers[cell].toString().padEnd(widths.headers, " ")} |`
         output += ` ${columns[cell].toString().padEnd(widths.columns, " ")} |`
         output += "\n"
     }
+
+    // Write separator
+    output += "|"
+    output += `${"".padEnd(widths.headers + 2, "=")}|`
+    output += `${"".padEnd(widths.columns + 2, "=")}|`
+    output += "\n"
 
     return output
 }

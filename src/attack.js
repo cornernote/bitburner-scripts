@@ -305,11 +305,12 @@ export async function manageAttacks(ns, currentAttacks, stats) {
             'Attacks:': `hack=${currentHackAttacks.length}|prep=${currentPrepAttacks.length}`,
         }
         for (const currentHackAttack of currentHackAttacks.sort((a, b) => b.attack.info.cycleValue - a.attack.info.cycleValue)) {
-            hud[`A ${currentHackAttack.attack.target}`] = ns.nFormat(currentHackAttack.attack.info.cycleValue, '$0.0a')
-                // + ' ' + currentHackAttack.attack.cycles
-                // + ' ' + (currentHackAttack.attack.start + currentHackAttack.attack.time > now
-                //     ? 'a' + formatDelay((currentHackAttack.attack.start + currentHackAttack.attack.time - now) * -1)
-                //     : 'b' + formatDelay(currentHackAttack.attack.end - now))
+            const started = currentHackAttack.attack.start + currentHackAttack.attack.time > now
+            hud[`- ${currentHackAttack.attack.target}`] = (started ? '*' : '') + ns.nFormat(currentHackAttack.attack.info.cycleValue, '$0.0a')
+            // + ' ' + currentHackAttack.attack.cycles
+            // + ' ' + (currentHackAttack.attack.start + currentHackAttack.attack.time > now
+            //     ? 'a' + formatDelay((currentHackAttack.attack.start + currentHackAttack.attack.time - now) * -1)
+            //     : 'b' + formatDelay(currentHackAttack.attack.end - now))
         }
         // for (const currentPrepAttack of currentPrepAttacks.sort((a, b) => b.attack.end - a.attack.end)) {
         //     hud[`P ${currentPrepAttack.attack.target}`] = ns.nFormat(currentPrepAttack.attack.prepValue, '$0.0a')
