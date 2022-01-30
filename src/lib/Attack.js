@@ -29,7 +29,7 @@ export const ATTACK = {
     },
     // percents used when testing attack values
     hackPercents: [
-        0.95,
+        // 0.95,
         0.8,
         0.4,
         0.2,
@@ -38,8 +38,8 @@ export const ATTACK = {
         0.025,
         0.0125,
         0.00625,
-        0.003125,
-        0.0015625,
+        // 0.003125,
+        // 0.0015625,
     ],
 }
 
@@ -484,10 +484,11 @@ export async function launchAttack(ns, attack, commands) {
             ns.print(`WARNING: could not start command: ${JSON.stringify(command)}`)
         }
     }
+    const now = new Date().getTime()
     if (!attack.start) {
-        attack.start = new Date().getTime()
+        attack.start = now
     }
-    attack.end = attack.start + attack.time + (attack.cycles * 1000) + 1000
+    attack.end = now + attack.time + (attack.cycles * 1000) + 1000
 }
 
 

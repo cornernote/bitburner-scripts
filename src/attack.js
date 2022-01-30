@@ -240,13 +240,12 @@ export async function manageAttacks(ns, currentAttacks, stats) {
     }
 
     // launch new prep attacks
-    let totalThreads = getTotalThreads(ns, hackingServers, 1.75)
     let freeThreads = getFreeThreads(ns, hackingServers, 1.75)
     const bestPrepType = currentPrepAttacks.length < 10 ? 'fastest' : 'prepValue'
     const prepAttack = getBestAttack(ns, player, prepTargetServers, bestPrepType, freeThreads, cores)
-    // if no prep attacks, or the current prep can be 50% done in the available threads, or there are more than 50% threads available
-    if (currentPrepAttacks.length === 0 || prepAttack.prepThreads * 0.5 < freeThreads || freeThreads > totalThreads * 0.5) {
-        if (prepAttack) {
+    // if the current prep can be done in available threads, or no prep attacks
+    if (prepAttack) {
+        if (prepAttack.info.prepThreads < freeThreads || currentPrepAttacks.length === 0) {
             const commands = assignAttack(ns, prepAttack, hackingServers, 'prep', 1, true)
             if (commands.length) {
                 await launchAttack(ns, prepAttack, commands)
@@ -265,10 +264,10 @@ export async function manageAttacks(ns, currentAttacks, stats) {
         }
     }
 
-    // if there is unused ram, share upto 90% with factions
+    // if there is unused ram, share ram with factions
     const shareRam = 4
-    const shareMax = 0.9
-    totalThreads = getTotalThreads(ns, hackingServers, shareRam)
+    const shareMax = prepTargetServers.length ? 0.6 : 0.9 // share upto 60% if we have prep targets, 90% if we have no prep targets
+    const totalThreads = getTotalThreads(ns, hackingServers, shareRam)
     freeThreads = getFreeThreads(ns, hackingServers, shareRam)
     if (freeThreads > totalThreads * (1 - shareMax)) {
         const usedThreads = totalThreads - freeThreads
@@ -278,7 +277,8 @@ export async function manageAttacks(ns, currentAttacks, stats) {
             const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / shareRam))
             const threadsToRun = Math.max(0, Math.min(threadsFittable, remainingThreads))
             if (threadsToRun) {
-                ns.exec('/hacks/share.js', server.hostname, threadsToRun)
+                //args[0: loop]
+                ns.exec('/hacks/share.js', server.hostname, threadsToRun, 10)
                 remainingThreads -= threadsToRun
                 server.ramUsed += threadsToRun * shareRam
             }
@@ -308,13 +308,13 @@ export async function manageAttacks(ns, currentAttacks, stats) {
             hud[`A ${currentHackAttack.attack.target}`] = ns.nFormat(currentHackAttack.attack.hackValue, '$0.0a')
                 + ' ' + currentHackAttack.attack.cycles
                 + ' ' + (currentHackAttack.attack.start + currentHackAttack.attack.time > now
-                    ? formatDelay((currentHackAttack.attack.start + currentHackAttack.attack.time - now) * -1)
-                    : formatDelay(currentHackAttack.attack.end - now))
+                    ? 'a' + formatDelay((currentHackAttack.attack.start + currentHackAttack.attack.time - now) * -1)
+                    : 'b' + formatDelay(currentHackAttack.attack.end - now))
         }
-        for (const currentPrepAttack of currentPrepAttacks.sort((a, b) => b.attack.end - a.attack.end)) {
-            hud[`P ${currentPrepAttack.attack.target}`] = ns.nFormat(currentPrepAttack.attack.prepValue, '$0.0a')
-                + ' ' + formatDelay(currentPrepAttack.attack.end - now)
-        }
+        // for (const currentPrepAttack of currentPrepAttacks.sort((a, b) => b.attack.end - a.attack.end)) {
+        //     hud[`P ${currentPrepAttack.attack.target}`] = ns.nFormat(currentPrepAttack.attack.prepValue, '$0.0a')
+        //         + ' ' + formatDelay(currentPrepAttack.attack.end - now)
+        // }
         updateHUD(hud, true)
     }
 

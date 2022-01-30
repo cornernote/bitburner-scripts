@@ -6,7 +6,7 @@ import {terminalCommand} from "./lib/Helpers";
  */
 const argsSchema = [
     ['help', false],
-    ['type', 'special']
+    ['all', false]
 ]
 
 /**
@@ -38,7 +38,7 @@ export async function main(ns) {
 
     if (args['_'][0]) {
         backdoorServers = backdoorServers.filter(s => s.hostname === args['_'][0])
-    } else if (args['type'] === 'special') {
+    } else if (!args['all']) {
         backdoorServers = backdoorServers.filter(s => SERVER.backdoorHostnames.includes(s.hostname))
     }
 

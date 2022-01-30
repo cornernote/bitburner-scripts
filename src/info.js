@@ -130,7 +130,7 @@ function serversInfo(ns, group) {
         return {
             hostname: s.hostname,
             //purchased: s.purchasedByPlayer,
-            admin: s.hasAdminRights ? s.hasAdminRights : `level ${s.requiredHackingSkill} +${s.numOpenPortsRequired}ports`,
+            admin: s.hasAdminRights ? s.hasAdminRights : `level=${s.requiredHackingSkill} ports=${s.numOpenPortsRequired}`,
             backdoor: s.backdoorInstalled,
             difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
             money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,
