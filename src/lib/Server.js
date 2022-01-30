@@ -30,6 +30,17 @@ export const SERVER = {
         '/hacks/hack.js',
         '/hacks/grow.js',
         '/hacks/weaken.js',
+        '/hacks/share.js',
+    ],
+    // servers with a backdoor bonus, usually a faction invite
+    // https://bitburner.readthedocs.io/en/latest/basicgameplay/factions.html
+    backdoorHostnames: [
+        'CSEC',          // CyberSec
+        'avmnite-02h',   // NiteSec
+        'I.I.I.I',       // The Black Hand
+        'run4theh111z',  // Bitrunners
+        'fulcrumassets', // Fulcrum Secret Technologies (also needs 250k reputation with the Corporation)
+        'w0r1d_d43m0n',  // reboot...
     ],
 }
 
@@ -141,7 +152,7 @@ export function getHackingServers(ns, servers) {
  */
 export function getOwnedServers(ns, servers) {
     return servers
-        .filter(s => s.hostname.startsWith(SERVER.purchasedServerName))
+        .filter(s => s.purchasedByPlayer)
         .sort((a, b) => b.maxRam - a.maxRam)
 }
 
@@ -175,11 +186,12 @@ export function getTotalRam(ns, servers) {
  *
  * @param {NS} ns
  * @param {[Server]} servers
+ * @param {number} ram per thread in GB
  * @return {Number}
  */
-export function getFreeThreads(ns, servers) {
+export function getFreeThreads(ns, servers, ram) {
     return servers
-        .map(s => Math.floor((s.maxRam - s.ramUsed) / 1.75))
+        .map(s => Math.floor((s.maxRam - s.ramUsed) / ram))
         .reduce((prev, next) => prev + next)
 }
 
@@ -187,11 +199,12 @@ export function getFreeThreads(ns, servers) {
  * Gets the total (max) RAM to run hacking threads on a list of servers.
  * @param {NS} ns
  * @param {[Server]} servers
+ * @param {number} ram per thread in GB
  * @return {Number}
  */
-export function getTotalThreads(ns, servers) {
+export function getTotalThreads(ns, servers, ram) {
     return servers
-        .map(s => Math.floor(s.maxRam / 1.75))
+        .map(s => Math.floor(s.maxRam / ram))
         .reduce((prev, next) => prev + next)
 }
 

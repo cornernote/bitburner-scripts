@@ -1,4 +1,5 @@
 import {getCracks} from "./lib/Server";
+import {terminalCommand} from "./lib/Helpers";
 
 /**
  * Entry point
@@ -28,19 +29,4 @@ export async function main(ns) {
         }
     }
 
-}
-
-/**
- * Hacky way to run a terminal command
- *
- * @param message
- */
-function terminalCommand(message) {
-    const terminalInput = globalThis['document'].getElementById('terminal-input')
-    if (terminalInput) {
-        terminalInput.value = message
-        const handler = Object.keys(terminalInput)[1]
-        terminalInput[handler].onChange({target: terminalInput})
-        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-    }
 }

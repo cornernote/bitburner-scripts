@@ -1,4 +1,24 @@
-import {getRoutes, getServers} from "./lib/Server";
+import {getRoutes, getServers, SERVER} from "./lib/Server";
+import {terminalCommand} from "./lib/Helpers";
+
+/**
+ * Command options
+ */
+const argsSchema = [
+    ['help', false],
+    ['type', 'special']
+]
+
+/**
+ * Command auto-complete
+ * @param {Object} data
+ * @param {*} args
+ */
+export function autocomplete(data, args) {
+    data.flags(argsSchema)
+    return data.servers
+}
+
 
 /**
  * Entry point
@@ -6,11 +26,22 @@ import {getRoutes, getServers} from "./lib/Server";
  * @param {NS} ns
  */
 export async function main(ns) {
+    ns.disableLog('ALL')
+    const args = ns.flags(argsSchema)
+
     const player = ns.getPlayer()
-    const backdoorServers = getServers(ns).filter(s => s.hasAdminRights
+
+    let backdoorServers = getServers(ns).filter(s => s.hasAdminRights
         && !s.backdoorInstalled
         && !s.purchasedByPlayer
         && s.requiredHackingSkill <= player.hacking)
+
+    if (args['_'][0]) {
+        backdoorServers = backdoorServers.filter(s => s.hostname === args['_'][0])
+    } else if (args['type'] === 'special') {
+        backdoorServers = backdoorServers.filter(s => SERVER.backdoorHostnames.includes(s.hostname))
+    }
+
     if (backdoorServers.length) {
         const routes = getRoutes(ns)
         ns.tprint(`Backdoor: ${backdoorServers.map(s => s.hostname).join(', ')}.`)
@@ -27,24 +58,11 @@ export async function main(ns) {
             if (terminalInput) {
                 while (terminalInput.disabled) {
                     await ns.sleep(200)
+                    if (!globalThis['document'].getElementById('terminal-input')) {
+                        break
+                    }
                 }
             }
         }
-    }
-}
-
-/**
- * Hacky way to run a terminal command
- *
- * @param message
- */
-function terminalCommand(message) {
-    const terminalInput = globalThis['document'].getElementById('terminal-input')
-    if (terminalInput) {
-        terminalInput.value = message
-        const handler = Object.keys(terminalInput)[1]
-        terminalInput[handler].onChange({target: terminalInput})
-        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
-        return terminalInput
     }
 }

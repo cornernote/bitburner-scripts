@@ -19,7 +19,7 @@ export function autocomplete(data, args) {
         return data.servers
     }
     if (args[0] === 'servers') {
-        return ['all', 'purchased', 'rooted', 'rootable']
+        return ['all', 'purchased', 'rooted', 'rootable', 'locked']
     }
     return ['player', 'servers', 'server', 'files']
 }
@@ -31,7 +31,6 @@ export function autocomplete(data, args) {
  * @param {NS} ns
  */
 export async function main(ns) {
-    // get some stuff ready
     ns.disableLog('ALL')
     const args = ns.flags(argsSchema)
     if (!args['_'][0]) {
@@ -72,7 +71,7 @@ function helpInfo(ns) {
         'TYPES:',
         '- player',
         '- servers',
-        '  - entity=[all|purchased|rooted|rootable]',
+        '  - entity=[all|purchased|rooted|rootable|locked]',
         '- server',
         '  - entity=hostname',
         '- files',
@@ -124,11 +123,14 @@ function serversInfo(ns, group) {
             && s.requiredHackingSkill <= ns.getPlayer().hacking
             && s.numOpenPortsRequired <= getCracks(ns).filter(c => c.owned).length)
     }
+    if (group === 'locked') {
+        servers = servers.filter(s => !s.hasAdminRights)
+    }
     return listView(servers.map(s => {
         return {
             hostname: s.hostname,
             //purchased: s.purchasedByPlayer,
-            admin: s.hasAdminRights ? s.hasAdminRights : `${s.openPortCount} / ${s.numOpenPortsRequired}`,
+            admin: s.hasAdminRights ? s.hasAdminRights : `level ${s.requiredHackingSkill} +${s.numOpenPortsRequired}ports`,
             backdoor: s.backdoorInstalled,
             difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
             money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,

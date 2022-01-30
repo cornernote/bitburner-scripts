@@ -57,14 +57,8 @@ export function Attack(attack) {
     this.time = attack.time
     this.parts = new AttackParts(attack.parts)
     this.info = new AttackInfo(attack.info)
-    this.commands = []
     this.start = null
     this.end = null
-    if (attack.commands && Array.isArray(attack.commands)) {
-        for (const command of attack.commands) {
-            this.commands.push(new AttackCommand(command))
-        }
-    }
 }
 
 /**
@@ -158,12 +152,16 @@ export function getBestAttacks(ns, player, servers, sortField, availableThreads,
     for (const hackPercent of ATTACK.hackPercents) {
         for (const server of servers) {
             const attack = buildAttack(ns, player, server, hackPercent, availableThreads, cores)
-            if (attack[sortField]) {
-                attacks.push(attack)
-            }
+            attacks.push(attack)
         }
     }
-    attacks = attacks.sort((a, b) => b[sortField] - a[sortField])
+    if (sortField === 'fastest') {
+        // sort asc
+        attacks = attacks.filter(a => a.time).sort((a, b) => a.time - b.time)
+    } else {
+        // sort desc
+        attacks = attacks.filter(a => a[sortField]).sort((a, b) => b[sortField] - a[sortField])
+    }
     return attacks
 }
 
@@ -325,11 +323,12 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     gw.threads = Math.ceil(g.threads * (ATTACK.scripts.g.change / ATTACK.scripts.w.change)) // weaken threads for grow, ceil so that we don't under-weaken
 
     // get the count of threads
-    info.prepThreads = pw.threads + pg.threads + pgw.threads * ATTACK.scripts.w.ram
+    info.prepThreads = pw.threads + pg.threads + pgw.threads
     info.cycleThreads = h.threads + hw.threads + g.threads + gw.threads
     info.valuePerThread = info.cycleValue / info.cycleThreads
     // what percentage of the time can we fill with tasks before availableThreads fills
-    info.maxCycles = Math.floor(ns.getWeakenTime(server.hostname) / 1000) // attacks at 1/sec
+    attack.time = ns.getWeakenTime(server.hostname)
+    info.maxCycles = Math.floor(attack.time / 1000) // attacks at 1/sec
     attack.cycles = Math.min(Math.floor(availableThreads / info.cycleThreads), info.maxCycles)
     info.activePercent = attack.cycles / info.maxCycles // 0.2 = 20%
     info.attackThreads = info.cycleThreads * attack.cycles
@@ -339,8 +338,8 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
 
     // if we can fit all attacks in ram
     if (info.attackThreads && info.attackThreads <= availableThreads) {
-        // attack.hackValue = info.cycleValue * attack.cycles
-        attack.hackValue = info.valuePerThread * attack.cycles
+        attack.hackValue = info.cycleValue * attack.cycles
+        // attack.hackValue = info.valuePerThread * attack.cycles
         //attack.hackValue = info.hackTotalPerSecond + info.averageValuePerThreadPerSecond
     }
     // if we can fit prep attack in ram
@@ -361,10 +360,10 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
  * @param {String} cycleType
  * @param {Number} cycles how many more cycles to assign commands for
  * @param {Boolean} allowRamOverflow
- * @returns {Boolean}
+ * @returns {AttackCommand[]}
  */
 export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRamOverflow = false) {
-    attack.commands = []
+    const commands = []
     for (let cycle = 1; cycle <= cycles; cycle++) {
         let cycleCommands = []
         const serverRam = {}
@@ -438,10 +437,10 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
         }
         // if we fit in ram, add to the list
         for (const command of cycleCommands) {
-            attack.commands.push(command)
+            commands.push(command)
         }
     }
-    return attack.commands.length > 0
+    return commands
 }
 
 /**
@@ -449,12 +448,13 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
  *
  * @param {NS} ns
  * @param {Attack} attack
+ * @param {AttackCommand[]} commands
  * @return {Promise<{any}>}
  */
-export async function launchAttack(ns, attack) {
+export async function launchAttack(ns, attack, commands) {
     // run each command in the list
     // ns.print('running commands:')
-    for (const command of attack.commands) {
+    for (const command of commands) {
         let retry = 5,
             pid = 0
         // retry a few times until we get a pid
@@ -481,10 +481,12 @@ export async function launchAttack(ns, attack) {
             await ns.sleep(100)
         }
         if (!pid) {
-            ns.tprint(`WARNING: could not start command: ${JSON.stringify(command)}`)
+            ns.print(`WARNING: could not start command: ${JSON.stringify(command)}`)
         }
     }
-    attack.start = new Date().getTime()
+    if (!attack.start) {
+        attack.start = new Date().getTime()
+    }
     attack.end = attack.start + attack.time + (attack.cycles * 1000) + 1000
 }
 

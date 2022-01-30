@@ -252,3 +252,20 @@ export function formatProperty(property) {
     }
     return ''
 }
+
+/**
+ * Hacky way to run a terminal command
+ *
+ * @param message
+ * @return HTMLInputElement
+ */
+export function terminalCommand(message) {
+    const terminalInput = globalThis['document'].getElementById('terminal-input')
+    if (terminalInput) {
+        terminalInput.value = message
+        const handler = Object.keys(terminalInput)[1]
+        terminalInput[handler].onChange({target: terminalInput})
+        terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
+        return terminalInput
+    }
+}

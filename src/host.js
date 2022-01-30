@@ -99,7 +99,7 @@ export async function manageHosts(ns) {
     let worstServerRam = maxPurchasableServerRam
     let bestServerName = null
     let bestServerRam = 0
-    for (const server of purchasedServers) {
+    for (const server of purchasedServers.filter(s => s.hostname !== 'home')) {
         if (server.maxRam < worstServerRam) {
             worstServerName = server.hostname
             worstServerRam = server.maxRam
