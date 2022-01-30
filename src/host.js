@@ -5,7 +5,7 @@ import {formatMoney, formatRam} from "./lib/Helpers";
  * Command options
  */
 const argsSchema = [
-    ['loop', false],
+    ['once', false],
     ['help', false],
 ]
 
@@ -29,9 +29,11 @@ export async function main(ns) {
     ns.disableLog('ALL')
     // work, sleep, repeat
     do {
-        await manageHosts(ns)
+        if (!await manageHosts(ns)) {
+            break
+        }
         await ns.sleep(10 * 1000)
-    } while (args.loop)
+    } while (!args.once)
 }
 
 
@@ -39,6 +41,7 @@ export async function main(ns) {
  * Manage purchased servers.
  *
  * @param {NS} ns
+ * @returns {Promise<boolean>} false if we cannot purchase any more servers
  */
 export async function manageHosts(ns) {
     const servers = getServers(ns)
@@ -61,7 +64,7 @@ export async function manageHosts(ns) {
     // Stop if utilization is below target. We probably don't need another server.
     if (utilizationRate < SERVER.utilizationTarget) {
         ns.print(prefix + 'current utilization is below target ' + ns.nFormat(SERVER.utilizationTarget, '0%') + '.')
-        return
+        return true
     }
     // Determine the most ram we can buy with this money
     let exponentLevel
@@ -76,7 +79,7 @@ export async function manageHosts(ns) {
     const cost = ns.getPurchasedServerCost(maxRamPossibleToBuy)
     if (budget < cost) {
         ns.print(prefix + 'budget ' + formatMoney(ns, budget) + ' is less than ' + formatMoney(ns, cost) + ' for ' + formatRam(ns, maxRamPossibleToBuy))
-        return
+        return true
     }
 
     // if (exponentLevel < SERVER.minRamExponent) {
@@ -89,7 +92,7 @@ export async function manageHosts(ns) {
         // Abort if purchasing this server wouldn't improve our total RAM by more than 10% (ensures we buy in meaningful increments)
         if (maxRamPossibleToBuy / totalMaxRam < 0.1) {
             ns.print(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(ns, totalMaxRam) + ')')
-            return
+            return true
         }
     }
 
@@ -114,21 +117,20 @@ export async function manageHosts(ns) {
     if (worstServerName != null && maxRamPossibleToBuy < worstServerRam) {
         ns.print(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
             ') is less than our worst purchased server ' + worstServerName + '\'s RAM ' + formatRam(ns, worstServerRam))
-        return
+        return true
     }
     // Only buy new servers as good as or better than our best bought server (anything less is considered a regression in value)
     if (bestServerRam != null && maxRamPossibleToBuy < bestServerRam) {
         ns.print(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
             ') is less than our previously purchased server ' + bestServerName + " RAM " + formatRam(ns, bestServerRam))
-        return
+        return true
     }
 
     // if we're at capacity, check to see if we can do better than the current worst purchased server. If so, delete it to make room.
     if (purchasedServers.length >= SERVER.maxPurchasedServers) {
         if (worstServerRam === maxPurchasableServerRam) {
-            // keepRunning = false todo
             ns.print('All purchasable servers are maxed.')
-            return
+            return false
         }
 
         // It's only worth deleting our old server if the new server will be 16x bigger or more (or if it's the biggest we can buy)
@@ -140,11 +142,11 @@ export async function manageHosts(ns) {
             } else {
                 ns.print(`WARNING: failed to delete server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM), perhaps it is running scripts?`)
             }
-            return
+            return true
         } else {
             ns.print(`${prefix}the most RAM we can buy (${formatRam(ns, maxRamPossibleToBuy)}) is less than 16x the RAM ` +
                 `of the server it must delete to make room: ${worstServerName} (${formatRam(ns, worstServerRam)} RAM)`)
-            return
+            return true
         }
     }
 
@@ -158,5 +160,6 @@ export async function manageHosts(ns) {
     } else {
         ns.print('Purchased a new server ' + purchasedServer + ' with ' + formatRam(ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(ns, cost))
     }
+    return true
 
 }
