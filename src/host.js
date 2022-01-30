@@ -152,7 +152,7 @@ export async function manageHosts(ns) {
 
     let purchasedServer = ns.purchaseServer(SERVER.purchasedServerName, maxRamPossibleToBuy)
     if (purchasedServer) {
-        await ns.scp(['/hacks/hack.js', '/hacks/grow.js', '/hacks/weaken.js'], 'home', purchasedServer)
+        await ns.scp(SERVER.hackScripts, purchasedServer)
     }
     if (!purchasedServer) {
         ns.print(prefix + `Could not purchase a server with ${formatRam(ns, maxRamPossibleToBuy)} RAM for ${formatMoney(ns, cost)} ` +

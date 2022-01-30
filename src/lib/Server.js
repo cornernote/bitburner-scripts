@@ -140,7 +140,8 @@ export function getPrepTargetServers(ns, servers) {
 export function getHackingServers(ns, servers) {
     return servers
         .filter(s => s.hasAdminRights)
-        .sort((a, b) => b.maxRam - a.maxRam)
+        .sort((a, b) => b.maxRam - a.maxRam) // sort by ram
+        .sort((a, b) => (b.hostname === 'home' ? 0 : 1) - (a.hostname === 'home' ? 0 : 1)) // home last
 }
 
 /**
