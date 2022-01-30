@@ -25,6 +25,12 @@ export const SERVER = {
     maxRamExponent: 20,
     // the min server ram you will buy
     minRamExponent: 1,
+    // hack scripts
+    hackScripts: [
+        '/hacks/hack.js',
+        '/hacks/grow.js',
+        '/hacks/weaken.js',
+    ],
 }
 
 /**
@@ -60,6 +66,29 @@ export function scanAll(ns) {
         servers.push(hostname)
     }
     return servers
+}
+
+
+/**
+ * Gets routes to all servers in the network.
+ *
+ * @param {NS} ns
+ * @return {Object} key/value of hostname/route
+ */
+export function getRoutes(ns) {
+    const spider = ['home']
+    const routes = {home: ['home']}
+    while (spider.length > 0) {
+        const hostname = spider.pop()
+        for (const scanned of ns.scan(hostname)) {
+            if (!routes[scanned]) {
+                spider.push(scanned)
+                routes[scanned] = routes[hostname].slice()
+                routes[scanned].push(scanned)
+            }
+        }
+    }
+    return routes
 }
 
 /**
@@ -167,26 +196,44 @@ export function getTotalThreads(ns, servers) {
 }
 
 /**
+ * Gets the cracks used to gain root access
  *
  * @param {NS} ns
  * @return {Object[]}
  */
 export function getCracks(ns) {
     const cracks = []
-    const c = {
-        brutessh: 'BruteSSH.exe',
-        ftpcrack: 'FTPCrack.exe',
-        relaysmtp: 'relaySMTP.exe',
-        httpworm: 'HTTPWorm.exe',
-        sqlinject: 'SQLInject.exe',
-        // nuke: 'NUKE.exe', // not a port hack
-    }
-    for (const [method, exe] of Object.entries(c)) {
-        cracks.push({
-            method: method,
-            exe: exe,
-            owned: ns.fileExists(exe),
-        })
+    const c = [
+        {
+            method: 'brutessh',
+            file: 'BruteSSH.exe',
+            cost: 500000,
+        },
+        {
+            method: 'ftpcrack',
+            file: 'FTPCrack.exe',
+            cost: 1500000,
+        },
+        {
+            method: 'relaysmtp',
+            file: 'relaySMTP.exe',
+            cost: 5000000,
+        },
+        {
+            method: 'httpworm',
+            file: 'HTTPWorm.exe',
+            cost: 30000000,
+        },
+        {
+            method: 'sqlinject',
+            file: 'SQLInject.exe',
+            cost: 250000000,
+        },
+    ]
+    for (const crack of c) {
+        crack.owned = ns.fileExists(crack.file)
+        cracks.push(crack)
     }
     return cracks
 }
+

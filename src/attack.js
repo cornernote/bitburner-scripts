@@ -134,7 +134,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
         // run nuke
         ns.nuke(server.hostname)
         // copy hack scripts
-        await ns.scp(Object.values(this.hacks).map(h => h.script), server.hostname)
+        await ns.scp(SERVER.hackScripts, server.hostname)
     }
 
     // update HUD

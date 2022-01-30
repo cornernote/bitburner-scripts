@@ -1,4 +1,4 @@
-import {getCracks, getServers, scanAll} from "./lib/Server";
+import {getCracks, getRoutes, getServers} from "./lib/Server";
 import {detailView, formatMoney, formatRam, listView} from "./lib/Helpers";
 
 /**
@@ -130,7 +130,7 @@ function serversInfo(ns, group) {
             //purchased: s.purchasedByPlayer,
             admin: s.hasAdminRights ? s.hasAdminRights : `${s.openPortCount} / ${s.numOpenPortsRequired}`,
             backdoor: s.backdoorInstalled,
-            difficulty: `${s.hackDifficulty}${s.minDifficulty < s.hackDifficulty ? ' > ' + s.minDifficulty : ''}`,
+            difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
             money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,
             'ram (used)': `${formatRam(ns, s.maxRam)}${s.ramUsed ? ' (' + formatRam(ns, s.ramUsed) + ')' : ''}`,
         }
@@ -145,6 +145,7 @@ function serversInfo(ns, group) {
  */
 function serverInfo(ns, hostname) {
     const server = {}
+    const r = getRoutes(ns)
     const s = ns.getServer(hostname)
     for (let [k, v] of Object.entries(s)) {
         switch (k) {
@@ -159,6 +160,7 @@ function serverInfo(ns, hostname) {
         }
         server[k] = v
     }
+    server.route = r[server.hostname] ? r[server.hostname].join(' > ') : ''
     return detailView(server)
 }
 
