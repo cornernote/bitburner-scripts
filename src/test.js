@@ -1,16 +1,16 @@
-import {convertCSVtoArray, listView} from "./lib/Helpers";
+import {assignAttack, buildAttack, launchAttack} from "./lib/Attack";
+import {getHackingServers, getServers} from "./lib/Server";
 
 /**
  * @param {NS} ns
  */
 export async function main(ns) {
 
-    const stats = convertCSVtoArray(ns.read('/data/port-stats.csv.txt'))
-        .filter(s => s.type !== 'check')
-        .sort((a, b) => a.start + a.delay + a.time - b.start + b.delay + b.time)
-
-    ns.tprint('Stats:\n' + listView(stats.map(s => {
-        return s
-    })))
+    const target = ns.getServer('foodnstuff')
+    const servers = getHackingServers(ns, getServers(ns))
+    const attack = buildAttack(ns, ns.getPlayer(), target, 0.8, servers)
+    const type = attack.info.prepThreads ? 'prep' : 'hack'
+    const commands = assignAttack(ns, attack, servers, type, 20)
+    await launchAttack(ns, attack, commands)
 
 }

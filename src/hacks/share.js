@@ -4,6 +4,7 @@
  */
 export async function main(ns) {
     //args[0: loop]
+    const startTime = new Date().getTime()
     const start = performance.now()
     const loop = ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0

@@ -15,6 +15,7 @@ export async function main(ns) {
     //   7: start,
     //   8: time,
     // ]
+    const startTime = new Date().getTime()
     const start = performance.now()
     const target = /** @type string */ ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
@@ -44,7 +45,7 @@ export async function main(ns) {
         host: host,
         threads: threads,
         // timer
-        start: start,
+        start: startTime,
         delay: delay,
         time: time,
         estStart: estStart,

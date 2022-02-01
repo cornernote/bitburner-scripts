@@ -1,5 +1,5 @@
 import {getCracks, getRoutes, getServers} from "./lib/Server";
-import {detailView, formatMoney, formatRam, listView} from "./lib/Helpers";
+import {convertCSVtoArray, detailView, formatMoney, formatRam, listView} from "./lib/Helpers";
 
 /**
  * Command options
@@ -21,7 +21,7 @@ export function autocomplete(data, args) {
     if (args[0] === 'servers') {
         return ['all', 'purchased', 'rooted', 'rootable', 'locked']
     }
-    return ['player', 'servers', 'server', 'files']
+    return ['player', 'servers', 'server', 'files', 'stats']
 }
 
 
@@ -48,6 +48,9 @@ export async function main(ns) {
             break
         case 'files':
             ns.tprintf(filesInfo(ns))
+            break
+        case 'stats':
+            ns.tprintf(statsInfo(ns))
             break
         default:
             ns.tprintf(helpInfo(ns))
@@ -181,3 +184,17 @@ function filesInfo(ns) {
     }))
 }
 
+/**
+ * Information about attack stats
+ *
+ * @param ns
+ * @returns {string}
+ */
+function statsInfo(ns) {
+    const stats = convertCSVtoArray(ns.read('/data/port-stats.csv.txt'))
+        .filter(s => s.type !== 'check')
+        .sort((a, b) => a.start + a.delay + a.time - b.start + b.delay + b.time)
+    return listView(stats.map(s => {
+        return s
+    }))
+}
