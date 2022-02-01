@@ -14,9 +14,11 @@ export async function main(ns) {
         'start',
         'delay',
         'time',
+        'finish',
         'estStart',
         'estDelay',
         'estTime',
+        'estFinish',
     ]
     await ns.write('/data/port-stats.csv.txt', header.join(','), 'w')
 
@@ -37,9 +39,11 @@ export async function main(ns) {
                         payload.start,
                         payload.delay,
                         payload.time,
+                        payload.finish,
                         payload.estStart,
                         payload.estDelay,
                         payload.estTime,
+                        payload.estFinish,
                     ]
                     await ns.write('/data/port-stats.csv.txt', '\n' + row.join(','), 'a')
                     break;

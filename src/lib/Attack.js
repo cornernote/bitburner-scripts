@@ -138,7 +138,7 @@ export function AttackCommand(attackCommand) {
     this.time = attackCommand.time
     this.uuid = attackCommand.uuid ? attackCommand.uuid : generateUUID()
     this.stock = attackCommand.stock
-    this.tprint = attackCommand.tprint
+    this.output = attackCommand.output
     this.start = attackCommand.start
     this.pid = attackCommand.pid
 }
@@ -336,7 +336,7 @@ export function buildAttack(ns, player, server, hackPercent, hackingServers, cor
     g.threads = Math.ceil(growthAnalyze) // threads to grow the amount we want, ceil so that we don't under-grow
     hw.threads = Math.ceil(h.threads * (ATTACK.scripts.h.change / ATTACK.scripts.w.change)) // weaken threads for hack, ceil so that we don't under-weaken
     gw.threads = Math.ceil(g.threads * (ATTACK.scripts.g.change / ATTACK.scripts.w.change)) // weaken threads for grow, ceil so that we don't under-weaken
-    c.threads = 1
+    // c.threads = 1
 
     // get the count of threads
     info.prepThreads = pw.threads + pg.threads + pgw.threads
@@ -486,7 +486,7 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
                         delay: (cycle * 1000) + part.delay,
                         time: part.time,
                         stock: false,
-                        tprint: true,
+                        output: false,
                     }))
                     threadsRemaining -= threadsToRun
                     server.ramUsed += threadsToRun * part.ram
@@ -524,9 +524,10 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
  * @param {NS} ns
  * @param {Attack} attack
  * @param {AttackCommand[]} commands
+ * @param {number} cycles
  * @return {Promise<{any}>}
  */
-export async function launchAttack(ns, attack, commands) {
+export async function launchAttack(ns, attack, commands, cycles=1) {
     // run each command in the list
     for (const command of commands) {
         // ns.args = [
@@ -537,7 +538,7 @@ export async function launchAttack(ns, attack, commands) {
         //   4: delay,
         //   5: uuid,
         //   6: stock,
-        //   7: tprint,
+        //   7: output,
         //   8: host,
         //   9: threads,
         //   10: start,
@@ -551,7 +552,7 @@ export async function launchAttack(ns, attack, commands) {
             command.delay,
             command.uuid,
             command.stock,
-            command.tprint,
+            command.output,
             command.hostname,
             command.threads,
             command.start,
@@ -566,7 +567,7 @@ export async function launchAttack(ns, attack, commands) {
     if (!attack.start) {
         attack.start = now
     }
-    attack.end = now + attack.time + (attack.cycles * 1000) + 1000
+    attack.end = now + attack.time + (cycles * 1000) + 1000
 }
 
 

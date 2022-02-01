@@ -186,7 +186,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
             // continue the attack
             const commands = assignAttack(ns, hackAttack, hackingServers, 'cycle-' + currentHackTarget.cycle, 10)
             if (commands) {
-                await launchAttack(ns, hackAttack, commands)
+                await launchAttack(ns, hackAttack, commands, 10)
                 currentHackTarget.cycle++
                 currentHackTarget.nextCycle += 10000
                 ns.print([
@@ -221,7 +221,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
         if (currentHackAttacks.length < 1) {
             const commands = assignAttack(ns, hackAttack, hackingServers, 'cycle-0', 10)
             if (commands.length) {
-                await launchAttack(ns, hackAttack, commands)
+                await launchAttack(ns, hackAttack, commands, 10)
                 currentAttacks.push({
                     type: 'hack',
                     attack: hackAttack,

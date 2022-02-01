@@ -9,7 +9,7 @@ export async function main(ns) {
     //   1: delay,
     //   2: uuid,
     //   3: stock, (not used)
-    //   4: tprint,
+    //   4: output,
     //   5: host,
     //   6: threads,
     //   7: start,
@@ -19,7 +19,7 @@ export async function main(ns) {
     const start = performance.now()
     const target = /** @type string */ ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
-    const tprint = (ns.args.length > 4 && ns.args[4])
+    const output = (ns.args.length > 4 && ns.args[4])
     const host = ns.args.length > 5 ? ns.args[5] : 'unknown'
     const threads = ns.args.length > 6 ? ns.args[6] : 'unknown'
     const estStart = ns.args.length > 7 ? ns.args[7] : 0
@@ -56,16 +56,15 @@ export async function main(ns) {
         estFinish: estStart + estDelay + estTime,
     }))
     // build a message
-    const status = data.hackDifficulty > data.minDifficulty + 1 || data.moneyAvailable < data.moneyMax * 0.9
-        ? 'WARNING:'
-        : 'INFO:'
-    const message = [
-        `${status} CHECK ${target}`,
-        `money=${ns.nFormat(data.moneyAvailable, '$0.000a')}/${ns.nFormat(data.moneyMax, '$0.000a')}`,
-        `security=${data.hackDifficulty}/${data.minDifficulty}`,
-    ].join(' | ')
-    // tprint the message
-    if (tprint) {
+    if (output) {
+        const status = data.hackDifficulty > data.minDifficulty + 1 || data.moneyAvailable < data.moneyMax * 0.9
+            ? 'WARNING:'
+            : 'INFO:'
+        const message = [
+            `${status} CHECK ${target}`,
+            `money=${ns.nFormat(data.moneyAvailable, '$0.000a')}/${ns.nFormat(data.moneyMax, '$0.000a')}`,
+            `security=${data.hackDifficulty}/${data.minDifficulty}`,
+        ].join(' | ')
         ns.tprint(message)
     }
 }

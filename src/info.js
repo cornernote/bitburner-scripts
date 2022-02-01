@@ -193,14 +193,16 @@ function filesInfo(ns) {
 function statsInfo(ns) {
     const stats = convertCSVtoArray(ns.read('/data/port-stats.csv.txt'))
         .filter(s => s.type !== 'check')
-        .sort((a, b) => a.start + a.delay + a.time - b.start + b.delay + b.time)
+        .sort((a, b) => a.finish - b.finish)
     return listView(stats.map(s => {
         return {
             target: s.target,
+            type: s.type.substr(0, 4),
             host: s.host + ' x' + s.threads,
             start: s.start - s.estStart,
             delay: Math.round(s.delay - s.estDelay),
             time: Math.round(s.time - s.estTime),
+            finish: Math.round(s.finish - s.estFinish),
         }
     }))
 }
