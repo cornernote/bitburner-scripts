@@ -15,7 +15,7 @@ export async function main(ns) {
     //   7: start,
     //   8: time,
     // ]
-    const start = new Date().getTime()
+    const start = performance.now()
     const target = /** @type string */ ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
     const stock = (ns.args.length > 3 && ns.args[3])
@@ -27,12 +27,12 @@ export async function main(ns) {
     if (estDelay > 0) {
         await ns.sleep(estDelay)
     }
-    const delay = new Date().getTime() - start
+    const delay = performance.now() - start
     // weaken()
     const data = {
         amount: await ns.weaken(target),
     }
-    const time = new Date().getTime() - start - delay
+    const time = performance.now() - start - delay
     // write data to a port for stats collection
     await ns.writePort(1, JSON.stringify({
         type: 'weaken',

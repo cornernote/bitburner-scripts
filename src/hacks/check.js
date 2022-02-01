@@ -15,7 +15,7 @@ export async function main(ns) {
     //   7: start,
     //   8: time,
     // ]
-    const start = new Date().getTime()
+    const start = performance.now()
     const target = /** @type string */ ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
     const tprint = (ns.args.length > 4 && ns.args[4])
@@ -26,7 +26,7 @@ export async function main(ns) {
     if (estDelay > 0) {
         await ns.sleep(estDelay)
     }
-    const delay = new Date().getTime() - start
+    const delay = performance.now() - start
     // get server info, cheaper than getServer
     const data = {
         moneyAvailable: ns.getServerMoneyAvailable(target),
@@ -34,7 +34,7 @@ export async function main(ns) {
         hackDifficulty: ns.getServerSecurityLevel(target),
         minDifficulty: ns.getServerMinSecurityLevel(target),
     }
-    const time = new Date().getTime() - start - delay
+    const time = performance.now() - start - delay
     // write data to a port for stats collection
     await ns.writePort(1, JSON.stringify({
         type: 'check',

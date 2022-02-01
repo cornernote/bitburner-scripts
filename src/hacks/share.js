@@ -4,15 +4,15 @@
  */
 export async function main(ns) {
     //args[0: loop]
-    const start = new Date().getTime()
+    const start = performance.now()
     const loop = ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
     if (estDelay > 0) {
         await ns.sleep(estDelay)
     }
-    const delay = new Date().getTime() - start
+    const delay = performance.now() - start
     for (let i = 0; i < loop; i++) {
         await ns.share()
     }
-    const time = new Date().getTime() - start - delay
+    const time = performance.now() - start - delay
 }
