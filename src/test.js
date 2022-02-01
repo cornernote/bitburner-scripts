@@ -5,9 +5,9 @@ import {convertCSVtoArray, listView} from "./lib/Helpers";
  */
 export async function main(ns) {
 
-
-    const statsContents = ns.read('/data/port-stats.csv.txt')
-    const stats = convertCSVtoArray(statsContents).filter(s => s.type !== 'check')
+    const stats = convertCSVtoArray(ns.read('/data/port-stats.csv.txt'))
+        .filter(s => s.type !== 'check')
+        .sort((a, b) => a.start + a.delay + a.time - b.start + b.delay + b.time)
 
     ns.tprint('Stats:\n' + listView(stats.map(s => {
         return s

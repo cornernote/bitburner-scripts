@@ -34,7 +34,7 @@ export async function main(ns) {
         hackDifficulty: ns.getServerSecurityLevel(target),
         minDifficulty: ns.getServerMinSecurityLevel(target),
     }
-    const time = new Date().getTime() - delay
+    const time = new Date().getTime() + delay - start
     // write data to a port for stats collection
     await ns.writePort(1, JSON.stringify({
         type: 'check',

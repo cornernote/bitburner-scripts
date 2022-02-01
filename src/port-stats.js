@@ -18,7 +18,7 @@ export async function main(ns) {
         'estDelay',
         'estTime',
     ]
-    await ns.write('/data/port-stats.csv.txt', header.join(',') + '\n', 'w')
+    await ns.write('/data/port-stats.csv.txt', header.join(','), 'w')
 
     while (true) {
         while (ns.peek(1) !== 'NULL PORT DATA') {
@@ -41,7 +41,7 @@ export async function main(ns) {
                         payload.estDelay,
                         payload.estTime,
                     ]
-                    await ns.write('/data/port-stats.csv.txt', row.join(',') + '\n', 'a')
+                    await ns.write('/data/port-stats.csv.txt', '\n' + row.join(','), 'a')
                     break;
             }
         }

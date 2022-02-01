@@ -151,7 +151,7 @@ export function formatAttack(ns, attack, type) {
  */
 export function listView(objects) {
     if (!objects.length) {
-        return '\n-> 0 rows'
+        return '-> 0 rows'
     }
 
     // Build header array
