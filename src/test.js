@@ -12,9 +12,9 @@ export async function main(ns) {
     const servers = getHackingServers(ns, getServers(ns))
     const attack = buildAttack(ns, ns.getPlayer(), target, 0.8, servers)
     const type = attack.info.prepThreads ? 'prep' : 'hack'
-    attack.parts.h.threads = 0
-    attack.parts.g.threads = 0
-    attack.parts.gw.threads = 0
+    // attack.parts.h.threads = 0
+    // attack.parts.g.threads = 0
+    // attack.parts.gw.threads = 0
     const commands = assignAttack(ns, attack, servers, type, cycles)
     await launchAttack(ns, attack, commands, cycles)
 

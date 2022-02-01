@@ -30,6 +30,9 @@ export async function main(ns) {
         await ns.sleep(estStart - startTime - 1)
     }
     // delay
+    if (estDelay > 0) {
+        await ns.sleep(estDelay)
+    }
     const delay = performance.now() - start
     // grow()
     const data = {

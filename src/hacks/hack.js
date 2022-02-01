@@ -15,6 +15,8 @@ export async function main(ns) {
     //   7: start,
     //   8: time,
     // ]
+
+    // ["foodnstuff", 6686.287043238626, "bc53843d-fe1b-4860-baa9-7ce28b8892e0", false, false, "homenet-9", 41, 1643734812709, 462.0956810795419]
     const startTime = new Date().getTime()
     const start = performance.now()
     const target = /** @type string */ ns.args[0]
@@ -30,6 +32,9 @@ export async function main(ns) {
         await ns.sleep(estStart - startTime - 1)
     }
     // delay
+    if (estDelay > 0) {
+        await ns.sleep(estDelay)
+    }
     const delay = performance.now() - start
     // hack()
     const data = {
