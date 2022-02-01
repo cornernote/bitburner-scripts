@@ -5,7 +5,7 @@
  */
 export async function main(ns) {
     //args[0: target, 1: delay, 2: uuid, 3: stock, 4: tprint, 5: toast]
-    const target = ns.args[0]
+    const target = /** @type string */ ns.args[0]
     const delay = ns.args.length > 1 ? ns.args[1] : 0
     const stock = (ns.args.length > 3 && ns.args[3])
     const tprint = (ns.args.length > 4 && ns.args[4])

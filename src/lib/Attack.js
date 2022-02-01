@@ -26,6 +26,11 @@ export const ATTACK = {
             change: 0.05,
             ram: 1.75,
         },
+        c: {
+            script: '/hacks/check.js',
+            change: 0,
+            ram: 2,
+        },
     },
     // percents used when testing attack values
     hackPercents: [
@@ -81,6 +86,8 @@ export function AttackParts(attackParts) {
     this.g = new AttackPart(attackParts.g)
     // grow-weaken
     this.gw = new AttackPart(attackParts.gw)
+    // check
+    this.c = new AttackPart(attackParts.c)
 }
 
 /**
@@ -94,6 +101,7 @@ export function AttackPart(attackPart) {
     this.delay = attackPart.delay
     this.ram = attackPart.ram
     this.script = attackPart.script
+    this.allowSpreading = attackPart.allowSpreading
 }
 
 /**
@@ -103,9 +111,9 @@ export function AttackPart(attackPart) {
  */
 export function AttackInfo(attackInfo) {
     this.cores = attackInfo.cores
-    this.availableThreads = attackInfo.availableThreads
     this.hackPercent = attackInfo.hackPercent
     this.hackedPercent = attackInfo.hackedPercent
+    this.growthRequired = attackInfo.growthRequired
     this.cycleValue = attackInfo.cycleValue
     this.prepThreads = attackInfo.prepThreads
     this.cycleThreads = attackInfo.cycleThreads
@@ -113,7 +121,6 @@ export function AttackInfo(attackInfo) {
     this.maxCycles = attackInfo.maxCycles
     this.activePercent = attackInfo.activePercent
     this.valuePerThread = attackInfo.valuePerThread
-    this.hackTotalPerSecond = attackInfo.hackTotalPerSecond
     this.averageValuePerThreadPerSecond = attackInfo.averageValuePerThreadPerSecond
 }
 
@@ -128,6 +135,7 @@ export function AttackCommand(attackCommand) {
     this.threads = attackCommand.threads
     this.target = attackCommand.target
     this.delay = attackCommand.delay
+    this.time = attackCommand.time
     this.uuid = attackCommand.uuid
     this.stock = attackCommand.stock
     this.tprint = attackCommand.tprint
@@ -143,15 +151,15 @@ export function AttackCommand(attackCommand) {
  * @param {Player} player
  * @param {[Server]} servers
  * @param {String} sortField
- * @param {Number} availableThreads
+ * @param {[Server]} hackingServers
  * @param {Number} cores
  * @return {[Attack]}
  */
-export function getBestAttacks(ns, player, servers, sortField, availableThreads, cores = 1) {
+export function getBestAttacks(ns, player, servers, sortField, hackingServers, cores = 1) {
     let attacks = []
     for (const hackPercent of ATTACK.hackPercents) {
         for (const server of servers) {
-            const attack = buildAttack(ns, player, server, hackPercent, availableThreads, cores)
+            const attack = buildAttack(ns, player, server, hackPercent, hackingServers, cores)
             attacks.push(attack)
         }
     }
@@ -173,12 +181,12 @@ export function getBestAttacks(ns, player, servers, sortField, availableThreads,
  * @param {Player} player
  * @param {[Server]} servers
  * @param {String} sortField
- * @param {Number} availableThreads
+ * @param {[Server]} hackingServers
  * @param {Number} cores
  * @return {Attack|Boolean|*}
  */
-export function getBestAttack(ns, player, servers, sortField, availableThreads, cores = 1) {
-    const attacks = getBestAttacks(ns, player, servers, sortField, availableThreads, cores)
+export function getBestAttack(ns, player, servers, sortField, hackingServers, cores = 1) {
+    const attacks = getBestAttacks(ns, player, servers, sortField, hackingServers, cores)
     if (!attacks.length) {
         return false
     }
@@ -193,11 +201,11 @@ export function getBestAttack(ns, player, servers, sortField, availableThreads, 
  * @param {Player} player
  * @param {Server} server
  * @param {Number} hackPercent
- * @param {Number} availableThreads
+ * @param {[Server]} hackingServers
  * @param {Number} cores
  * @return {Attack}
  */
-export function buildAttack(ns, player, server, hackPercent, availableThreads, cores = 1) {
+export function buildAttack(ns, player, server, hackPercent, hackingServers, cores = 1) {
 
     // create the attack objects
     const attack = new Attack({
@@ -212,6 +220,7 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: true
             }),
             pg: new AttackPart({
                 script: ATTACK.scripts.g.script,
@@ -226,6 +235,7 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: true
             }),
             h: new AttackPart({
                 script: ATTACK.scripts.h.script,
@@ -240,6 +250,7 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: true
             }),
             g: new AttackPart({
                 script: ATTACK.scripts.g.script,
@@ -254,11 +265,18 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: true
+            }),
+            c: new AttackPart({
+                script: ATTACK.scripts.c.script,
+                ram: ATTACK.scripts.c.ram,
+                threads: 0,
+                time: 0,
+                delay: 0,
             }),
         }),
         info: new AttackInfo({
             hackPercent: hackPercent,
-            availableThreads: availableThreads,
             cores: cores,
             hackedPercent: null,
             cycleValue: null,
@@ -268,7 +286,6 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
             maxCycles: null,
             activePercent: null,
             valuePerThread: null,
-            hackTotalPerSecond: null,
             averageValuePerThreadPerSecond: null,
         }),
     })
@@ -282,7 +299,8 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
         h = parts.h,     // hack
         hw = parts.hw,   // hack-weaken
         g = parts.g,     // grow
-        gw = parts.gw    // grow-weaken
+        gw = parts.gw,   // grow-weaken
+        c = parts.c      // check
 
     // expected hack value for a full attack
     const hackFactor = 1.75
@@ -302,7 +320,7 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
         pg.threads = Math.ceil(ns.growthAnalyze(server.hostname, growthAmount, cores))
         pgw.threads = Math.ceil((pg.threads * ATTACK.scripts.g.change) / ATTACK.scripts.w.change)
         // only fit this if we can
-        if (pw.threads && availableThreads < pw.threads + pg.threads + pgw.threads) {
+        if (pw.threads && !countCycles(ns, hackingServers, [pw, pg, pgw], 1)) {
             pg.threads = 0
             pgw.threads = 0
         }
@@ -310,17 +328,15 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     // get the threads for a full hack (HWGW) - this doesn't matter what values the server has now
     const hackAnalyze = ns.hackAnalyze(server.hostname) // percent of money stolen with a single thread
     h.threads = Math.floor(hackPercent / hackAnalyze) // threads to hack the amount we want, floor so that we don't over-hack
-    // if (!h.threads) {
-    //     h.threads = ns.hackAnalyzeThreads(server.hostname, hackPercent * server.moneyAvailable) // fallback to detect hack threads
-    // }
     info.hackedPercent = h.threads * hackAnalyze // < ~0.8 - the percent we actually hacked
     const remainingPercent = 1 - info.hackedPercent // > ~0.2 - the percent remaining on the server
     const growthRequiredEstimated = 1 / (1 - hackPercent) // 5
-    const growthRequired = remainingPercent ? 1 / remainingPercent : growthRequiredEstimated // < ~5 - the number of times we have to grow that amount
-    const growthAnalyze = ns.growthAnalyze(server.hostname, growthRequired, cores) // how many thread to grow the money by ~5x
+    info.growthRequired = remainingPercent ? 1 / remainingPercent : growthRequiredEstimated // < ~5 - the number of times we have to grow that amount
+    const growthAnalyze = ns.growthAnalyze(server.hostname, info.growthRequired, cores) // how many thread to grow the money by ~5x
     g.threads = Math.ceil(growthAnalyze) // threads to grow the amount we want, ceil so that we don't under-grow
     hw.threads = Math.ceil(h.threads * (ATTACK.scripts.h.change / ATTACK.scripts.w.change)) // weaken threads for hack, ceil so that we don't under-weaken
     gw.threads = Math.ceil(g.threads * (ATTACK.scripts.g.change / ATTACK.scripts.w.change)) // weaken threads for grow, ceil so that we don't under-weaken
+    c.threads = 1
 
     // get the count of threads
     info.prepThreads = pw.threads + pg.threads + pgw.threads
@@ -329,26 +345,69 @@ export function buildAttack(ns, player, server, hackPercent, availableThreads, c
     // what percentage of the time can we fill with tasks before availableThreads fills
     attack.time = ns.getWeakenTime(server.hostname)
     info.maxCycles = Math.floor(attack.time / 1000) // attacks at 1/sec
-    attack.cycles = Math.min(Math.floor(availableThreads / info.cycleThreads), info.maxCycles)
+    attack.cycles = countCycles(ns, hackingServers, [h, hw, g, gw, c], info.maxCycles)
     info.activePercent = attack.cycles / info.maxCycles // 0.2 = 20%
     info.attackThreads = info.cycleThreads * attack.cycles
-    // attack value per thread used per second (excluding the wait for the first attack to land)
+    // hack value per thread used per second (excluding the wait for the first attack to land)
     info.averageValuePerThreadPerSecond = info.valuePerThread * info.activePercent
-    info.hackTotalPerSecond = info.cycleValue * attack.cycles // assuming we launch every second
+    // hack value
+    attack.hackValue = info.cycleValue * attack.cycles
 
-    // if we can fit all attacks in ram
-    if (info.attackThreads && info.attackThreads <= availableThreads) {
-        attack.hackValue = info.cycleValue * attack.cycles
-        // attack.hackValue = info.valuePerThread * attack.cycles
-        //attack.hackValue = info.hackTotalPerSecond + info.averageValuePerThreadPerSecond
-    }
     // if we can fit prep attack in ram
-    if (info.prepThreads) { // && info.prepThreads <= availableThreads) {
+    if (info.prepThreads) {
         attack.prepValue = info.cycleValue
     }
 
     // return an Attack object
     return attack
+}
+
+/**
+ * Assign the attack threads between our hacking servers
+ *
+ * @param {NS} ns
+ * @param {[Server]} servers
+ * @param {[AttackPart]} attackParts
+ * @param {number} maxCycles
+ * @returns {number}
+ */
+export function countCycles(ns, servers, attackParts, maxCycles) {
+    const serverRam = {}
+    // check the ram for as many cycles as needed
+    for (let cycle = 1; cycle <= maxCycles; cycle++) {
+        // assign each attack part to a server
+        for (const part of attackParts) {
+            // assign each thread to a server
+            let threadsRemaining = part.threads
+            for (let i = 0; i < servers.length; i++) {
+                const server = servers[i]
+                const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
+                const threadsToRun = Math.max(0, Math.min(threadsFittable, threadsRemaining))
+                // if there are not enough threads, and we cannot spread the threads
+                if (threadsToRun < threadsRemaining && !part.allowSpreading) {
+                    continue
+                }
+                // create assign the ram to this server
+                if (threadsToRun) {
+                    threadsRemaining -= threadsToRun
+                    server.ramUsed += threadsToRun * part.ram
+                    serverRam[server.hostname] += threadsToRun * part.ram
+                }
+            }
+            // if threads are remaining then we exceeded the limit
+            if (threadsRemaining) {
+                maxCycles = cycle - 1
+            }
+        }
+    }
+    // give back the ram
+    for (const server of servers) {
+        if (serverRam[server.hostname]) {
+            server.ramUsed -= serverRam[server.hostname]
+        }
+    }
+    // return the count
+    return maxCycles
 }
 
 /**
@@ -376,7 +435,8 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
             h = parts.h,     // hack
             hw = parts.hw,   // hack-weaken
             g = parts.g,     // grow
-            gw = parts.gw    // grow-weaken
+            gw = parts.gw,   // grow-weaken
+            c = parts.c      // check
 
         // get the time needed for threads
         h.time = ns.getHackTime(attack.target)
@@ -393,17 +453,24 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
         hw.delay = (delay * 4)
         g.delay = gw.time - g.time + (delay * 5)
         gw.delay = (delay * 6)
-        attack.time = gw.time + gw.delay + (delay * 2)
+        c.delay = gw.time + (delay * 7)
+        attack.time = gw.time + (delay * 8)
 
         const attackParts = cycleType === 'prep'
             ? [attack.parts.pw, attack.parts.pg, attack.parts.pgw]
-            : [attack.parts.h, attack.parts.hw, attack.parts.g, attack.parts.gw]
+            : [attack.parts.h, attack.parts.hw, attack.parts.g, attack.parts.gw, attack.parts.c]
 
         for (const part of attackParts) {
             let threadsRemaining = part.threads
-            for (const server of servers) {
+            for (let i = 0; i < servers.length; i++) {
+                const server = servers[i]
                 const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
                 const threadsToRun = Math.max(0, Math.min(threadsFittable, threadsRemaining))
+                // if there are not enough threads, and we cannot spread the threads
+                if (threadsToRun < threadsRemaining && !part.allowSpreading) {
+                    continue
+                }
+                // create the commands and assign the threads to this server
                 if (threadsToRun) {
                     cycleCommands.push(new AttackCommand({
                         script: part.script,
@@ -411,10 +478,10 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
                         threads: threadsToRun,
                         target: attack.target,
                         delay: (cycle * 1000) + part.delay,
+                        time: part.time,
                         uuid: `${cycleType}-${cycle}-${generateUUID()}`,
                         stock: false,
-                        tprint: false,
-                        toast: false,
+                        tprint: true,
                     }))
                     threadsRemaining -= threadsToRun
                     server.ramUsed += threadsToRun * part.ram
@@ -459,7 +526,7 @@ export async function launchAttack(ns, attack, commands) {
             pid = 0
         // retry a few times until we get a pid
         for (let i = retry; i > 0; i--) {
-            // args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock, 7: tprint, 8: toast]
+            // args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock, 7: tprint, 8: host, 9: threads]
             pid = ns.exec(command.script,
                 command.hostname,
                 command.threads,
@@ -468,7 +535,8 @@ export async function launchAttack(ns, attack, commands) {
                 command.uuid,
                 command.stock,
                 command.tprint,
-                command.toast)
+                command.hostname,
+                command.threads)
             // ns.print(`${command.script} threads=${command.threads}`)
             // sleep to prevent error: cannot be run because it does not have a main function.
             await ns.sleep(1)

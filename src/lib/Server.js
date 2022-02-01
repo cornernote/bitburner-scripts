@@ -30,6 +30,7 @@ export const SERVER = {
         '/hacks/hack.js',
         '/hacks/grow.js',
         '/hacks/weaken.js',
+        '/hacks/check.js',
         '/hacks/share.js',
     ],
     // servers with a backdoor bonus, usually a faction invite

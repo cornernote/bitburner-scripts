@@ -134,8 +134,7 @@ export function formatAttacks(ns, attacks, type) {
 export function formatAttack(ns, attack, type) {
     const output = [
         `${formatTime()}: ${type} ${attack.target}: ${ns.nFormat(attack.time / 1000, '00:00:00')} x${attack.cycles}`,
-        //`value: ${attack.hackValue}`,
-        `${ns.nFormat(attack.info.hackTotalPerSecond, '$0.0a')}/s (${ns.nFormat(attack.info.averageValuePerThreadPerSecond, '$0.0a')}/t/s)`,
+        `${ns.nFormat(attack.hackValue, '$0.0a')}/s (${ns.nFormat(attack.info.averageValuePerThreadPerSecond, '$0.0a')}/t/s)`,
         `on=${ns.nFormat(attack.info.activePercent, '0.0%')} take=~${ns.nFormat(attack.info.hackPercent, '0.00%')}=${ns.nFormat(attack.info.hackedPercent, '0.00%')}`,
         `ht ${ns.nFormat(attack.info.cycleThreads, '0a')} ${[attack.parts.h.threads, attack.parts.hw.threads, attack.parts.g.threads, attack.parts.gw.threads].join('|')} (${ns.nFormat(attack.info.attackThreads, '0a')} total)`,
     ]

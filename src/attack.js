@@ -9,7 +9,7 @@ import {
     getFreeRam,
     getTotalRam, SERVER, getCracks
 } from './lib/Server'
-import {formatAttack, formatAttacks, formatDelay, formatTime, updateHUD} from "./lib/Helpers";
+import {formatAttacks, formatDelay, formatTime, listView, updateHUD} from "./lib/Helpers";
 
 let lastHudUpdate = 0
 
@@ -205,7 +205,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
 
     // launch new hack attacks
     const bestHackType = currentHackAttacks.length < 8 ? 'fastest' : 'hackValue'
-    const hackAttack = getBestAttack(ns, player, hackTargetServers, bestHackType, getFreeThreads(ns, hackingServers, 1.75), cores)
+    const hackAttack = getBestAttack(ns, player, hackTargetServers, bestHackType, hackingServers, cores)
     if (hackAttack) {
         // check for a better attack, and remove worst existing attack if needed
         const isHackAttackCurrent = currentHackAttacks.map(ca => ca.attack.target).includes(hackAttack.target)
@@ -232,9 +232,23 @@ export async function manageAttacks(ns, currentAttacks, stats) {
                     `${formatTime()}: start ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
                     //`value: ${attack.hackValue}`,
                     `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}/c`,
-                    `on=${ns.nFormat(hackAttack.info.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')}`,
+                    `on=${ns.nFormat(hackAttack.info.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')} grow=${ns.nFormat(hackAttack.info.growthRequired, '0.00%')}`,
                     `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.info.cycleThreads, '0a')} ${[hackAttack.parts.h.threads, hackAttack.parts.hw.threads, hackAttack.parts.g.threads, hackAttack.parts.gw.threads].join('|')} (${ns.nFormat(hackAttack.info.attackThreads, '0a')} total)`,
                 ].join(' | '))
+                ns.print(listView(commands.map(c => {
+                    return {
+                        script: c.script,
+                        hostname: c.hostname,
+                        threads: c.threads,
+                        target: c.target,
+                        delay: c.delay,
+                        end: c.delay + c.time,
+                        // uuid: c.uuid,
+                        // stock: c.stock,
+                        // tprint: c.tprint,
+                        // toast: c.toast,
+                    }
+                })))
             }
         }
     }
@@ -242,7 +256,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
     // launch new prep attacks
     let freeThreads = getFreeThreads(ns, hackingServers, 1.75)
     const bestPrepType = currentPrepAttacks.length < 10 ? 'fastest' : 'prepValue'
-    const prepAttack = getBestAttack(ns, player, prepTargetServers, bestPrepType, freeThreads, cores)
+    const prepAttack = getBestAttack(ns, player, prepTargetServers, bestPrepType, hackingServers, cores)
     // if the current prep can be done in available threads, or no prep attacks
     if (prepAttack) {
         if (prepAttack.info.prepThreads < freeThreads || currentPrepAttacks.length === 0) {
@@ -340,9 +354,9 @@ function showTargets(ns) {
     const cores = 1 // assume we won't run on home, or home has 1 core
     const hackingServers = getHackingServers(ns, servers)
     const hackTargetServers = getHackTargetServers(ns, servers)
-    const hackAttacks = getBestAttacks(ns, player, hackTargetServers, 'hackValue', getFreeThreads(ns, hackingServers), cores)
+    const hackAttacks = getBestAttacks(ns, player, hackTargetServers, 'hackValue', hackingServers, cores)
     const prepTargetServers = getPrepTargetServers(ns, servers)
-    const prepAttacks = getBestAttacks(ns, player, prepTargetServers, 'prepValue', getFreeThreads(ns, hackingServers), cores)
+    const prepAttacks = getBestAttacks(ns, player, prepTargetServers, 'prepValue', hackingServers, cores)
     return [
         ``,
         `SERVERS`,
