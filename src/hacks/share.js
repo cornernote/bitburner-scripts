@@ -16,4 +16,5 @@ export async function main(ns) {
         await ns.share()
     }
     const time = performance.now() - start - delay
+    const finishTime = new Date().getTime()
 }

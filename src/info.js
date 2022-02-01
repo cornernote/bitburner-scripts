@@ -195,6 +195,12 @@ function statsInfo(ns) {
         .filter(s => s.type !== 'check')
         .sort((a, b) => a.start + a.delay + a.time - b.start + b.delay + b.time)
     return listView(stats.map(s => {
-        return s
+        return {
+            target: s.target,
+            host: s.host + ' x' + s.threads,
+            start: s.start - s.estStart,
+            delay: Math.round(s.delay - s.estDelay),
+            time: Math.round(s.time - s.estTime),
+        }
     }))
 }

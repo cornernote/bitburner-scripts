@@ -36,6 +36,7 @@ export async function main(ns) {
         minDifficulty: ns.getServerMinSecurityLevel(target),
     }
     const time = performance.now() - start - delay
+    const finishTime = new Date().getTime()
     // write data to a port for stats collection
     await ns.writePort(1, JSON.stringify({
         type: 'check',
@@ -48,9 +49,11 @@ export async function main(ns) {
         start: startTime,
         delay: delay,
         time: time,
+        finish: finishTime,
         estStart: estStart,
         estDelay: estDelay,
         estTime: estTime,
+        estFinish: estStart + estDelay + estTime,
     }))
     // build a message
     const status = data.hackDifficulty > data.minDifficulty + 1 || data.moneyAvailable < data.moneyMax * 0.9
