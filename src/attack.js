@@ -1,5 +1,13 @@
-import {assignAttack, getBestAttack, getBestAttacks, launchAttack} from './lib/Attack'
 import {
+    assignAttack,
+    getBestHackAttack,
+    getBestHackAttacks,
+    getBestPrepAttack,
+    getBestPrepAttacks,
+    launchAttack
+} from './lib/Attack'
+import {
+    SERVER,
     getServers,
     getHackTargetServers,
     getHackingServers,
@@ -7,9 +15,16 @@ import {
     getFreeThreads,
     getTotalThreads,
     getFreeRam,
-    getTotalRam, SERVER, getCracks
+    getTotalRam,
+    getCracks
 } from './lib/Server'
-import {formatAttack, formatAttacks, formatDelay, formatTime, listView, updateHUD} from "./lib/Helpers";
+import {
+    formatDelay,
+    formatTime,
+    listView,
+    updateHUD
+} from "./lib/Helpers";
+
 
 let lastHudUpdate = 0
 
@@ -85,7 +100,7 @@ export async function main(ns) {
         //stats = await readStats(ns, stats)
 
         // manage attacks
-        if (lastRun.manageAttacks + 10000 < new Date().getTime()) {
+        if (lastRun.manageAttacks + 1000 < new Date().getTime()) {
             lastRun.manageAttacks = new Date().getTime()
             currentAttacks = await manageAttacks(ns, currentAttacks, stats)
         }
@@ -121,13 +136,15 @@ function getHelp(ns) {
  * @return {Promise<[]>}
  */
 export async function manageAttacks(ns, currentAttacks, stats) {
+    // how many attacks to allow
+    let maxAttacks = 10
     // decide if we should write to disk
     let changed = false
     // split attacks into hack/prep
     // remove completed attacks from the list
     const now = new Date().getTime()
     currentAttacks = currentAttacks
-        .filter(ca => ca.attack.end > now || ca.nextCycle)
+        .filter(ca => ca.attack.end + 250 > now) // || ca.nextCycle)
 
     const currentHackAttacks = currentAttacks
         .filter(ca => ca.type === 'hack')
@@ -163,79 +180,70 @@ export async function manageAttacks(ns, currentAttacks, stats) {
         ns.print(`INFO: ${server.hostname} has been nuked!`)
     }
 
-    // continue existing attacks
-    // todo - recalculate threads needed
-    for (const currentHackTarget of Object.values(currentHackAttacks)) {
-        if (currentHackTarget.nextCycle && currentHackTarget.nextCycle < new Date().getTime()) {
-            const hackAttack = currentHackTarget.attack
-            // only proceed if there have been no failures
-            if (stats[hackAttack.target] && stats[hackAttack.target].failures > 60) {
-                ns.print(`INFO: ${hackAttack.target} has had ${stats[hackAttack.target].failures} consecutive failures, cancelling`)
-                currentHackTarget.nextCycle = false
-                changed = true
-                continue;
-            }
-            // check if we have enough threads to run it
-            const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
-            if (hackAttack.info.cycleThreads * 10 > getFreeThreads(ns, hackingServers, 1.75)) {
-                ns.print(`${hackAttack.info.cycleThreads * 10} threads needed, ${freeThreads} were available... delaying`)
-                currentHackTarget.nextCycle += 1000
-                changed = true
-                continue
-            }
-            // continue the attack
-            const commands = assignAttack(ns, hackAttack, hackingServers, 'cycle-' + currentHackTarget.cycle, 10)
-            if (commands) {
-                await launchAttack(ns, hackAttack, commands, 10)
-                currentHackTarget.cycle++
-                currentHackTarget.nextCycle += 10000
-                ns.print([
-                    `${formatTime()}: continue ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
-                    `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}`,
-                    `take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')}`,
-                    `threads=${[hackAttack.parts.h.threads, hackAttack.parts.hw.threads, hackAttack.parts.g.threads, hackAttack.parts.gw.threads].join('|')} (${ns.nFormat(hackAttack.info.cycleThreads, '0a')} total)`,
-                ].join(' | '))
-                changed = true
-            } else {
-                ns.print(`cannot start attack, cancelling`)
-                currentHackTarget.nextCycle = false
-                changed = true
-            }
-        }
-    }
+    // continue existing attacks - not worth it as there gets to be overlap
+    // for (const currentHackTarget of Object.values(currentHackAttacks)) {
+    //     if (currentHackTarget.nextCycle && currentHackTarget.nextCycle < new Date().getTime()) {
+    //         const hackAttack = currentHackTarget.attack
+    //         // only proceed if there have been no failures
+    //         if (stats[hackAttack.target] && stats[hackAttack.target].failures > 60) {
+    //             ns.print(`INFO: ${hackAttack.target} has had ${stats[hackAttack.target].failures} consecutive failures, cancelling`)
+    //             currentHackTarget.nextCycle = false
+    //             changed = true
+    //             continue;
+    //         }
+    //         // check if we have enough threads to run it
+    //         const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
+    //         if (hackAttack.info.cycleThreads * 10 > getFreeThreads(ns, hackingServers, 1.75)) {
+    //             ns.print(`${hackAttack.info.cycleThreads * 10} threads needed, ${freeThreads} were available... delaying`)
+    //             currentHackTarget.nextCycle += 1000
+    //             changed = true
+    //             continue
+    //         }
+    //         // continue the attack
+    //         const commands = assignAttack(ns, hackAttack, hackingServers, 'cycle-' + currentHackTarget.cycle, 10)
+    //         if (commands) {
+    //             await launchAttack(ns, hackAttack, commands, 10)
+    //             currentHackTarget.cycle++
+    //             currentHackTarget.nextCycle += 10000
+    //             ns.print([
+    //                 `${formatTime()}: continue ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
+    //                 `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}`,
+    //                 `take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')}`,
+    //                 `threads=${[hackAttack.parts.h.threads, hackAttack.parts.hw.threads, hackAttack.parts.g.threads, hackAttack.parts.gw.threads].join('|')} (${ns.nFormat(hackAttack.info.cycleThreads, '0a')} total)`,
+    //             ].join(' | '))
+    //             changed = true
+    //         } else {
+    //             ns.print(`cannot start attack, cancelling`)
+    //             currentHackTarget.nextCycle = false
+    //             changed = true
+    //         }
+    //     }
+    // }
 
-    // launch new hack attacks
-    const bestHackType = currentHackAttacks.length < 8 ? 'fastest' : 'hackValue'
-    const hackAttack = getBestAttack(ns, player, hackTargetServers, bestHackType, hackingServers, cores)
+    // launch new hack attack
+    const hackAttack = getBestHackAttack(ns, player, hackTargetServers, hackingServers, cores)
+    // ns.tprint('find hack attack...')
     if (hackAttack) {
-        // check for a better attack, and remove worst existing attack if needed
-        const isHackAttackCurrent = currentHackAttacks.map(ca => ca.attack.target).includes(hackAttack.target)
-        if (currentHackAttacks.length >= 10 && !isHackAttackCurrent) {
-            const worstCurrentHack = currentHackAttacks.sort((a, b) => a.attack.hackValue - b.attack.hackValue)[0]
-            if (worstCurrentHack.attack.hackValue < hackAttack.hackValue && worstCurrentHack.nextCycle) {
-                worstCurrentHack.nextCycle = false
-                ns.print(`INFO: ${worstCurrentHack.attack.target} is the worst attack and we need room for to attack ${hackAttack.target}, cancelling`)
-            }
-        }
-        // add new attack
-        if (currentHackAttacks.length < 1) {
-            const commands = assignAttack(ns, hackAttack, hackingServers, 'cycle-0', 10)
+        // ns.tprint('found attack, can it fit')
+        if (currentHackAttacks.length < maxAttacks) {
+            // ns.tprint('it fits, can we get commands')
+            const commands = assignAttack(ns, hackAttack, hackingServers, 'hack', hackAttack.cycles)
             if (commands.length) {
-                await launchAttack(ns, hackAttack, commands, 10)
+                // ns.tprint(commands)
+                await launchAttack(ns, hackAttack, commands, hackAttack.cycles)
                 currentAttacks.push({
                     type: 'hack',
                     attack: hackAttack,
                     cycle: 1,
-                    nextCycle: hackAttack.end + 1000,
+                    //nextCycle: hackAttack.end + 1000,
                 })
-                await ns.writePort(1, JSON.stringify({target: hackAttack.target, action: 'start'}))
+                //await ns.writePort(1, JSON.stringify({target: hackAttack.target, action: 'start'}))
                 changed = true
                 ns.print([
-                    `${formatTime()}: start ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
-                    //`value: ${attack.hackValue}`,
-                    `${ns.nFormat(hackAttack.hackValue, '$0.0a')}/c`,
+                    `${formatTime()}: hack ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
+                    `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(hackAttack.info.cycleValue * hackAttack.cycles, '$0.0a')}/batch`,
                     `on=${ns.nFormat(hackAttack.info.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')} grow=${ns.nFormat(hackAttack.info.growthRequired, '0.00%')}`,
-                    `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.info.cycleThreads, '0a')} ${[hackAttack.parts.h.threads, hackAttack.parts.hw.threads, hackAttack.parts.g.threads, hackAttack.parts.gw.threads].join('|')} (${ns.nFormat(hackAttack.info.attackThreads, '0a')} total)`,
+                    `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.cycleThreads, '0a')} ${Object.values(hackAttack.parts).map(p => p.threads).join('|')} (${ns.nFormat(hackAttack.cycleThreads * hackAttack.cycles, '0a')} total)`,
                 ].join(' | '))
                 ns.print(listView(commands.map(c => {
                     return {
@@ -243,12 +251,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
                         hostname: c.hostname,
                         threads: c.threads,
                         target: c.target,
-                        delay: c.delay,
-                        end: c.delay + c.time,
-                        // uuid: c.uuid,
-                        // stock: c.stock,
-                        // tprint: c.tprint,
-                        // toast: c.toast,
+                        end: c.start + c.delay + c.time,
                     }
                 })))
             }
@@ -257,13 +260,12 @@ export async function manageAttacks(ns, currentAttacks, stats) {
 
     // launch new prep attacks
     // ns.tprint('find prep attack...')
-    const bestPrepType = currentPrepAttacks.length < 10 ? 'fastest' : 'hackValue'
-    const prepAttack = getBestAttack(ns, player, prepTargetServers, bestPrepType, hackingServers, cores)
+    const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores)
     // if the current prep can be done in available threads, or no prep attacks
     if (prepAttack) {
         // ns.tprint('found attack, can it fit')
         const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
-        if (prepAttack.info.prepThreads < freeThreads || currentPrepAttacks.length === 0) {
+        if (prepAttack.cycleThreads < freeThreads || currentPrepAttacks.length === 0) {
             // ns.tprint('it fits, can we get commands')
             const commands = assignAttack(ns, prepAttack, hackingServers, 'prep', 1, true)
             if (commands.length) {
@@ -273,13 +275,13 @@ export async function manageAttacks(ns, currentAttacks, stats) {
                     type: 'prep',
                     attack: prepAttack,
                     cycle: 0,
-                    nextCycle: false,
+                    //nextCycle: false,
                 })
                 await ns.writePort(1, JSON.stringify({target: prepAttack.target, action: 'start'}))
                 changed = true
                 ns.print([
                     `${formatTime()}: prep ${prepAttack.target}: ${formatDelay(prepAttack.time)}`,
-                    `threads=${ns.nFormat(prepAttack.info.prepThreads, '0a')} ${[prepAttack.parts.pw.threads, prepAttack.parts.pg.threads, prepAttack.parts.pgw.threads].join('|')}`
+                    `threads=${ns.nFormat(prepAttack.cycleThreads, '0a')} ${Object.values(prepAttack.parts).map(p => p.threads).join('|')}`
                 ].join(' | '))
             }
         }
@@ -314,6 +316,10 @@ export async function manageAttacks(ns, currentAttacks, stats) {
         lastHudUpdate = now
         const ownedServers = hackingServers.filter(s => s.hostname.includes(SERVER.purchasedServerName))
         const rootedServers = hackingServers.filter(s => !s.hostname.includes(SERVER.purchasedServerName))
+        let currentHackAttacks = currentAttacks
+            .filter(ca => ca.type === 'hack')
+        let currentPrepAttacks = currentAttacks
+            .filter(ca => ca.type === 'prep')
 
         const hud = {
             'Script Inc:': `${ns.nFormat(ns.getScriptIncome()[0], '$0.0a')}/sec`,
@@ -334,7 +340,7 @@ export async function manageAttacks(ns, currentAttacks, stats) {
             //     : 'b' + formatDelay(currentHackAttack.attack.end - now))
         }
         // for (const currentPrepAttack of currentPrepAttacks.sort((a, b) => b.attack.end - a.attack.end)) {
-        //     hud[`P ${currentPrepAttack.attack.target}`] = ns.nFormat(currentPrepAttack.attack.prepValue, '$0.0a')
+        //     hud[`P ${currentPrepAttack.attack.target}`] = ns.nFormat(currentPrepAttack.attack.value, '$0.0a')
         //         + ' ' + formatDelay(currentPrepAttack.attack.end - now)
         // }
         updateHUD(hud, true)
@@ -361,14 +367,11 @@ function showTargets(ns) {
     const cores = 1 // assume we won't run on home, or home has 1 core
     const hackingServers = getHackingServers(ns, servers)
     const hackTargetServers = getHackTargetServers(ns, servers)
-    const hackAttacks = getBestAttacks(ns, player, hackTargetServers, 'hackValue', hackingServers, cores)
+    const hackAttacks = getBestHackAttacks(ns, player, hackTargetServers, hackingServers, cores)
     const prepTargetServers = getPrepTargetServers(ns, servers)
-    const prepAttacks = getBestAttacks(ns, player, prepTargetServers, 'hackValue', hackingServers, cores)
-
-    const bestPrepType = 'fastest'// currentPrepAttacks.length < 10 ? 'fastest' : 'hackValue'
-    const prepAttack = getBestAttack(ns, player, prepTargetServers, bestPrepType, hackingServers, cores)
-    const bestPrepAttack = prepAttack ? formatAttack(ns, prepAttack, 'prep') : ''
-
+    const prepAttacks = getBestPrepAttacks(ns, player, prepTargetServers, hackingServers, cores)
+    // const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores)
+    // const bestPrepAttack = prepAttack ? formatAttack(ns, prepAttack, 'prep') : ''
 
     return [
         ``,
@@ -377,13 +380,21 @@ function showTargets(ns) {
         ``,
         `HACKS`,
         `${hackTargetServers.map(s => s.hostname).join(', ')}`,
-        formatAttacks(ns, hackAttacks, 'hack'),
+        `${hackAttacks.map(a => [
+            `${formatTime()}: hack ${a.target}: ${formatDelay(a.time)}`,
+            `${ns.nFormat(a.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(a.info.cycleValue * a.cycles, '$0.0a')}/batch`,
+            `on=${ns.nFormat(a.info.activePercent, '0.0%')} take=${ns.nFormat(a.info.hackedPercent, '0.00%')} grow=${ns.nFormat(a.info.growthRequired, '0.00%')}`,
+            `threads=${a.cycles}x ${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')} (${ns.nFormat(a.cycleThreads * a.cycles, '0a')} total)`,
+        ].join(' | ')).join('\n')}`,
         ``,
         `PREPS`,
         `${prepTargetServers.map(s => s.hostname).join(', ')}`,
-        formatAttacks(ns, prepAttacks, 'prep'),
-        `BEST PREP`,
-        `${bestPrepAttack}`,
+        `${prepAttacks.map(a => [
+            `${formatTime()}: prep ${a.target}: ${formatDelay(a.time)}`,
+            `threads=${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')}`
+        ].join(' | ')).join('\n')}`,
+        // `BEST PREP`,
+        // `${bestPrepAttack}`,
     ].join('\n')
 }
 

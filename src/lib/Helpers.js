@@ -105,45 +105,6 @@ export function updateHUD(update, replace = false) {
     hook1.innerText = Object.values(hud).join('\n')
 }
 
-
-/**
- * Formats the attack so it can be printed.
- *
- * @param {NS} ns
- * @param {[Attack]} attacks
- * @param {String} type
- * @return {String}
- */
-export function formatAttacks(ns, attacks, type) {
-    const output = []
-    for (const attack of attacks) {
-        output.push(formatAttack(ns, attack, type))
-    }
-    return output.join('\n')
-}
-
-
-/**
- * Formats the attack so it can be printed.
- *
- * @param {NS} ns
- * @param {Attack} attack
- * @param {string} type
- * @return {string}
- */
-export function formatAttack(ns, attack, type) {
-    const output = [
-        `${formatTime()}: ${type} ${attack.target}: ${ns.nFormat(attack.time / 1000, '00:00:00')} x${attack.cycles}`,
-        `${ns.nFormat(attack.hackValue, '$0.0a')}/s (${ns.nFormat(attack.info.averageValuePerThreadPerSecond, '$0.0a')}/t/s)`,
-        `on=${ns.nFormat(attack.info.activePercent, '0.0%')} take=~${ns.nFormat(attack.info.hackPercent, '0.00%')}=${ns.nFormat(attack.info.hackedPercent, '0.00%')}`,
-        `ht ${ns.nFormat(attack.info.cycleThreads, '0a')} ${[attack.parts.h.threads, attack.parts.hw.threads, attack.parts.g.threads, attack.parts.gw.threads].join('|')} (${ns.nFormat(attack.info.attackThreads, '0a')} total)`,
-    ]
-    if (attack.info.prepThreads) {
-        output.push(`pt ${ns.nFormat(attack.info.prepThreads, '0a')} ${[attack.parts.pw.threads, attack.parts.pg.threads, attack.parts.pgw.threads].join('|')}`)
-    }
-    return output.join(' | ')
-}
-
 /**
  * Create a Grid View display of the provided objects
  * @param  {Object[]} objects Array of data objects
