@@ -527,7 +527,9 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
  * @param {number} cycles
  * @return {Promise<{any}>}
  */
-export async function launchAttack(ns, attack, commands, cycles=1) {
+export async function launchAttack(ns, attack, commands, cycles = 1) {
+    // start the commands at the same time, assume 2ms to start each command
+    const start = new Date().getTime() + commands.length * 2
     // run each command in the list
     for (const command of commands) {
         // ns.args = [
@@ -544,7 +546,7 @@ export async function launchAttack(ns, attack, commands, cycles=1) {
         //   10: start,
         //   11: time,
         // ]
-        command.start = new Date().getTime()
+        command.start = start
         command.pid = ns.exec(command.script,
             command.hostname,
             command.threads,
@@ -563,11 +565,10 @@ export async function launchAttack(ns, attack, commands, cycles=1) {
             ns.print(`WARNING: could not start command: ${JSON.stringify(command)}`)
         }
     }
-    const now = new Date().getTime()
     if (!attack.start) {
-        attack.start = now
+        attack.start = start
     }
-    attack.end = now + attack.time + (cycles * 1000) + 1000
+    attack.end = start + attack.time + (cycles * 1000) + 1000
 }
 
 

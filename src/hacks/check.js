@@ -24,6 +24,11 @@ export async function main(ns) {
     const threads = ns.args.length > 6 ? ns.args[6] : 'unknown'
     const estStart = ns.args.length > 7 ? ns.args[7] : 0
     const estTime = ns.args.length > 8 ? ns.args[8] : 0
+    // delay until estStart
+    if (estStart - startTime - 1 > 0) {
+        await ns.sleep(estStart - startTime - 1)
+    }
+    // delay
     if (estDelay > 0) {
         await ns.sleep(estDelay)
     }
