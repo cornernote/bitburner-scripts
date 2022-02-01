@@ -32,7 +32,7 @@ export async function main(ns) {
     const data = {
         amount: await ns.grow(target, {stock: stock}),
     }
-    const time = new Date().getTime() + delay - start
+    const time = new Date().getTime() - start - delay
     // write data to a port for stats collection
     await ns.writePort(1, JSON.stringify({
         type: 'grow',

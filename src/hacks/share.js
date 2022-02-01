@@ -14,5 +14,5 @@ export async function main(ns) {
     for (let i = 0; i < loop; i++) {
         await ns.share()
     }
-    const time = new Date().getTime() + delay - start
+    const time = new Date().getTime() - start - delay
 }
