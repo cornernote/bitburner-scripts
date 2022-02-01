@@ -4,22 +4,54 @@
  * @param {NS} ns
  */
 export async function main(ns) {
-    //args[0: target, 1: delay, 2: uuid, 3: stock (no effect), 4: tprint, 5: host, 6: threads]
+    // ns.args = [
+    //   0: target,
+    //   1: delay,
+    //   2: uuid,
+    //   3: stock, (not used)
+    //   4: tprint,
+    //   5: host,
+    //   6: threads,
+    //   7: start,
+    //   8: time,
+    // ]
+    const start = new Date().getTime()
     const target = /** @type string */ ns.args[0]
-    const delay = ns.args.length > 1 ? ns.args[1] : 0
+    const estDelay = ns.args.length > 1 ? ns.args[1] : 0
+    const stock = (ns.args.length > 3 && ns.args[3])
     const tprint = (ns.args.length > 4 && ns.args[4])
     const host = ns.args.length > 5 ? ns.args[5] : 'unknown'
     const threads = ns.args.length > 6 ? ns.args[6] : 'unknown'
-    if (delay > 0) {
-        await ns.sleep(delay)
+    const estStart = ns.args.length > 7 ? ns.args[7] : 0
+    const estTime = ns.args.length > 8 ? ns.args[8] : 0
+    if (estDelay > 0) {
+        await ns.sleep(estDelay)
     }
+    const delay = new Date().getTime() - start
     // weaken()
-    const amount = await ns.weaken(target);
+    const data = {
+        amount: await ns.weaken(target),
+    }
+    const time = new Date().getTime() - delay
     // write data to a port for stats collection
-    await ns.writePort(1, JSON.stringify({target: target, action: 'weaken', amount: amount}))
+    await ns.writePort(1, JSON.stringify({
+        type: 'hack',
+        data: data,
+        // info
+        target: target,
+        host: host,
+        threads: threads,
+        // timer
+        start: start,
+        delay: delay,
+        time: time,
+        estStart: estStart,
+        estDelay: estDelay,
+        estTime: estTime,
+    }))
     // build a message
-    const message = amount
-        ? `INFO: WEAKEN ${target} reduced ${ns.nFormat(amount, '0.0a')} security! ${JSON.stringify(ns.args)}`
+    const message = data.amount
+        ? `INFO: WEAKEN ${target} reduced ${ns.nFormat(data.amount, '0.0a')} security! ${JSON.stringify(ns.args)}`
         : `WARNING: WEAKEN ${target} reduced 0 security. ${JSON.stringify(ns.args)}`
     // tprint the message
     if (tprint) {

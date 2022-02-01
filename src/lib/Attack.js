@@ -136,10 +136,10 @@ export function AttackCommand(attackCommand) {
     this.target = attackCommand.target
     this.delay = attackCommand.delay
     this.time = attackCommand.time
-    this.uuid = attackCommand.uuid
+    this.uuid = attackCommand.uuid ? attackCommand.uuid : generateUUID()
     this.stock = attackCommand.stock
     this.tprint = attackCommand.tprint
-    this.toast = attackCommand.toast
+    this.start = attackCommand.start
     this.pid = attackCommand.pid
 }
 
@@ -343,20 +343,15 @@ export function buildAttack(ns, player, server, hackPercent, hackingServers, cor
     info.cycleThreads = h.threads + hw.threads + g.threads + gw.threads
     info.valuePerThread = info.cycleValue / info.cycleThreads
     // what percentage of the time can we fill with tasks before availableThreads fills
-    attack.time = ns.getWeakenTime(server.hostname)
+    attack.time = ns.getWeakenTime(server.hostname) + 800
     info.maxCycles = Math.floor(attack.time / 1000) // attacks at 1/sec
     attack.cycles = countCycles(ns, hackingServers, [h, hw, g, gw, c], info.maxCycles)
-    info.activePercent = attack.cycles / info.maxCycles // 0.2 = 20%
+    info.activePercent = attack.cycles ? attack.cycles / info.maxCycles : 0// 0.2 = 20%
     info.attackThreads = info.cycleThreads * attack.cycles
     // hack value per thread used per second (excluding the wait for the first attack to land)
     info.averageValuePerThreadPerSecond = info.valuePerThread * info.activePercent
     // hack value
-    attack.hackValue = info.cycleValue * attack.cycles
-
-    // if we can fit prep attack in ram
-    if (info.prepThreads) {
-        attack.prepValue = info.cycleValue
-    }
+    attack.hackValue = info.cycleValue * attack.cycles * info.activePercent
 
     // return an Attack object
     return attack
@@ -391,6 +386,9 @@ export function countCycles(ns, servers, attackParts, maxCycles) {
                 if (threadsToRun) {
                     threadsRemaining -= threadsToRun
                     server.ramUsed += threadsToRun * part.ram
+                    if (!serverRam[server.hostname]) {
+                        serverRam[server.hostname] = 0
+                    }
                     serverRam[server.hostname] += threadsToRun * part.ram
                 }
             }
@@ -424,6 +422,7 @@ export function countCycles(ns, servers, attackParts, maxCycles) {
 export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRamOverflow = false) {
     const commands = []
     for (let cycle = 1; cycle <= cycles; cycle++) {
+        ns.tprint('fitting cycle ' + cycle)
         let cycleCommands = []
         const serverRam = {}
 
@@ -462,16 +461,23 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
 
         for (const part of attackParts) {
             let threadsRemaining = part.threads
+            if (!threadsRemaining) {
+                continue
+            }
+            ns.tprint('fitting part ' + part.script + ' x' + part.threads)
             for (let i = 0; i < servers.length; i++) {
                 const server = servers[i]
                 const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
+                ns.tprint('fitting to server ' + server.hostname + ' which has ' + threadsFittable + ' threads available')
                 const threadsToRun = Math.max(0, Math.min(threadsFittable, threadsRemaining))
-                // if there are not enough threads, and we cannot spread the threads
-                if (threadsToRun < threadsRemaining && !part.allowSpreading) {
-                    continue
-                }
-                // create the commands and assign the threads to this server
                 if (threadsToRun) {
+                    // if there are not enough threads, and we cannot spread the threads, then continue to the next server
+                    if (threadsToRun < threadsRemaining && !part.allowSpreading) {
+                        continue
+                    }
+                    ns.tprint('fitted ' + threadsToRun + ' threads')
+
+                    // create the commands and assign the threads to this server
                     cycleCommands.push(new AttackCommand({
                         script: part.script,
                         hostname: server.hostname,
@@ -479,13 +485,15 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
                         target: attack.target,
                         delay: (cycle * 1000) + part.delay,
                         time: part.time,
-                        uuid: `${cycleType}-${cycle}-${generateUUID()}`,
                         stock: false,
                         tprint: true,
                     }))
                     threadsRemaining -= threadsToRun
                     server.ramUsed += threadsToRun * part.ram
                     serverRam[server.hostname] += threadsToRun * part.ram // so we can give it back if it doesn't fit
+                    if (!threadsRemaining) {
+                        break
+                    }
                 }
             }
             // check for overflow
@@ -520,35 +528,37 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
  */
 export async function launchAttack(ns, attack, commands) {
     // run each command in the list
-    // ns.print('running commands:')
     for (const command of commands) {
-        let retry = 5,
-            pid = 0
-        // retry a few times until we get a pid
-        for (let i = retry; i > 0; i--) {
-            // args[0: script, 1: host, 2: threads, 3: target, 4: delay, 5: uuid, 6: stock, 7: tprint, 8: host, 9: threads]
-            pid = ns.exec(command.script,
-                command.hostname,
-                command.threads,
-                command.target,
-                command.delay,
-                command.uuid,
-                command.stock,
-                command.tprint,
-                command.hostname,
-                command.threads)
-            // ns.print(`${command.script} threads=${command.threads}`)
-            // sleep to prevent error: cannot be run because it does not have a main function.
-            await ns.sleep(1)
-            // ensure we got a pid and break
-            if (pid) {
-                command.pid = pid
-                break
-            }
-            // sleep and try again
-            await ns.sleep(100)
-        }
-        if (!pid) {
+        // ns.args = [
+        //   0: script,
+        //   1: host,
+        //   2: threads
+        //   3: target,
+        //   4: delay,
+        //   5: uuid,
+        //   6: stock,
+        //   7: tprint,
+        //   8: host,
+        //   9: threads,
+        //   10: start,
+        //   11: time,
+        // ]
+        command.start = new Date().getTime()
+        command.pid = ns.exec(command.script,
+            command.hostname,
+            command.threads,
+            command.target,
+            command.delay,
+            command.uuid,
+            command.stock,
+            command.tprint,
+            command.hostname,
+            command.threads,
+            command.start,
+            command.time)
+        // sleep to prevent error: cannot be run because it does not have a main function.
+        await ns.sleep(1)
+        if (!command.pid) {
             ns.print(`WARNING: could not start command: ${JSON.stringify(command)}`)
         }
     }
