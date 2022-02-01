@@ -63,11 +63,11 @@ export async function main(ns) {
     }
 
     // load data from disk
-    const statsContents = ns.read('/data/stats.json.txt')
-    let stats = statsContents
-        ? JSON.parse(statsContents)
-        : {}
-    //const stats = {}
+    // const statsContents = ns.read('/data/stats.json.txt')
+    // let stats = statsContents
+    //     ? JSON.parse(statsContents)
+    //     : {}
+    const stats = {}
     // const attacksContents = ns.read('/data/attacks.json.txt')
     // let currentAttacks = attacksContents
     //     ? JSON.parse(attacksContents)
@@ -82,7 +82,7 @@ export async function main(ns) {
     do {
 
         // read stats
-        stats = await readStats(ns, stats)
+        //stats = await readStats(ns, stats)
 
         // manage attacks
         if (lastRun.manageAttacks + 10000 < new Date().getTime()) {
@@ -256,18 +256,18 @@ export async function manageAttacks(ns, currentAttacks, stats) {
     }
 
     // launch new prep attacks
-    ns.tprint('find prep attack...')
+    // ns.tprint('find prep attack...')
     const bestPrepType = currentPrepAttacks.length < 10 ? 'fastest' : 'hackValue'
     const prepAttack = getBestAttack(ns, player, prepTargetServers, bestPrepType, hackingServers, cores)
     // if the current prep can be done in available threads, or no prep attacks
     if (prepAttack) {
-        ns.tprint('found attack, can it fit')
+        // ns.tprint('found attack, can it fit')
         const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
         if (prepAttack.info.prepThreads < freeThreads || currentPrepAttacks.length === 0) {
-            ns.tprint('it fits, can we get commands')
+            // ns.tprint('it fits, can we get commands')
             const commands = assignAttack(ns, prepAttack, hackingServers, 'prep', 1, true)
             if (commands.length) {
-                ns.tprint(commands)
+                // ns.tprint(commands)
                 await launchAttack(ns, prepAttack, commands)
                 currentAttacks.push({
                     type: 'prep',

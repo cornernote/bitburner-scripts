@@ -88,8 +88,8 @@ export function updateHUD(update, replace = false) {
     const doc = eval('document')
     const hook0 = doc.getElementById('overview-extra-hook-0')
     const hook1 = doc.getElementById('overview-extra-hook-1')
-    const keys = hook0.innerText.split("\n")
-    const values = hook1.innerText.split("\n")
+    const keys = hook0.innerText.split('\n')
+    const values = hook1.innerText.split('\n')
     const hud = {}
     if (!replace) {
         for (let i = 0; i < keys.length; i++) {
@@ -101,8 +101,8 @@ export function updateHUD(update, replace = false) {
     for (const [k, v] of Object.entries(update)) {
         hud[k] = v
     }
-    hook0.innerText = Object.keys(hud).join("\n")
-    hook1.innerText = Object.values(hud).join("\n")
+    hook0.innerText = Object.keys(hud).join('\n')
+    hook1.innerText = Object.values(hud).join('\n')
 }
 
 
@@ -151,7 +151,7 @@ export function formatAttack(ns, attack, type) {
  */
 export function listView(objects) {
     if (!objects.length) {
-        return "\n-> " + columns.length.toString() + ' rows'
+        return '\n-> 0 rows'
     }
 
     // Build header array
@@ -176,45 +176,45 @@ export function listView(objects) {
     }
 
     // Write separator
-    let output = "|"
+    let output = '|'
     for (const cell in headers) {
-        output += `${"".padEnd(widths[cell] + 2, "=")}|`
+        output += `${''.padEnd(widths[cell] + 2, '=')}|`
     }
 
     // Write headers
-    output += "\n|"
+    output += '\n|'
     for (const cell in headers) {
-        output += ` ${headers[cell].toString().padEnd(widths[cell], " ")} |`
+        output += ` ${headers[cell].toString().padEnd(widths[cell], ' ')} |`
     }
 
     // Write separator
-    output += "\n|"
+    output += '\n|'
     for (const cell in headers) {
-        output += `${"".padEnd(widths[cell] + 2, "=")}|`
+        output += `${''.padEnd(widths[cell] + 2, '=')}|`
     }
 
     // Write rows
     for (const row in columns) {
-        output += "\n|"
+        output += '\n|'
         for (const cell in columns[row]) {
             if (align[cell] === 'left') {
-                output += ` ${columns[row][cell].toString().padEnd(widths[cell], " ")} |`
+                output += ` ${columns[row][cell].toString().padEnd(widths[cell], ' ')} |`
             } else {
-                output += ` ${columns[row][cell].toString().padStart(widths[cell], " ")} |`
+                output += ` ${columns[row][cell].toString().padStart(widths[cell], ' ')} |`
             }
         }
     }
 
     // Write separator
-    output += "\n|"
+    output += '\n|'
     for (const cell in headers) {
-        output += `${"".padEnd(widths[cell] + 2, "=")}|`
+        output += `${''.padEnd(widths[cell] + 2, '=')}|`
     }
 
     // Write row count
-    output += "\n-> " + columns.length.toString() + ' rows'
+    output += '\n-> ' + columns.length.toString() + ' rows'
 
-    output += "\n"
+    output += '\n'
     return output
 }
 
@@ -238,24 +238,24 @@ export function detailView(object) {
     }
 
     // Write separator
-    let output = "|"
-    output += `${"".padEnd(widths.headers + 2, "=")}|`
-    output += `${"".padEnd(widths.columns + 2, "=")}|`
+    let output = '|'
+    output += `${''.padEnd(widths.headers + 2, '=')}|`
+    output += `${''.padEnd(widths.columns + 2, '=')}|`
 
     // Write output
-    output += "\n"
+    output += '\n'
     for (const cell in headers) {
-        output += "|"
-        output += ` ${headers[cell].toString().padEnd(widths.headers, " ")} |`
-        output += ` ${columns[cell].toString().padEnd(widths.columns, " ")} |`
-        output += "\n"
+        output += '|'
+        output += ` ${headers[cell].toString().padEnd(widths.headers, ' ')} |`
+        output += ` ${columns[cell].toString().padEnd(widths.columns, ' ')} |`
+        output += '\n'
     }
 
     // Write separator
-    output += "|"
-    output += `${"".padEnd(widths.headers + 2, "=")}|`
-    output += `${"".padEnd(widths.columns + 2, "=")}|`
-    output += "\n"
+    output += '|'
+    output += `${''.padEnd(widths.headers + 2, '=')}|`
+    output += `${''.padEnd(widths.columns + 2, '=')}|`
+    output += '\n'
 
     return output
 }
@@ -294,4 +294,24 @@ export function terminalCommand(message) {
         terminalInput[handler].onKeyDown({keyCode: 13, preventDefault: () => null})
         return terminalInput
     }
+}
+
+/**
+ * Convert CSV to Array
+ * @param csv
+ * @returns {*[]}
+ */
+export function convertCSVtoArray(csv) {
+    const lines = csv.split('\n')
+    const array = []
+    const headers = lines[0].split(',')
+    for (let i = 1; i < lines.length; i++) {
+        const obj = {};
+        const line = lines[i].split(',')
+        for (let j = 0; j < headers.length; j++) {
+            obj[headers[j]] = line[j]
+        }
+        array.push(obj);
+    }
+    return array
 }

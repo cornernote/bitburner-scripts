@@ -52,17 +52,16 @@ export async function main(ns) {
         estTime: estTime,
     }))
     // build a message
-    const status = check.hackDifficulty > check.minDifficulty + 1 || check.moneyAvailable < check.moneyMax * 0.9
+    const status = data.hackDifficulty > data.minDifficulty + 1 || data.moneyAvailable < data.moneyMax * 0.9
         ? 'WARNING:'
         : 'INFO:'
     const message = [
         `${status} CHECK ${target}`,
-        `money=${ns.nFormat(check.moneyAvailable, '$0.000a')}/${ns.nFormat(check.moneyMax, '$0.000a')}`,
-        `security=${check.hackDifficulty}/${check.minDifficulty}`,
+        `money=${ns.nFormat(data.moneyAvailable, '$0.000a')}/${ns.nFormat(data.moneyMax, '$0.000a')}`,
+        `security=${data.hackDifficulty}/${data.minDifficulty}`,
     ].join(' | ')
     // tprint the message
     if (tprint) {
         ns.tprint(message)
     }
-
 }

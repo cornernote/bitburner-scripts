@@ -422,7 +422,7 @@ export function countCycles(ns, servers, attackParts, maxCycles) {
 export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRamOverflow = false) {
     const commands = []
     for (let cycle = 1; cycle <= cycles; cycle++) {
-        ns.tprint('fitting cycle ' + cycle)
+        //ns.tprint('fitting cycle ' + cycle)
         let cycleCommands = []
         const serverRam = {}
 
@@ -464,18 +464,18 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
             if (!threadsRemaining) {
                 continue
             }
-            ns.tprint('fitting part ' + part.script + ' x' + part.threads)
+            // ns.tprint('fitting part ' + part.script + ' x' + part.threads)
             for (let i = 0; i < servers.length; i++) {
                 const server = servers[i]
                 const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
-                ns.tprint('fitting to server ' + server.hostname + ' which has ' + threadsFittable + ' threads available')
+                // ns.tprint('fitting to server ' + server.hostname + ' which has ' + threadsFittable + ' threads available')
                 const threadsToRun = Math.max(0, Math.min(threadsFittable, threadsRemaining))
                 if (threadsToRun) {
                     // if there are not enough threads, and we cannot spread the threads, then continue to the next server
                     if (threadsToRun < threadsRemaining && !part.allowSpreading) {
                         continue
                     }
-                    ns.tprint('fitted ' + threadsToRun + ' threads')
+                    // ns.tprint('fitted ' + threadsToRun + ' threads')
 
                     // create the commands and assign the threads to this server
                     cycleCommands.push(new AttackCommand({

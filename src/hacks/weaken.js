@@ -35,7 +35,7 @@ export async function main(ns) {
     const time = new Date().getTime() - delay
     // write data to a port for stats collection
     await ns.writePort(1, JSON.stringify({
-        type: 'hack',
+        type: 'weaken',
         data: data,
         // info
         target: target,
