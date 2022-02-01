@@ -266,7 +266,7 @@ export function buildPrepAttack(ns, player, server, hackingServers, cores = 1) {
         value: null,
         cycles: null,
         time: null,
-        spacer: 50,
+        spacer: 200,
         parts: new AttackParts({
             h: new AttackPart({
                 script: ATTACK.scripts.h.script,
@@ -355,7 +355,7 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
         value: null,
         cycles: null,
         time: null,
-        spacer: 50,
+        spacer: 200,
         parts: new AttackParts({
             h: new AttackPart({
                 script: ATTACK.scripts.h.script,
@@ -433,8 +433,8 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
     attack.cycleThreads = h.threads + w.threads + g.threads + gw.threads
     info.valuePerThread = info.cycleValue / attack.cycleThreads
     // what percentage of the time can we fill with tasks before availableThreads fills
-    attack.time = ns.getWeakenTime(target.hostname) + attack.spacer * 8
-    info.maxCycles = Math.floor(attack.time / 250) // attacks at 4/sec
+    attack.time = ns.getWeakenTime(target.hostname) + attack.spacer * 5
+    info.maxCycles = Math.floor(attack.time / (attack.spacer * 5)) // attacks at 4/sec
     attack.cycles = countCycles(ns, hackingServers, parts, info.maxCycles)
     info.activePercent = attack.cycles ? attack.cycles / info.maxCycles : 0// 0.2 = 20%
     info.attackThreads = attack.cycleThreads * attack.cycles
@@ -561,7 +561,7 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
                         hostname: server.hostname,
                         threads: threadsToRun,
                         target: attack.target,
-                        delay: (cycle * 250) + part.delay,
+                        delay: (cycle * attack.spacer * 5) + part.delay,
                         time: part.time,
                         stock: false,
                         output: false,
@@ -646,7 +646,7 @@ export async function launchAttack(ns, attack, commands, cycles = 1) {
     if (!attack.start) {
         attack.start = start
     }
-    attack.end = start + attack.time + (cycles * 250)
+    attack.end = start + attack.time + (cycles * attack.spacer * 5)
 }
 
 

@@ -137,14 +137,14 @@ function getHelp(ns) {
  */
 export async function manageAttacks(ns, currentAttacks, stats) {
     // how many attacks to allow
-    let maxAttacks = 10
+    let maxAttacks = 4
     // decide if we should write to disk
     let changed = false
     // split attacks into hack/prep
     // remove completed attacks from the list
     const now = new Date().getTime()
     currentAttacks = currentAttacks
-        .filter(ca => ca.attack.end + 250 > now) // || ca.nextCycle)
+        .filter(ca => ca.attack.end > now) // || ca.nextCycle)
 
     const currentHackAttacks = currentAttacks
         .filter(ca => ca.type === 'hack')
