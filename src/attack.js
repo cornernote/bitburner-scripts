@@ -1,5 +1,5 @@
 import {
-    assignAttack,
+    assignAttack, ATTACK,
     getBestHackAttack,
     getBestHackAttacks,
     getBestPrepAttack,
@@ -137,7 +137,7 @@ function getHelp(ns) {
  */
 export async function manageAttacks(ns, currentAttacks, stats) {
     // how many attacks to allow
-    let maxAttacks = 4
+    let maxAttacks = 3
     // decide if we should write to disk
     let changed = false
     // split attacks into hack/prep
@@ -245,51 +245,63 @@ export async function manageAttacks(ns, currentAttacks, stats) {
                     `on=${ns.nFormat(hackAttack.info.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')} grow=${ns.nFormat(hackAttack.info.growthRequired, '0.00%')}`,
                     `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.cycleThreads, '0a')} ${Object.values(hackAttack.parts).map(p => p.threads).join('|')} (${ns.nFormat(hackAttack.cycleThreads * hackAttack.cycles, '0a')} total)`,
                 ].join(' | '))
-                ns.print(listView(commands.map(c => {
-                    return {
-                        script: c.script,
-                        hostname: c.hostname,
-                        threads: c.threads,
-                        target: c.target,
-                        end: c.start + c.delay + c.time,
-                    }
-                })))
+                // ns.print(listView(commands.map(c => {
+                //     return {
+                //         script: c.script,
+                //         hostname: c.hostname,
+                //         threads: c.threads,
+                //         target: c.target,
+                //         end: c.start + c.delay + c.time,
+                //     }
+                // })))
             }
         }
     }
 
-    // launch new prep attacks
-    // ns.tprint('find prep attack...')
-    const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores)
-    // if the current prep can be done in available threads, or no prep attacks
-    if (prepAttack) {
-        // ns.tprint('found attack, can it fit')
-        const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
-        if (prepAttack.cycleThreads < freeThreads || currentPrepAttacks.length === 0) {
-            // ns.tprint('it fits, can we get commands')
-            const commands = assignAttack(ns, prepAttack, hackingServers, 'prep', 1, true)
-            if (commands.length) {
-                // ns.tprint(commands)
-                await launchAttack(ns, prepAttack, commands)
-                currentAttacks.push({
-                    type: 'prep',
-                    attack: prepAttack,
-                    cycle: 0,
-                    //nextCycle: false,
-                })
-                await ns.writePort(1, JSON.stringify({target: prepAttack.target, action: 'start'}))
-                changed = true
-                ns.print([
-                    `${formatTime()}: prep ${prepAttack.target}: ${formatDelay(prepAttack.time)}`,
-                    `threads=${ns.nFormat(prepAttack.cycleThreads, '0a')} ${Object.values(prepAttack.parts).map(p => p.threads).join('|')}`
-                ].join(' | '))
+    // launch new prep attacks if there is a full active attack
+    if (currentHackAttacks.filter(ca => ca.attack.info.activePercent === 1).length) {
+        // ns.tprint('find prep attack...')
+        const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores)
+        // if the current prep can be done in available threads, or no prep attacks
+        if (prepAttack) {
+            // ns.tprint('found attack, can it fit')
+            const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
+            const allowRamOverflow = currentPrepAttacks.length === 0
+            if (prepAttack.cycleThreads < freeThreads || allowRamOverflow) {
+                // ns.tprint('it fits, can we get commands')
+                // ns.tprint(currentPrepAttacks.length === 0)
+                // fit grow and weaken threads based on threads available
+                const threadMessage = Object.values(prepAttack.parts).map(p => p.threads).join('|')
+                if (allowRamOverflow && prepAttack.parts.g.threads) {
+                    prepAttack.parts.g.threads = freeThreads
+                    prepAttack.parts.gw.threads = Math.ceil((prepAttack.parts.g.threads * ATTACK.scripts.g.change) / ATTACK.scripts.w.change)
+                    prepAttack.parts.g.threads -= prepAttack.parts.gw.threads
+                }
+                const commands = assignAttack(ns, prepAttack, hackingServers, 'prep', 1, allowRamOverflow)
+                if (commands.length) {
+                    // ns.tprint(commands)
+                    await launchAttack(ns, prepAttack, commands)
+                    currentAttacks.push({
+                        type: 'prep',
+                        attack: prepAttack,
+                        cycle: 0,
+                        //nextCycle: false,
+                    })
+                    await ns.writePort(1, JSON.stringify({target: prepAttack.target, action: 'start'}))
+                    const threadsRunMessage = commands.map(c => c.threads).reduce((prev, next) => prev + next) < prepAttack.cycleThreads ? ` (${Object.values(prepAttack.parts).map(p => p.threads).join('|')} ran)` : ''
+                    changed = true
+                    ns.print([ // note this may not be the amount of threads fitted, coule be less if allowRamOverflow=true
+                        `${formatTime()}: prep ${prepAttack.target}: ${formatDelay(prepAttack.time)}`,
+                        `threads=${ns.nFormat(prepAttack.cycleThreads, '0a')} ${threadMessage}${threadsRunMessage}`
+                    ].join(' | '))
+                }
             }
         }
     }
 
     // if there is unused ram, share ram with factions
     const shareRam = 4
-    const shareMax = prepTargetServers.length ? 0.6 : 0.9 // share upto 60% if we have prep targets, 90% if we have no prep targets
+    const shareMax = prepTargetServers.length ? 0 : 0.9 // share upto 90% if we have no prep targets
     const totalThreads = getTotalThreads(ns, hackingServers, shareRam)
     const freeThreads = getFreeThreads(ns, hackingServers, shareRam)
     if (freeThreads > totalThreads * (1 - shareMax)) {

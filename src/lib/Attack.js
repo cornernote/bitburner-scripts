@@ -274,6 +274,7 @@ export function buildPrepAttack(ns, player, server, hackingServers, cores = 1) {
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: false
             }),
             w: new AttackPart({
                 script: ATTACK.scripts.w.script,
@@ -289,6 +290,7 @@ export function buildPrepAttack(ns, player, server, hackingServers, cores = 1) {
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: false
             }),
             gw: new AttackPart({
                 script: ATTACK.scripts.w.script,
@@ -363,6 +365,7 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: false
             }),
             w: new AttackPart({
                 script: ATTACK.scripts.w.script,
@@ -378,6 +381,7 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
                 threads: 0,
                 time: 0,
                 delay: 0,
+                allowSpreading: false
             }),
             gw: new AttackPart({
                 script: ATTACK.scripts.w.script,
@@ -543,52 +547,62 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
                 continue
             }
             // ns.tprint('fitting part ' + part.script + ' x' + part.threads)
-            for (let i = 0; i < servers.length; i++) {
-                const server = servers[i]
-                const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
-                // ns.tprint('fitting to server ' + server.hostname + ' which has ' + threadsFittable + ' threads available')
-                const threadsToRun = Math.max(0, Math.min(threadsFittable, threadsRemaining))
-                if (threadsToRun) {
-                    // if there are not enough threads, and we cannot spread the threads, then continue to the next server
-                    if (threadsToRun < threadsRemaining && !part.allowSpreading) {
-                        continue
-                    }
-                    // ns.tprint('fitted ' + threadsToRun + ' threads')
+            for (let allowSpreading = part.allowSpreading ? 1 : 0; allowSpreading <= 1; allowSpreading++) {
+                // ns.tprint('allow spreading? ' + allowSpreading)
+                // ns.tprint('allow overflow? ' + allowRamOverflow)
+                // ns.tprint(allowRamOverflow)
+                for (let i = 0; i < servers.length; i++) {
+                    const server = servers[i]
+                    const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / part.ram))
+                    // ns.tprint('fitting to server ' + server.hostname + ' which has ' + threadsFittable + ' threads available')
+                    const threadsToRun = Math.max(0, Math.min(threadsFittable, threadsRemaining))
+                    if (threadsToRun) {
+                        // if there are not enough threads, and we cannot spread the threads, then continue to the next server
+                        if (threadsToRun < threadsRemaining && allowSpreading === 0) {
+                            continue
+                        }
+                        // ns.tprint('fitted ' + threadsToRun + ' threads')
 
-                    // create the commands and assign the threads to this server
-                    cycleCommands.push(new AttackCommand({
-                        script: part.script,
-                        hostname: server.hostname,
-                        threads: threadsToRun,
-                        target: attack.target,
-                        delay: (cycle * attack.spacer * 5) + part.delay,
-                        time: part.time,
-                        stock: false,
-                        output: false,
-                    }))
-                    threadsRemaining -= threadsToRun
-                    server.ramUsed += threadsToRun * part.ram
-                    serverRam[server.hostname] += threadsToRun * part.ram // so we can give it back if it doesn't fit
-                    if (!threadsRemaining) {
-                        break
+                        // create the commands and assign the threads to this server
+                        cycleCommands.push(new AttackCommand({
+                            script: part.script,
+                            hostname: server.hostname,
+                            threads: threadsToRun,
+                            target: attack.target,
+                            delay: (cycle * attack.spacer * 5) + part.delay,
+                            time: part.time,
+                            stock: false,
+                            output: false,
+                        }))
+                        threadsRemaining -= threadsToRun
+                        server.ramUsed += threadsToRun * part.ram
+                        serverRam[server.hostname] += threadsToRun * part.ram // so we can give it back if it doesn't fit
+                        if (!threadsRemaining) {
+                            // ns.tprint('all threads fitted!')
+                            break
+                        }
                     }
                 }
             }
             // check for overflow
-            if (!allowRamOverflow && threadsRemaining) {
-                // un-assign commands
-                cycleCommands = []
-                // un-assign ram
-                for (const server of servers) {
-                    if (serverRam[server.hostname]) {
-                        server.ramUsed -= serverRam[server.hostname]
+            if (threadsRemaining) {
+                if (!allowRamOverflow) {
+                    // un-assign commands
+                    cycleCommands = []
+                    // un-assign ram
+                    for (const server of servers) {
+                        if (serverRam[server.hostname]) {
+                            server.ramUsed -= serverRam[server.hostname]
+                        }
                     }
+                    ns.print(`WARNING: ram overflow with ${threadsRemaining} threads remaining!`)
+                    break
                 }
-                ns.print(`WARNING: ram overflow with ${threadsRemaining} threads remaining!`)
-                break
+                ns.print(`INFO: ram overflow with ${threadsRemaining} threads remaining!`)
             }
         }
         // if we fit in ram, add to the list
+        // ns.tprint(cycleCommands)
         for (const command of cycleCommands) {
             commands.push(command)
         }
