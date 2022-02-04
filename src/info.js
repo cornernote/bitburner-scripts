@@ -1,5 +1,13 @@
-import {getCracks, getRoutes, getServers} from "./lib/Server";
-import {convertCSVtoArray, detailView, formatMoney, formatRam, listView} from "./lib/Helpers";
+import {
+    getCracks,
+    getHackingServers,
+    getHackTargetServers,
+    getPrepTargetServers,
+    getRoutes,
+    getServers
+} from "./lib/Server";
+import {convertCSVtoArray, detailView, formatDelay, formatMoney, formatRam, formatTime, listView} from "./lib/Helpers";
+import {getBestHackAttacks, getBestPrepAttacks} from "./lib/Attack";
 
 /**
  * Command options
@@ -21,7 +29,7 @@ export function autocomplete(data, args) {
     if (args[0] === 'servers') {
         return ['all', 'purchased', 'rooted', 'rootable', 'locked']
     }
-    return ['player', 'servers', 'server', 'files', 'stats']
+    return ['player', 'servers', 'server', 'files', 'stats', 'targets']
 }
 
 
@@ -51,6 +59,9 @@ export async function main(ns) {
             break
         case 'stats':
             ns.tprintf(statsInfo(ns))
+            break
+        case 'targets':
+            ns.tprintf(targetsInfo(ns))
             break
         default:
             ns.tprintf(helpInfo(ns))
@@ -205,4 +216,47 @@ function statsInfo(ns) {
             finish: Math.round(s.finish - s.estFinish),
         }
     }))
+}
+
+/**
+ * Information about attack targets
+ *
+ * @param {NS} ns
+ * @returns {string}
+ */
+function targetsInfo(ns) {
+    const player = ns.getPlayer()
+    const servers = getServers(ns)
+    const cores = 1 // assume we won't run on home, or home has 1 core
+    const hackingServers = getHackingServers(ns, servers).map(s => {
+        s.ramUsed = 0 // assume no ram used
+        return s
+    })
+    const hackTargetServers = getHackTargetServers(ns, servers)
+    const hackAttacks = getBestHackAttacks(ns, player, hackTargetServers, hackingServers, cores)
+    const prepTargetServers = getPrepTargetServers(ns, servers)
+    const prepAttacks = getBestPrepAttacks(ns, player, prepTargetServers, hackingServers, cores)
+    // const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores)
+    // const bestPrepAttack = prepAttack ? formatAttack(ns, prepAttack, 'prep') : ''
+
+    return [
+        `SERVERS`,
+        `${servers.map(s => s.hostname).join(', ')}`,
+        '',
+        `HACKS`,
+        `${hackTargetServers.map(s => s.hostname).join(', ')}`,
+        `${hackAttacks.map(a => [
+            `hack ${a.target}: ${formatDelay(a.time)}`,
+            `${ns.nFormat(a.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(a.info.cycleValue * a.cycles, '$0.0a')}/batch`,
+            `on=${ns.nFormat(a.activePercent, '0.0%')}% take=${ns.nFormat(a.info.hackedPercent, '0.00%')}% grow=${ns.nFormat(a.info.growthRequired, '0.00%')}%`,
+            `threads=${a.cycles}x ${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')} (${ns.nFormat(a.cycleThreads * a.cycles, '0a')} total)`,
+        ].join(' | ')).join('\n')}`,
+        '',
+        `PREPS`,
+        `${prepTargetServers.map(s => s.hostname).join(', ')}`,
+        `${prepAttacks.map(a => [
+            `prep ${a.target}: ${formatDelay(a.time)}`,
+            `threads=${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')}`
+        ].join(' | ')).join('\n')}`,
+    ].join('\n')
 }

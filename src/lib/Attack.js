@@ -29,17 +29,12 @@ export const ATTACK = {
     },
     // percents used when testing attack values
     hackPercents: [
-        // 0.95,
         0.8,
         0.4,
         0.2,
         0.1,
         0.05,
         0.025,
-        0.0125,
-        0.00625,
-        // 0.003125,
-        // 0.0015625,
     ],
 }
 
@@ -57,6 +52,7 @@ export class Attack {
         this.value = attack.value
         this.cycles = attack.cycles
         this.cycleThreads = attack.cycleThreads
+        this.activePercent = attack.activePercent
         this.time = attack.time
         this.spacer = attack.spacer
         this.start = null
@@ -87,7 +83,7 @@ export class PrepAttack extends Attack {
      */
     constructor(prepAttack) {
         super(prepAttack)
-        this.type = 'hack'
+        this.type = 'prep'
     }
 }
 
@@ -141,7 +137,6 @@ export class AttackInfo {
         this.growthRequired = attackInfo.growthRequired
         this.cycleValue = attackInfo.cycleValue
         this.maxCycles = attackInfo.maxCycles
-        this.activePercent = attackInfo.activePercent
         this.valuePerThread = attackInfo.valuePerThread
         this.averageValuePerThreadPerSecond = attackInfo.averageValuePerThreadPerSecond
     }
@@ -177,12 +172,13 @@ export class AttackCommand {
  * @param {[Server]} targets
  * @param {[Server]} hackingServers
  * @param {Number} cores
+ * @param {Number} spacer
  * @return {[Attack]}
  */
-export function getBestPrepAttacks(ns, player, targets, hackingServers, cores = 1) {
+export function getBestPrepAttacks(ns, player, targets, hackingServers, cores = 1, spacer = 200) {
     let attacks = []
     for (const server of targets) {
-        const attack = buildPrepAttack(ns, player, server, hackingServers, cores)
+        const attack = buildPrepAttack(ns, player, server, hackingServers, cores, spacer)
         attacks.push(attack)
     }
     attacks = attacks.filter(a => a.value).sort((a, b) => b.value - a.value)
@@ -196,14 +192,15 @@ export function getBestPrepAttacks(ns, player, targets, hackingServers, cores = 
  * @param {Player} player
  * @param {[Server]} targets
  * @param {[Server]} hackingServers
+ * @param {Number} spacer
  * @param {Number} cores
  * @return {[HackAttack]}
  */
-export function getBestHackAttacks(ns, player, targets, hackingServers, cores = 1) {
+export function getBestHackAttacks(ns, player, targets, hackingServers, cores = 1, spacer = 200) {
     let attacks = []
     for (const hackPercent of ATTACK.hackPercents) {
         for (const server of targets) {
-            const attack = buildHackAttack(ns, player, server, hackingServers, cores, hackPercent)
+            const attack = buildHackAttack(ns, player, server, hackingServers, cores, spacer, hackPercent)
             attacks.push(attack)
         }
     }
@@ -219,10 +216,11 @@ export function getBestHackAttacks(ns, player, targets, hackingServers, cores = 
  * @param {[Server]} targets
  * @param {[Server]} hackingServers
  * @param {Number} cores
+ * @param {Number} spacer
  * @return {Attack|Boolean}
  */
-export function getBestPrepAttack(ns, player, targets, hackingServers, cores = 1) {
-    const attacks = getBestPrepAttacks(ns, player, targets, hackingServers, cores)
+export function getBestPrepAttack(ns, player, targets, hackingServers, cores = 1, spacer = 200) {
+    const attacks = getBestPrepAttacks(ns, player, targets, hackingServers, cores, spacer)
     if (!attacks.length) {
         return false
     }
@@ -237,10 +235,11 @@ export function getBestPrepAttack(ns, player, targets, hackingServers, cores = 1
  * @param {[Server]} targets
  * @param {[Server]} hackingServers
  * @param {Number} cores
+ * @param {Number} spacer
  * @return {HackAttack|Boolean}
  */
-export function getBestHackAttack(ns, player, targets, hackingServers, cores = 1) {
-    const attacks = getBestHackAttacks(ns, player, targets, hackingServers, cores)
+export function getBestHackAttack(ns, player, targets, hackingServers, cores = 1, spacer = 200) {
+    const attacks = getBestHackAttacks(ns, player, targets, hackingServers, cores, spacer)
     if (!attacks.length) {
         return false
     }
@@ -256,9 +255,10 @@ export function getBestHackAttack(ns, player, targets, hackingServers, cores = 1
  * @param {Server} server
  * @param {[Server]} hackingServers
  * @param {Number} cores
+ * @param {Number} spacer
  * @return {PrepAttack}
  */
-export function buildPrepAttack(ns, player, server, hackingServers, cores = 1) {
+export function buildPrepAttack(ns, player, server, hackingServers, cores = 1, spacer = 200) {
 
     // create the attack objects
     const attack = new PrepAttack({
@@ -266,7 +266,7 @@ export function buildPrepAttack(ns, player, server, hackingServers, cores = 1) {
         value: null,
         cycles: null,
         time: null,
-        spacer: 200,
+        spacer: spacer,
         parts: new AttackParts({
             h: new AttackPart({
                 script: ATTACK.scripts.h.script,
@@ -346,10 +346,11 @@ export function buildPrepAttack(ns, player, server, hackingServers, cores = 1) {
  * @param {Server} target
  * @param {[Server]} hackingServers
  * @param {Number} cores
+ * @param {Number} spacer
  * @param {Number} hackPercent
  * @return {HackAttack|boolean}
  */
-export function buildHackAttack(ns, player, target, hackingServers, cores = 1, hackPercent = 20) {
+export function buildHackAttack(ns, player, target, hackingServers, cores = 1, spacer = 200, hackPercent = 20) {
 
     // create the attack objects
     const attack = new HackAttack({
@@ -357,7 +358,8 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
         value: null,
         cycles: null,
         time: null,
-        spacer: 200,
+        spacer: spacer,
+        activePercent: null,
         parts: new AttackParts({
             h: new AttackPart({
                 script: ATTACK.scripts.h.script,
@@ -399,7 +401,6 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
             cycleValue: null,
             threadRam: null,
             maxCycles: null,
-            activePercent: null,
             valuePerThread: null,
             averageValuePerThreadPerSecond: null,
         }),
@@ -429,7 +430,8 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
     const growthRequiredEstimated = 1 / (1 - hackPercent) // 5
     info.growthRequired = remainingPercent ? 1 / remainingPercent : growthRequiredEstimated // < ~5 - the number of times we have to grow that amount
     const growthAnalyze = ns.growthAnalyze(target.hostname, info.growthRequired, cores) // how many thread to grow the money by ~5x
-    g.threads = Math.ceil(growthAnalyze) // threads to grow the amount we want, ceil so that we don't under-grow
+    const correctionThreads = 1 + (info.hackedPercent * 0.5) // ~1.1 - some threads incase there is a misfire, the more hackedPercent the more threads
+    g.threads = Math.ceil(growthAnalyze * correctionThreads)  // threads to grow the amount we want, ceil so that we don't under-grow
     w.threads = Math.ceil(h.threads * (ATTACK.scripts.h.change / ATTACK.scripts.w.change)) // weaken threads for hack, ceil so that we don't under-weaken
     gw.threads = Math.ceil(g.threads * (ATTACK.scripts.g.change / ATTACK.scripts.w.change)) // weaken threads for grow, ceil so that we don't under-weaken
 
@@ -438,14 +440,14 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, h
     info.valuePerThread = info.cycleValue / attack.cycleThreads
     // what percentage of the time can we fill with tasks before availableThreads fills
     attack.time = ns.getWeakenTime(target.hostname) + attack.spacer * 5
-    info.maxCycles = Math.floor(attack.time / (attack.spacer * 5)) // attacks at 4/sec
+    info.maxCycles = Math.floor(attack.time / (attack.spacer * 5)) // attacks at 1/sec
     attack.cycles = countCycles(ns, hackingServers, parts, info.maxCycles)
-    info.activePercent = attack.cycles ? attack.cycles / info.maxCycles : 0// 0.2 = 20%
+    attack.activePercent = attack.cycles ? attack.cycles / info.maxCycles : 0// 0.2 = 20%
     info.attackThreads = attack.cycleThreads * attack.cycles
     // hack value per thread used per second (excluding the wait for the first attack to land)
-    info.averageValuePerThreadPerSecond = info.valuePerThread * info.activePercent
+    info.averageValuePerThreadPerSecond = info.valuePerThread * attack.activePercent
     // hack value
-    attack.value = info.cycleValue * attack.cycles * info.activePercent
+    attack.value = (info.cycleValue * attack.cycles * attack.activePercent) / attack.time
 
     // return the HackAttack object
     return attack
@@ -620,8 +622,8 @@ export function assignAttack(ns, attack, servers, cycleType, cycles = 1, allowRa
  * @return {Promise<{any}>}
  */
 export async function launchAttack(ns, attack, commands, cycles = 1) {
-    // start the commands at the same time, assume 10ms to start each command
-    const start = new Date().getTime() + commands.length * 10
+    // start the commands at the same time, assume 50ms to start each command
+    const start = new Date().getTime() + commands.length * 50
     // run each command in the list
     for (const command of commands) {
         // ns.args = [
@@ -652,7 +654,8 @@ export async function launchAttack(ns, attack, commands, cycles = 1) {
             command.start,
             command.time)
         // sleep to prevent error: cannot be run because it does not have a main function.
-        await ns.sleep(1)
+        // also prevents game freeze on large commands
+        await ns.sleep(0)
         if (!command.pid) {
             ns.print(`WARNING: could not start command: ${JSON.stringify(command)}`)
         }

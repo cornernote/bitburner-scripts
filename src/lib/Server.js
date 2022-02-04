@@ -9,6 +9,8 @@
  * @type {{maxMoneyMultiplayer: number, minSecurityLevelOffset: number}}
  */
 export const SERVER = {
+    // don't use this ram to run attack scripts
+    homeReservedRam: 8,
     // used to decide if hack action=weaken
     // if (bestTarget.securityLevel > bestTarget.minSecurityLevel + settings.minSecurityLevelOffset) action = 'weaken'
     minSecurityLevelOffset: 1,
@@ -43,6 +45,10 @@ export const SERVER = {
         'fulcrumassets', // Fulcrum Secret Technologies (also needs 250k reputation with the Corporation)
         'w0r1d_d43m0n',  // reboot...
     ],
+    // controls how far to upgrade hacknet servers
+    hacknetMaxPayoffTime: 0,  // in seconds
+    // controls how far to upgrade hacknet servers
+    hacknetMaxSpend: 0,
 }
 
 /**
@@ -179,7 +185,9 @@ export function getFreeRam(ns, servers) {
  */
 export function getTotalRam(ns, servers) {
     return servers
-        .map(s => s.maxRam)
+        .map(s => s.hostname === 'home'
+            ? Math.floor(s.maxRam - SERVER.homeReservedRam)
+            : Math.floor(s.maxRam))
         .reduce((prev, next) => prev + next)
 }
 
@@ -206,7 +214,9 @@ export function getFreeThreads(ns, servers, ram) {
  */
 export function getTotalThreads(ns, servers, ram) {
     return servers
-        .map(s => Math.floor(s.maxRam / ram))
+        .map(s => s.hostname === 'home'
+            ? Math.floor(s.maxRam - SERVER.homeReservedRam / ram)
+            : Math.floor(s.maxRam / ram))
         .reduce((prev, next) => prev + next)
 }
 
