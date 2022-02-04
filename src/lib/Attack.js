@@ -30,6 +30,7 @@ export const ATTACK = {
     // percents used when testing attack values
     hackPercents: [
         0.8,
+        0.6,
         0.4,
         0.2,
         0.1,
@@ -430,7 +431,7 @@ export function buildHackAttack(ns, player, target, hackingServers, cores = 1, s
     const growthRequiredEstimated = 1 / (1 - hackPercent) // 5
     info.growthRequired = remainingPercent ? 1 / remainingPercent : growthRequiredEstimated // < ~5 - the number of times we have to grow that amount
     const growthAnalyze = ns.growthAnalyze(target.hostname, info.growthRequired, cores) // how many thread to grow the money by ~5x
-    const correctionThreads = 1 + (info.hackedPercent * 0.5) // ~1.1 - some threads incase there is a misfire, the more hackedPercent the more threads
+    const correctionThreads = 1 + (info.hackedPercent * 0.75) // some threads incase there is a misfire, the more hackedPercent the more threads
     g.threads = Math.ceil(growthAnalyze * correctionThreads)  // threads to grow the amount we want, ceil so that we don't under-grow
     w.threads = Math.ceil(h.threads * (ATTACK.scripts.h.change / ATTACK.scripts.w.change)) // weaken threads for hack, ceil so that we don't under-weaken
     gw.threads = Math.ceil(g.threads * (ATTACK.scripts.g.change / ATTACK.scripts.w.change)) // weaken threads for grow, ceil so that we don't under-weaken
