@@ -126,8 +126,8 @@ function getHelp(ns) {
  */
 export async function manageAttacks(ns, currentAttacks) {
     // how many attacks to allow
-    let maxAttacks = 5
-    let attackSpacer = 200
+    let maxAttacks = 3
+    let attackSpacer = 150
 
     // decide if we should write
     let changed = false
@@ -206,8 +206,8 @@ export async function manageAttacks(ns, currentAttacks) {
         }
     }
 
-    // launch new prep attacks if there is a full active attack, or if there are no current
-    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.length) {
+    // launch new prep attacks if there is a full active attack, or if there are no current, or if we launched an attack and we have spare ram
+    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.length || changed) {
         // ns.tprint('find prep attack...')
         const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores, 1000)
         // if the current prep can be done in available threads, or no prep attacks
