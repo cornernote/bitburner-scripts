@@ -151,21 +151,8 @@ export function manageHacknet(ns) {
         return false // As long as maxSpend doesn't change, we will never purchase another upgrade
     }
 
-    // is we don't have much money, limit payoff time
+    // limit payoff time
     let nextPayoffTime = SERVER.hacknetMaxPayoffTime
-    if (!nextPayoffTime) {
-        if (player.money < 1000000) { // 1m
-            nextPayoffTime = 60 * 10 // 10m
-        } else if (player.money < 10000000) { // 10m
-            nextPayoffTime = 60 * 30 // 30m
-        } else if (player.money < 500000000) { // 500m
-            nextPayoffTime = 60 * 60 // 1h
-        } else if (player.money < 1000000000) { // 1b
-            nextPayoffTime = 60 * 60 * 4 // 4h
-        } else { // >1b
-            nextPayoffTime = 60 * 60 * 24 // 24h
-        }
-    }
     if (nextPayoffTime && payoffTimeSeconds > nextPayoffTime) {
         ns.print(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${ns.nFormat(nextPayoffTime, '00:00:00')})`)
         return false // As long as maxPayoffTime doesn't change, we will never purchase another upgrade

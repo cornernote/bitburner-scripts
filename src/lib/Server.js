@@ -46,7 +46,7 @@ export const SERVER = {
         'w0r1d_d43m0n',  // reboot...
     ],
     // controls how far to upgrade hacknet servers
-    hacknetMaxPayoffTime: 0,  // in seconds
+    hacknetMaxPayoffTime: 60 * 60 * 4,  // in seconds
     // controls how far to upgrade hacknet servers
     hacknetMaxSpend: 0,
 }
@@ -60,7 +60,11 @@ export const SERVER = {
 export function getServers(ns) {
     const servers = []
     for (const hostname of scanAll(ns)) {
-        servers.push(ns.getServer(hostname))
+        const server = ns.getServer(hostname)
+        if (server.hostname === 'home') {
+            server.ramUsed += SERVER.homeReservedRam
+        }
+        servers.push(server)
     }
     return servers
 }
@@ -148,7 +152,6 @@ export function getHackingServers(ns, servers) {
     return servers
         .filter(s => s.hasAdminRights)
         .sort((a, b) => b.maxRam - a.maxRam) // sort by ram
-        .sort((a, b) => (b.hostname === 'home' ? 0 : 1) - (a.hostname === 'home' ? 0 : 1)) // home last
 }
 
 /**
@@ -185,9 +188,7 @@ export function getFreeRam(ns, servers) {
  */
 export function getTotalRam(ns, servers) {
     return servers
-        .map(s => s.hostname === 'home'
-            ? Math.floor(s.maxRam - SERVER.homeReservedRam)
-            : Math.floor(s.maxRam))
+        .map(s => s.maxRam)
         .reduce((prev, next) => prev + next)
 }
 
@@ -214,9 +215,7 @@ export function getFreeThreads(ns, servers, ram) {
  */
 export function getTotalThreads(ns, servers, ram) {
     return servers
-        .map(s => s.hostname === 'home'
-            ? Math.floor(s.maxRam - SERVER.homeReservedRam / ram)
-            : Math.floor(s.maxRam / ram))
+        .map(s => Math.floor(s.maxRam / ram))
         .reduce((prev, next) => prev + next)
 }
 

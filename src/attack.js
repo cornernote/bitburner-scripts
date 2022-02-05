@@ -206,10 +206,10 @@ export async function manageAttacks(ns, currentAttacks) {
         }
     }
 
-    // launch new prep attacks if there is a full active attack, or if there are no hack targets
-    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !hackTargetServers.length) {
+    // launch new prep attacks if there is a full active attack, or if there are no current
+    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.length) {
         // ns.tprint('find prep attack...')
-        const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores, attackSpacer)
+        const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores, 1000)
         // if the current prep can be done in available threads, or no prep attacks
         if (prepAttack) {
             // ns.tprint('found attack, can it fit')
@@ -246,28 +246,30 @@ export async function manageAttacks(ns, currentAttacks) {
         }
     }
 
-    // if there is unused ram, share ram with factions
-    const shareRam = 4
-    const shareMax = prepTargetServers.length ? 0 : 0.9 // share upto 90% if we have no prep targets
-    const totalThreads = getTotalThreads(ns, hackingServers, shareRam)
-    const freeThreads = getFreeThreads(ns, hackingServers, shareRam)
-    if (freeThreads > totalThreads * (1 - shareMax)) {
-        const usedThreads = totalThreads - freeThreads
-        const requiredThreads = Math.floor(totalThreads * shareMax - usedThreads)
-        let remainingThreads = requiredThreads
-        for (const server of hackingServers) {
-            const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / shareRam))
-            const threadsToRun = Math.max(0, Math.min(threadsFittable, remainingThreads))
-            if (threadsToRun) {
-                //args[0: loop]
-                ns.exec('/hacks/share.js', server.hostname, threadsToRun, 10)
-                remainingThreads -= threadsToRun
-                server.ramUsed += threadsToRun * shareRam
+    // if we launched an attack and if there is unused ram, share ram with factions
+    if (changed) {
+        const shareRam = 4
+        const shareMax = prepTargetServers.length ? 0 : 0.9 // share upto 90% if we have no prep targets
+        const totalThreads = getTotalThreads(ns, hackingServers, shareRam)
+        const freeThreads = getFreeThreads(ns, hackingServers, shareRam)
+        if (freeThreads > totalThreads * (1 - shareMax)) {
+            const usedThreads = totalThreads - freeThreads
+            const requiredThreads = Math.floor(totalThreads * shareMax - usedThreads)
+            let remainingThreads = requiredThreads
+            for (const server of hackingServers) {
+                const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / shareRam))
+                const threadsToRun = Math.max(0, Math.min(threadsFittable, remainingThreads))
+                if (threadsToRun) {
+                    //args[0: loop]
+                    ns.exec('/hacks/share.js', server.hostname, threadsToRun, 10)
+                    remainingThreads -= threadsToRun
+                    server.ramUsed += threadsToRun * shareRam
+                }
             }
+            ns.print([
+                `INFO: shared ${ns.nFormat(requiredThreads, '0.0a')} threads for faction use`,
+            ].join(' | '))
         }
-        ns.print([
-            `INFO: shared ${ns.nFormat(requiredThreads, '0.0a')} threads for faction use`,
-        ].join(' | '))
     }
 
     // return attacks

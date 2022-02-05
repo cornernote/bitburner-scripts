@@ -8,14 +8,14 @@ import {formatDelay, formatTime} from "./lib/Helpers";
 export async function main(ns) {
 
     const cycles = 5
-    const target = ns.getServer('foodnstuff')
+    const target = ns.getServer('n00dles')
     const servers = getHackingServers(ns, getServers(ns))
     const attack = buildHackAttack(ns, ns.getPlayer(), target, servers, 1, 0.8)
     const commands = assignAttack(ns, attack, servers, 'hack', cycles)
-    await launchAttack(ns, attack, commands, cycles)
+    //await launchAttack(ns, attack, commands, cycles)
 
     ns.tprint(`${formatTime()}: ${cycles} attack cycles ends at ${formatTime(attack.end)}, with delay time ${formatDelay(attack.time)}`)
-    await getStats(ns, attack.end + attack.time)
+    //await getStats(ns, attack.end + attack.time)
     ns.tprint('done...')
 }
 
