@@ -261,9 +261,12 @@ export async function manageAttacks(ns, currentAttacks) {
                 const threadsToRun = Math.max(0, Math.min(threadsFittable, remainingThreads))
                 if (threadsToRun) {
                     //args[0: loop]
-                    ns.exec('/hacks/share.js', server.hostname, threadsToRun, 10)
-                    remainingThreads -= threadsToRun
-                    server.ramUsed += threadsToRun * shareRam
+                    try {
+                        ns.exec('/hacks/share.js', server.hostname, threadsToRun, 10)
+                        remainingThreads -= threadsToRun
+                        server.ramUsed += threadsToRun * shareRam
+                    } catch (e) {
+                    }
                 }
             }
             ns.print([

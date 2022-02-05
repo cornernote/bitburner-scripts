@@ -646,18 +646,21 @@ export async function launchAttack(ns, attack, commands, cycles = 1) {
         //   11: time,
         // ]
         command.start = start
-        command.pid = ns.exec(command.script,
-            command.hostname,
-            command.threads,
-            command.target,
-            command.delay,
-            command.uuid,
-            command.stock,
-            command.output,
-            command.hostname,
-            command.threads,
-            command.start,
-            command.time)
+        try {
+            command.pid = ns.exec(command.script,
+                command.hostname,
+                command.threads,
+                command.target,
+                command.delay,
+                command.uuid,
+                command.stock,
+                command.output,
+                command.hostname,
+                command.threads,
+                command.start,
+                command.time)
+        } catch (e) {
+        }
         // sleep to prevent error: cannot be run because it does not have a main function.
         // also prevents game freeze on large commands
         await ns.sleep(0)
