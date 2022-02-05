@@ -1,14 +1,3 @@
-import {
-    SERVER,
-    getFreeRam,
-    getFreeThreads,
-    getHackingServers,
-    getHackTargetServers,
-    getPrepTargetServers,
-    getServers,
-    getTotalRam,
-    getTotalThreads
-} from "./lib/Server";
 import {formatDelay, updateHUD} from "./lib/Helpers";
 
 /**
@@ -34,13 +23,12 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     // get some stuff ready
     const args = ns.flags(argsSchema)
-    ns.disableLog('ALL')
+    if (!args['_'][0]) {
+        ns.tprintf(getHelp(ns))
+        return
+    }
 
-    // load data from disk
-    // const dataContents = ns.read('/data/hud-data.json.txt')
-    // let data = dataContents
-    //     ? JSON.parse(dataContents)
-    //     : {}
+    // init data
     let data = {
         stats: {},
         currentAttacks: [],
@@ -49,7 +37,7 @@ export async function main(ns) {
     // work, sleep, repeat
     do {
 
-        // read data
+        // read data from ports, then write to hud
         data = await manageHud(ns, 1, data)
         writeHud(ns, data)
 
@@ -67,7 +55,7 @@ export async function main(ns) {
 function getHelp(ns) {
     const script = ns.getScriptName()
     return [
-        'Displays data on the HUD (head up display).',
+        'Reads port data, and displays data on the HUD (head up display).',
         '',
         `USAGE: run ${script}`,
         '',
@@ -128,12 +116,8 @@ async function manageHud(ns, port, data) {
 
         }
     }
-    if (changed) {
-        //await ns.write('/data/hud-data.json.txt', JSON.stringify(data), 'w')
-    }
     return data
 }
-
 
 /**
  *
@@ -148,26 +132,11 @@ function writeHud(ns, data) {
         .filter(c => c.type === 'hack')
     const currentPrepAttacks = data.currentAttacks
         .filter(c => c.type === 'prep')
-
-    // const servers = getServers(ns)
-    // const hackingServers = getHackingServers(ns, servers) //.filter(s => s.hostname !== 'home') // exclude if it has a different number of cores
-    // const hackTargetServers = getHackTargetServers(ns, servers)
-    //     .filter(s => data.currentAttacks.filter(a => a.target === s.hostname).length === 0) // exclude currentAttacks
-    // const prepTargetServers = getPrepTargetServers(ns, servers)
-    //     .filter(s => data.currentAttacks.filter(a => a.target === s.hostname).length === 0) // exclude currentAttacks
-
-    // const ownedServers = hackingServers.filter(s => s.hostname.includes(SERVER.purchasedServerName))
-    // const rootedServers = hackingServers.filter(s => !s.hostname.includes(SERVER.purchasedServerName))
-
     const hud = {
         'Time SLA:': `${ns.nFormat(ns.getTimeSinceLastAug() / 1000, '00:00:00')}`,
         'Script Inc:': `${ns.nFormat(ns.getScriptIncome()[0], '$0.0a')}/sec`,
         'Script Exp:': `${ns.nFormat(ns.getScriptExpGain(), '0.0a')}/sec`,
         'Share Pwr:': `${ns.nFormat(ns.getSharePower(), '0.0a')}`,
-        // 'Servers:': `owned=${ownedServers.length}|pwnt=${rootedServers.length}`,
-        // 'RAM:': `${ns.nFormat(getFreeRam(ns, hackingServers) * 1000000000, '0.0b')}/${ns.nFormat(getTotalRam(ns, hackingServers) * 1000000000, '0.0b')}`,
-        // 'Threads:': `${ns.nFormat(getFreeThreads(ns, hackingServers, 1.75), '0.0a')}/${ns.nFormat(getTotalThreads(ns, hackingServers, 1.75), '0.0a')}`,
-        // 'Targets:': `hack=${hackTargetServers.length}|prep=${prepTargetServers.length}`,
         'Attacks:': `hack=${currentHackAttacks.length}|prep=${currentPrepAttacks.length}`,
     }
     for (const currentHackAttack of currentHackAttacks.sort((a, b) => b.info.cycleValue - a.info.cycleValue)) {

@@ -43,6 +43,7 @@ export async function main(ns) {
     const args = ns.flags(argsSchema)
     if (!args['_'][0]) {
         ns.tprintf(helpInfo(ns))
+        return
     }
     switch (args['_'][0]) {
         case 'player':
