@@ -1,4 +1,4 @@
-import {getRoutes, getServers, SERVER} from "./lib/Server";
+import {SERVER, getRoutes, getServers} from "./lib/Server";
 import {terminalCommand} from "./lib/Helpers";
 
 /**
@@ -6,7 +6,6 @@ import {terminalCommand} from "./lib/Helpers";
  */
 const argsSchema = [
     ['help', false],
-    ['all', false]
 ]
 
 /**
@@ -16,7 +15,7 @@ const argsSchema = [
  */
 export function autocomplete(data, args) {
     data.flags(argsSchema)
-    return data.servers
+    return ['all'].concat(data.servers)
 }
 
 
@@ -37,8 +36,10 @@ export async function main(ns) {
         && s.requiredHackingSkill <= player.hacking)
 
     if (args['_'][0]) {
-        backdoorServers = backdoorServers.filter(s => s.hostname === args['_'][0])
-    } else if (!args['all']) {
+        if (args['_'][0] !== 'all') {
+            backdoorServers = backdoorServers.filter(s => s.hostname === args['_'][0])
+        }
+    } else {
         backdoorServers = backdoorServers.filter(s => SERVER.backdoorHostnames.includes(s.hostname))
     }
 

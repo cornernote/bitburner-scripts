@@ -23,7 +23,7 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     // get some stuff ready
     const args = ns.flags(argsSchema)
-    if (!args['_'][0]) {
+    if (args['help']) {
         ns.tprintf(getHelp(ns))
         return
     }
@@ -103,6 +103,8 @@ async function manageHud(ns, port, data) {
 
             case 'add-hack':
             case 'add-prep':
+                data.currentAttacks = data.currentAttacks
+                    .filter(a => a.target !== payload.attack.target)
                 data.currentAttacks.push(payload.attack)
                 data.stats[payload.attack.target] = {
                     target: payload.target,
@@ -127,7 +129,7 @@ async function manageHud(ns, port, data) {
 function writeHud(ns, data) {
     const now = new Date().getTime()
     data.currentAttacks = data.currentAttacks
-        .filter(a => a.end > now)
+        .filter(a => a.end + 5000 > now)
     const currentHackAttacks = data.currentAttacks
         .filter(c => c.type === 'hack')
     const currentPrepAttacks = data.currentAttacks
@@ -144,9 +146,9 @@ function writeHud(ns, data) {
             ? '✈' + formatDelay(currentHackAttack.start + currentHackAttack.time - now)
             : '💣' + formatDelay(currentHackAttack.end - now)
         hud[`${currentHackAttack.target} \n${timer}`] = 'on=' + ns.nFormat(currentHackAttack.activePercent, '0.0%') + ' take=' + ns.nFormat(currentHackAttack.info.hackedPercent, '0.0%') + '\n'
-            + '~' + ns.nFormat(currentHackAttack.info.cycleValue, '$0.0a')
             + '=' + ns.nFormat(data.stats[currentHackAttack.target].average, '$0.0a')
-            + ' ' + currentHackAttack.cycles
+            + '~' + ns.nFormat(currentHackAttack.info.cycleValue, '$0.0a')
+            + ' ' + data.stats[currentHackAttack.target].attempts + '/' + currentHackAttack.cycles
     }
     updateHUD(hud, true)
 }

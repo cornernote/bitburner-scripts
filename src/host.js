@@ -1,4 +1,4 @@
-import {getFreeRam, getOwnedServers, getServers, getTotalRam, SERVER} from "./lib/Server";
+import {SERVER, getFreeRam, getOwnedServers, getServers, getTotalRam} from "./lib/Server";
 import {formatMoney, formatRam} from "./lib/Helpers";
 
 /**

@@ -170,43 +170,45 @@ export async function manageAttacks(ns, currentAttacks) {
         ns.print(`INFO: ${server.hostname} has been nuked!`)
     }
 
-    // launch new hack attack
-    const hackAttack = getBestHackAttack(ns, player, hackTargetServers, hackingServers, cores, attackSpacer)
-    // ns.tprint('find hack attack...')
-    if (hackAttack) {
-        // ns.tprint('found attack, can it fit')
-        if (currentHackAttacks.length < maxAttacks) {
-            // ns.tprint('it fits, can we get commands')
-            const commands = assignAttack(ns, hackAttack, hackingServers, 'hack', hackAttack.cycles)
-            if (commands.length) {
-                // ns.tprint(commands)
-                await launchAttack(ns, hackAttack, commands, hackAttack.cycles)
-                await ns.writePort(1, JSON.stringify({
-                    type: 'add-hack',
-                    attack: hackAttack,
-                }))
-                currentAttacks.push(hackAttack)
-                changed = true
-                ns.print([
-                    `hack ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
-                    `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(hackAttack.info.cycleValue * hackAttack.cycles, '$0.0a')}/batch`,
-                    `on=${ns.nFormat(hackAttack.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')} grow=${ns.nFormat(hackAttack.info.growthRequired, '0.00%')}`,
-                    `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.cycleThreads, '0a')} ${Object.values(hackAttack.parts).map(p => p.threads).join('|')} (${ns.nFormat(hackAttack.cycleThreads * hackAttack.cycles, '0a')} total)`,
-                ].join(' | '))
-                // ns.print(listView(commands.map(c => {
-                //     return {
-                //         script: c.script,
-                //         hostname: c.hostname,
-                //         threads: c.threads,
-                //         target: c.target,
-                //         end: c.start + c.delay + c.time,
-                //     }
-                // })))
+    // launch new hack attacks if there is a full active attack, or if there are no current hack attacks
+    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.filter(a => a.type === 'hack').length) {
+        const hackAttack = getBestHackAttack(ns, player, hackTargetServers, hackingServers, cores, attackSpacer)
+        // ns.tprint('find hack attack...')
+        if (hackAttack) {
+            // ns.tprint('found attack, can it fit')
+            if (currentHackAttacks.length < maxAttacks) {
+                // ns.tprint('it fits, can we get commands')
+                const commands = assignAttack(ns, hackAttack, hackingServers, 'hack', hackAttack.cycles)
+                if (commands.length) {
+                    // ns.tprint(commands)
+                    await launchAttack(ns, hackAttack, commands, hackAttack.cycles)
+                    await ns.writePort(1, JSON.stringify({
+                        type: 'add-hack',
+                        attack: hackAttack,
+                    }))
+                    currentAttacks.push(hackAttack)
+                    changed = true
+                    ns.print([
+                        `hack ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
+                        `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(hackAttack.info.cycleValue * hackAttack.cycles, '$0.0a')}/batch`,
+                        `on=${ns.nFormat(hackAttack.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')} grow=${ns.nFormat(hackAttack.info.growthRequired, '0.00%')}`,
+                        `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.cycleThreads, '0a')} ${Object.values(hackAttack.parts).map(p => p.threads).join('|')} (${ns.nFormat(hackAttack.cycleThreads * hackAttack.cycles, '0a')} total)`,
+                    ].join(' | '))
+                    // ns.print(listView(commands.map(c => {
+                    //     return {
+                    //         script: c.script,
+                    //         hostname: c.hostname,
+                    //         threads: c.threads,
+                    //         target: c.target,
+                    //         end: c.start + c.delay + c.time,
+                    //     }
+                    // })))
+                }
             }
         }
     }
 
-    // launch new prep attacks if there is a full active attack, or if there are no current, or if we launched an attack and we have spare ram
+    // launch new prep attacks if there is a full active attack, or if there are no current attacks, or if we launched an attack and we have spare ram
     if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.length || changed) {
         // ns.tprint('find prep attack...')
         const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores, 1000)

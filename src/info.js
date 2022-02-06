@@ -4,9 +4,10 @@ import {
     getHackTargetServers,
     getPrepTargetServers,
     getRoutes,
-    getServers
+    getServers,
+    scanAll
 } from "./lib/Server";
-import {convertCSVtoArray, detailView, formatDelay, formatMoney, formatRam, formatTime, listView} from "./lib/Helpers";
+import {convertCSVtoArray, detailView, formatDelay, formatMoney, formatRam, listView} from "./lib/Helpers";
 import {getBestHackAttacks, getBestPrepAttacks} from "./lib/Attack";
 
 /**
@@ -23,13 +24,7 @@ const argsSchema = [
  */
 export function autocomplete(data, args) {
     data.flags(argsSchema)
-    if (args[0] === 'server') {
-        return data.servers
-    }
-    if (args[0] === 'servers') {
-        return ['all', 'purchased', 'rooted', 'rootable', 'locked']
-    }
-    return ['player', 'servers', 'server', 'files', 'stats', 'targets']
+    return ['player', 'servers', 'purchased', 'rooted', 'rootable', 'locked', 'files', 'stats', 'targets', 'rep'].concat(data.servers)
 }
 
 
@@ -42,30 +37,47 @@ export async function main(ns) {
     ns.disableLog('ALL')
     const args = ns.flags(argsSchema)
     if (!args['_'][0]) {
-        ns.tprintf(helpInfo(ns))
+        ns.tprint('Help:\n' + helpInfo(ns))
+        return
+    }
+
+    if (scanAll(ns).includes(args['_'][0])) {
+        ns.tprint(args['_'][0] + ':\n' + serverInfo(ns, args['_'][0]))
         return
     }
     switch (args['_'][0]) {
         case 'player':
-            ns.tprintf(playerInfo(ns))
+            ns.tprint('Player:\n' + playerInfo(ns))
             break
         case 'servers':
-            ns.tprintf(serversInfo(ns, args['_'][1]))
+            ns.tprint('Servers:\n' + serversInfo(ns, args['_'][1]))
             break
-        case 'server':
-            ns.tprintf(serverInfo(ns, args['_'][1] ? args['_'][1] : 'home'))
+        case 'purchased':
+            ns.tprint('Purchased Servers:\n' + purchasedServersInfo(ns))
+            break
+        case 'rooted':
+            ns.tprint('Rooted Servers:\n' + rootedServersInfo(ns))
+            break
+        case 'rootable':
+            ns.tprint('Rootable Servers:\n' + rootableServersInfo(ns))
+            break
+        case 'locked':
+            ns.tprint('Locked Servers:\n' + lockedServersInfo(ns))
             break
         case 'files':
-            ns.tprintf(filesInfo(ns))
+            ns.tprint('Files:\n' + filesInfo(ns))
             break
         case 'stats':
-            ns.tprintf(statsInfo(ns))
+            ns.tprint('Stats:\n' + statsInfo(ns))
             break
         case 'targets':
-            ns.tprintf(targetsInfo(ns))
+            ns.tprint('Targets:\n' + targetsInfo(ns))
+            break
+        case 'rep':
+            ns.tprint('Rep:\n' + repInfo(ns, args['_'][1] ? args['_'][1] : '150'))
             break
         default:
-            ns.tprintf(helpInfo(ns))
+            ns.tprint('Unknown command, Help:\n' + helpInfo(ns))
             break
     }
 }
@@ -81,21 +93,26 @@ function helpInfo(ns) {
     return [
         'Displays information about the game.',
         '',
-        `USAGE: run ${scriptName} [type] [entity]`,
+        `USAGE: run ${scriptName} [type] [option]`,
         '',
         'TYPES:',
         '- player',
         '- servers',
-        '  - entity=[all|purchased|rooted|rootable|locked]',
-        '- server',
-        '  - entity=hostname',
+        '- purchased',
+        '- rooted',
+        '- rootable',
+        '- locked',
+        '- [hostname]',
         '- files',
-        '  - entity=filename',
+        '  - option=filename',
+        '- rep',
+        '  - option=favor',
         '',
         'Examples:',
         `> run ${scriptName} player`,
-        `> run ${scriptName} servers rooted`,
-        `> run ${scriptName} server n00dles`,
+        `> run ${scriptName} rooted`,
+        `> run ${scriptName} n00dles`,
+        `> run ${scriptName} rep 100000`,
     ].join("\n")
 }
 
@@ -127,25 +144,87 @@ function playerInfo(ns) {
  */
 function serversInfo(ns, group) {
     let servers = getServers(ns)
-    if (group === 'purchased') {
-        servers = servers.filter(s => s.purchasedByPlayer)
-    }
-    if (group === 'rooted') {
-        servers = servers.filter(s => s.hasAdminRights && !s.purchasedByPlayer)
-    }
-    if (group === 'rootable') {
-        servers = servers.filter(s => !s.hasAdminRights
-            && s.requiredHackingSkill <= ns.getPlayer().hacking
-            && s.numOpenPortsRequired <= getCracks(ns).filter(c => c.owned).length)
-    }
-    if (group === 'locked') {
-        servers = servers.filter(s => !s.hasAdminRights)
-    }
     return listView(servers.map(s => {
         return {
             hostname: s.hostname,
             //purchased: s.purchasedByPlayer,
             admin: s.hasAdminRights ? s.hasAdminRights : `level=${s.requiredHackingSkill} ports=${s.numOpenPortsRequired}`,
+            backdoor: s.backdoorInstalled,
+            difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
+            money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,
+            'ram (used)': `${formatRam(ns, s.maxRam)}${s.ramUsed ? ' (' + formatRam(ns, s.ramUsed) + ')' : ''}`,
+        }
+    }))
+}
+
+/**
+ * Information about the Purchased Servers
+ *
+ * @param {NS} ns
+ */
+function purchasedServersInfo(ns) {
+    const servers = getServers(ns).filter(s => s.purchasedByPlayer)
+    return listView(servers.map(s => {
+        return {
+            hostname: s.hostname,
+            'ram (used)': `${formatRam(ns, s.maxRam)}${s.ramUsed ? ' (' + formatRam(ns, s.ramUsed) + ')' : ''}`,
+        }
+    }))
+}
+
+
+/**
+ * Information about the Rooted Servers
+ *
+ * @param {NS} ns
+ */
+function rootedServersInfo(ns) {
+    const servers = getServers(ns).filter(s => s.hasAdminRights && !s.purchasedByPlayer)
+    return listView(servers.map(s => {
+        return {
+            hostname: s.hostname,
+            backdoor: s.backdoorInstalled,
+            difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
+            money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,
+            'ram (used)': `${formatRam(ns, s.maxRam)}${s.ramUsed ? ' (' + formatRam(ns, s.ramUsed) + ')' : ''}`,
+        }
+    }))
+}
+
+
+/**
+ * Information about the Rootable Servers
+ *
+ * @param {NS} ns
+ */
+function rootableServersInfo(ns) {
+    const servers = getServers(ns).filter(s => !s.hasAdminRights
+        && s.requiredHackingSkill <= ns.getPlayer().hacking
+        && s.numOpenPortsRequired <= getCracks(ns).filter(c => c.owned).length)
+    return listView(servers.map(s => {
+        return {
+            hostname: s.hostname,
+            admin: `level=${s.requiredHackingSkill} ports=${s.numOpenPortsRequired}`,
+            backdoor: s.backdoorInstalled,
+            difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
+            money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,
+            'ram (used)': `${formatRam(ns, s.maxRam)}${s.ramUsed ? ' (' + formatRam(ns, s.ramUsed) + ')' : ''}`,
+        }
+    }))
+}
+
+
+/**
+ * Information about the Locked Servers
+ *
+ * @param {NS} ns
+ */
+function lockedServersInfo(ns) {
+    const servers = getServers(ns).filter(s => !s.hasAdminRights)
+    return listView(servers.map(s => {
+        return {
+            hostname: s.hostname,
+            admin: `level=${s.requiredHackingSkill} ports=${s.numOpenPortsRequired}`,
             backdoor: s.backdoorInstalled,
             difficulty: `${ns.nFormat(s.hackDifficulty, '0a')}${s.minDifficulty < s.hackDifficulty ? ' > ' + ns.nFormat(s.minDifficulty, '0a') : ''}`,
             money: `${formatMoney(ns, s.moneyAvailable)}${s.moneyAvailable < s.moneyMax ? ' < ' + formatMoney(ns, s.moneyMax) : ''}`,
@@ -239,25 +318,60 @@ function targetsInfo(ns) {
     const prepAttacks = getBestPrepAttacks(ns, player, prepTargetServers, hackingServers, cores)
     // const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores)
     // const bestPrepAttack = prepAttack ? formatAttack(ns, prepAttack, 'prep') : ''
+    const hackOutput = listView(hackAttacks.map(a => {
+        return {
+            target: a.target,
+            time: formatDelay(a.time),
+            cycle: ns.nFormat(a.info.cycleValue, '$0.0a'),
+            batch: ns.nFormat(a.info.cycleValue * a.cycles, '$0.0a'),
+            active: ns.nFormat(a.activePercent, '0.0%'),
+            take: ns.nFormat(a.info.hackedPercent, '0.00%'),
+            grow: ns.nFormat(a.info.growthRequired, '0.00%'),
+            cycles: a.cycles,
+            threads: `${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')}`,
+            total: ns.nFormat(a.cycleThreads * a.cycles, '0a'),
+            value: ns.nFormat(a.value, '0.0a'),
+        }
+    }))
+    const prepOutput = listView(prepAttacks.map(a => {
+        return {
+            target: a.target,
+            time: formatDelay(a.time),
+            threads: `${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')}`,
+        }
+    }))
+    return '\nHack Targets:\n' + hackOutput + '\nPrep Targets:\n' + prepOutput
+}
 
-    return [
-        `SERVERS`,
-        `${servers.map(s => s.hostname).join(', ')}`,
-        '',
-        `HACKS`,
-        `${hackTargetServers.map(s => s.hostname).join(', ')}`,
-        `${hackAttacks.map(a => [
-            `hack ${a.target}: ${formatDelay(a.time)}`,
-            `${ns.nFormat(a.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(a.info.cycleValue * a.cycles, '$0.0a')}/batch`,
-            `on=${ns.nFormat(a.activePercent, '0.0%')}% take=${ns.nFormat(a.info.hackedPercent, '0.00%')}% grow=${ns.nFormat(a.info.growthRequired, '0.00%')}%`,
-            `threads=${a.cycles}x ${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')} (${ns.nFormat(a.cycleThreads * a.cycles, '0a')} total)`,
-        ].join(' | ')).join('\n')}`,
-        '',
-        `PREPS`,
-        `${prepTargetServers.map(s => s.hostname).join(', ')}`,
-        `${prepAttacks.map(a => [
-            `prep ${a.target}: ${formatDelay(a.time)}`,
-            `threads=${ns.nFormat(a.cycleThreads, '0a')} ${Object.values(a.parts).map(p => p.threads).join('|')}`
-        ].join(' | ')).join('\n')}`,
-    ].join('\n')
+/**
+ *
+ * @param {NS} ns
+ * @param {number} favor
+ * @returns {string}
+ */
+function repInfo(ns, favor) {
+    return 'You need ' + ns.nFormat(repNeededForFavor(favor), '0.0a') + ' total reputation with a faction or company' + ' to get to ' + favor + ' favor.'
+}
+
+/**
+ * Returns how much reputation you need in total with a faction or company to reach the favor favorTarget.
+ *
+ * (as of v0.37.1, the constants are the same for factions and companies)
+ * formula adapted from Faction.js/getFavorGain(), Company.js/getFavorGain() and Constants.js:
+ * https://github.com/danielyxie/bitburner/blob/master/src/Faction.js
+ *
+ * @author sschmidTU
+ */
+function repNeededForFavor(targetFavor) {
+    const reputationToFavorBase = 500
+    const reputationToFavorMult = 1.02
+    let favorGain = 0
+    let rep = 0
+    let reqdRep = reputationToFavorBase
+    while (favorGain < targetFavor) {
+        rep += reqdRep
+        ++favorGain
+        reqdRep *= reputationToFavorMult
+    }
+    return rep
 }
