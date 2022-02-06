@@ -55,7 +55,7 @@ export const SERVER = {
  * Gets all servers in the network.
  *
  * @param {NS} ns
- * @return {[Server]}
+ * @return {Server[]}
  */
 export function getServers(ns) {
     const servers = []
@@ -73,7 +73,7 @@ export function getServers(ns) {
  * Gets all server hostnames in the network.
  *
  * @param {NS} ns
- * @return {[String]}
+ * @return {string[]}
  */
 export function scanAll(ns) {
     const servers = []
@@ -117,8 +117,8 @@ export function getRoutes(ns) {
  * Gets all hackable target servers, ensuring they are rooted prepped.
  *
  * @param {NS} ns
- * @param {[Server]} servers
- * @return {[Server]}
+ * @param {Server[]} servers
+ * @return {Server[]}
  */
 export function getHackTargetServers(ns, servers) {
     return servers
@@ -131,8 +131,8 @@ export function getHackTargetServers(ns, servers) {
  * Gets all hackable target servers, only the ones not prepped, ensuring they are rooted.
  *
  * @param {NS} ns
- * @param {[Server]} servers
- * @return {[Server]}
+ * @param {Server[]} servers
+ * @return {Server[]}
  */
 export function getPrepTargetServers(ns, servers) {
     return servers
@@ -145,8 +145,8 @@ export function getPrepTargetServers(ns, servers) {
  * Gets all servers we can run scripts on.
  *
  * @param {NS} ns
- * @param {[Server]} servers
- * @return {[Server]}
+ * @param {Server[]} servers
+ * @return {Server[]}
  */
 export function getHackingServers(ns, servers) {
     return servers
@@ -158,8 +158,8 @@ export function getHackingServers(ns, servers) {
  * Gets all hackable target servers, only the ones not prepped, ensuring they are rooted.
  *
  * @param {NS} ns
- * @param {[Server]} servers
- * @return {[Server]}
+ * @param {Server[]} servers
+ * @return {Server[]}
  */
 export function getOwnedServers(ns, servers) {
     return servers
@@ -171,7 +171,7 @@ export function getOwnedServers(ns, servers) {
  * Gets the RAM available on a list of servers.
  *
  * @param {NS} ns
- * @param {[Server]} servers
+ * @param {Server[]} servers
  * @return {Number}
  */
 export function getFreeRam(ns, servers) {
@@ -183,7 +183,7 @@ export function getFreeRam(ns, servers) {
 /**
  * Gets the total (max) RAM on a list of servers.
  * @param {NS} ns
- * @param {[Server]} servers
+ * @param {Server[]} servers
  * @return {Number}
  */
 export function getTotalRam(ns, servers) {
@@ -196,7 +196,7 @@ export function getTotalRam(ns, servers) {
  * Gets the RAM available to run hacking threads on a list of servers.
  *
  * @param {NS} ns
- * @param {[Server]} servers
+ * @param {Server[]} servers
  * @param {number} ram per thread in GB
  * @return {Number}
  */
@@ -209,7 +209,7 @@ export function getFreeThreads(ns, servers, ram) {
 /**
  * Gets the total (max) RAM to run hacking threads on a list of servers.
  * @param {NS} ns
- * @param {[Server]} servers
+ * @param {Server[]} servers
  * @param {number} ram per thread in GB
  * @return {Number}
  */
