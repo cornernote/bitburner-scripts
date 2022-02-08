@@ -186,7 +186,7 @@ export function getBestPrepAttacks(ns, player, targets, hackingServers, cores = 
         const attack = buildPrepAttack(ns, player, server, hackingServers, cores, spacer)
         attacks.push(attack)
     }
-    attacks = attacks.filter(a => a.value).sort((a, b) => b.value - a.value)
+    attacks = attacks.filter(a => a.value).sort((a, b) => a.value - b.value)
     return attacks
 }
 
@@ -337,7 +337,7 @@ export function buildPrepAttack(ns, player, server, hackingServers, cores = 1, s
     attack.cycles = countCycles(ns, hackingServers, [parts.g, parts.w, parts.gw])
     attack.cycleThreads = g.threads + w.threads + gw.threads
     attack.time = ns.getWeakenTime(server.hostname) + attack.spacer * 8
-    attack.value = attack.time * -1 // fastest first
+    attack.value = (attack.time + attack.cycleThreads)
 
     // return the PrepAttack object
     return attack

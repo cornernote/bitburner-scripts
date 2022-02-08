@@ -3,6 +3,8 @@
  */
 
 
+import {getCracks} from "./Server";
+
 /**
  * Format RAM as string
  *
@@ -107,6 +109,7 @@ export function updateHUD(update, replace = false) {
 
 /**
  * Create a Grid View display of the provided objects
+ *
  * @param  {Object[]} objects Array of data objects
  * @return {string}
  */
@@ -182,6 +185,7 @@ export function listView(objects) {
 
 /**
  * Create a Detail View display of the provided object
+ *
  * @param  {Object} object Data object
  */
 export function detailView(object) {
@@ -259,6 +263,7 @@ export function terminalCommand(message) {
 
 /**
  * Convert CSV to Array
+ *
  * @param csv
  * @returns {*[]}
  */
@@ -275,4 +280,41 @@ export function convertCSVtoArray(csv) {
         array.push(obj);
     }
     return array
+}
+
+/**
+ * Buys the TOR router with player interaction.
+ *
+ * @param {NS} ns
+ */
+export async function buyTor(ns) {
+    const doc = eval('document')
+    // click City
+    for (const el of doc.querySelectorAll('p')) {
+        if (el.textContent.includes('City')) {
+            el.click()
+        }
+    }
+    await ns.sleep(1000)
+    // click Alpha Enterprises
+    for (const el of doc.querySelectorAll('span')) {
+        if (el.ariaLabel && el.ariaLabel.includes('Alpha Enterprises')) {
+            el.click()
+        }
+    }
+    await ns.sleep(1000)
+    // click TOR Router
+    for (const el of doc.querySelectorAll('button')) {
+        if (el.textContent.includes('TOR Router')) {
+            el.click()
+        }
+    }
+    await ns.sleep(1000)
+    // click Terminal
+    for (const el of doc.querySelectorAll('p')) {
+        if (el.textContent.includes('Terminal')) {
+            el.click()
+        }
+    }
+    await ns.sleep(1000)
 }

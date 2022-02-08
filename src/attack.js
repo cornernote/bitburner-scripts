@@ -16,8 +16,10 @@ import {
     getCracks
 } from './lib/Server'
 import {
+    buyTor,
     formatDelay,
-    formatTime
+    formatTime,
+    terminalCommand
 } from "./lib/Helpers";
 
 
@@ -85,15 +87,16 @@ export async function main(ns) {
 
     // work, sleep, repeat
     do {
-        currentAttacks = await manageAttacks(ns, currentAttacks)
-        // if we have an attack, sleep until it's done...
-        // const currentHackAttacks = currentAttacks.filter(a => a.type === 'hack').sort((a, b) => (a.start + a.time) - (b.start + b.time))
-        // if (currentHackAttacks.length) {
-        //     const currentHackAttack = currentHackAttacks.shift()
-        //     await ns.sleep(currentHackAttack.end - new Date().getTime())
-        // } else {
-        //     await ns.sleep(1000)
-        // }
+        const player = ns.getPlayer()
+        const servers = getServers(ns)
+
+        // cracks
+        await buyCracks(ns, player)
+        await runCracks(ns, servers)
+
+        // attacks
+        currentAttacks = await manageAttacks(ns, player, servers, currentAttacks)
+
         await ns.sleep(1000)
     } while (!args.once)
 }
@@ -121,10 +124,12 @@ function getHelp(ns) {
  * Manage the attacks.
  *
  * @param {NS} ns
+ * @param {Player} player
+ * @param {Server[]} servers
  * @param {Array} currentAttacks
  * @return {Promise<[]>}
  */
-export async function manageAttacks(ns, currentAttacks) {
+export async function manageAttacks(ns, player, servers, currentAttacks) {
     // how many attacks to allow
     let maxAttacks = 3
     let attackSpacer = 150
@@ -143,32 +148,12 @@ export async function manageAttacks(ns, currentAttacks) {
         .filter(a => a.type === 'prep')
 
     // load some data
-    const player = ns.getPlayer()
-    const servers = getServers(ns)
     const cores = 1 // assume we won't run on home, or home has 1 core
     const hackingServers = getHackingServers(ns, servers) //.filter(s => s.hostname !== 'home') // exclude if it has a different number of cores
     const hackTargetServers = getHackTargetServers(ns, servers)
         .filter(s => currentAttacks.filter(a => a.target === s.hostname).length === 0) // exclude currentAttacks
     const prepTargetServers = getPrepTargetServers(ns, servers)
         .filter(s => currentAttacks.filter(a => a.target === s.hostname).length === 0) // exclude currentAttacks
-
-    // run owned port hacks on rootable servers
-    const ownedCracks = getCracks(ns).filter(c => c.owned)
-    const rootableServers = servers.filter(s => !s.hasAdminRights
-        && s.requiredHackingSkill <= ns.getPlayer().hacking
-        && s.numOpenPortsRequired <= ownedCracks.length)
-    for (const server of rootableServers) {
-        // run port cracks
-        for (const crack of ownedCracks) {
-            ns[crack.method](server.hostname)
-        }
-        // run nuke
-        ns.nuke(server.hostname)
-        // copy hack scripts
-        await ns.scp(SERVER.hackScripts, server.hostname)
-        // tell someone about it
-        ns.print(`INFO: ${server.hostname} has been nuked!`)
-    }
 
     // launch new hack attacks if there is a full active attack, or if there are no current hack attacks
     if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.filter(a => a.type === 'hack').length) {
@@ -283,4 +268,58 @@ export async function manageAttacks(ns, currentAttacks) {
         //await ns.write('/data/attacks.json.txt', JSON.stringify(currentAttacks))
     }
     return currentAttacks
+}
+
+/**
+ * Buys Cracks from the Darkweb using player interaction
+ *
+ * @param {NS} ns
+ * @param {Player} player
+ * @returns {Promise<void>}
+ */
+export async function buyCracks(ns, player) {
+    // buy the tor router
+    if (!player.tor && player.money > 200000) {
+        ns.tprint('INFO: Buying Tor Router')
+        await buyTor(ns)
+    }
+    // buy unowned cracks
+    if (player.tor) {
+        const unownedCracks = getCracks(ns).filter(c => c.cost <= player.money && !c.owned)
+        if (unownedCracks.length) {
+            ns.tprint(`Buying: ${unownedCracks.map(c => c.file).join(', ')}.`)
+            terminalCommand([
+                'connect darkweb',
+                unownedCracks.map(c => `buy ${c.file}`).join(';'),
+                'home',
+            ].join(';'))
+        }
+    }
+}
+
+/**
+ * Runs port hacks on rootable servers
+ *
+ * @param {NS} ns
+ * @param {Server[]} servers
+ * @returns {Promise<void>}
+ */
+export async function runCracks(ns, servers) {
+    // run owned port hacks on rootable servers
+    const ownedCracks = getCracks(ns).filter(c => c.owned)
+    const rootableServers = servers.filter(s => !s.hasAdminRights
+        && s.requiredHackingSkill <= ns.getPlayer().hacking
+        && s.numOpenPortsRequired <= ownedCracks.length)
+    for (const server of rootableServers) {
+        // run port cracks
+        for (const crack of ownedCracks) {
+            ns[crack.method](server.hostname)
+        }
+        // run nuke
+        ns.nuke(server.hostname)
+        // copy hack scripts
+        await ns.scp(SERVER.hackScripts, server.hostname)
+        // tell someone about it
+        ns.print(`INFO: ${server.hostname} has been nuked!`)
+    }
 }

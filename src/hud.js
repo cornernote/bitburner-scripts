@@ -145,7 +145,8 @@ function writeHud(ns, data) {
         const timer = currentHackAttack.start + currentHackAttack.time > now
             ? '✈' + formatDelay(currentHackAttack.start + currentHackAttack.time - now)
             : '💣' + formatDelay(currentHackAttack.end - now)
-        hud[`${currentHackAttack.target} \n${timer}`] = 'on=' + ns.nFormat(currentHackAttack.activePercent, '0.0%') + ' take=' + ns.nFormat(currentHackAttack.info.hackedPercent, '0.0%') + '\n'
+        const threads = Object.values(currentHackAttack.parts).map(p => p.threads).join('|')
+        hud[`${currentHackAttack.target} \n${timer} ${threads}`] = 'on=' + ns.nFormat(currentHackAttack.activePercent, '0.0%') + ' take=' + ns.nFormat(currentHackAttack.info.hackedPercent, '0.0%') + '\n'
             + '=' + ns.nFormat(data.stats[currentHackAttack.target].average, '$0.0a')
             + '~' + ns.nFormat(currentHackAttack.info.cycleValue, '$0.0a')
             + ' ' + data.stats[currentHackAttack.target].attempts + '/' + currentHackAttack.cycles
