@@ -10,21 +10,20 @@
  * - 0.1GB ns.isRunning()
  * - also note the background task will cost 1.6GB, plus any function memory required for the background script to run
  *
+ * Basic usage, to run NS methods in the background:
+ * ```
+ * const runner = new Runner(ns)
+ * const server1 = await runner.nsProxy.getServer('n00dles') // but the game will still count for RAM in the foreground script
+ * const server2 = await runner.nsProxy['getServer']('n00dles') // use this to run in the background, releasing ram
+ * ```
+ *
  * Note, to avoid runtime ram errors, if you use the proxy you should have fake calls to the above functions. EG:
  * ```
  * function countedTowardsMemory(ns) {
- *     ns.run()
- *     ns.isRunning(0)
+ *    ns.run()
+ *    ns.isRunning(0)
  * }
  * ```
- *
- * Basic usage, to run NS methods in the background:
- * ```
- * let runner = new Runner(ns)
- * let home = await runner.nsProxy.getServer('home') // but the game will still charge for RAM :(
- * let server = await runner.nsProxy['getServer']('n00dles') // use this as a workaround
- * ```
- *
  */
 export class Runner {
 
@@ -160,7 +159,7 @@ export class Runner {
             `    ns.print('task RUN was completed for ${filePrefix}${uuid}')`,
             '}',
         ].join("\n")
-        await this.ns.write(filename, [contents], 'w')
+        await this.ns.write(filename, contents, 'w')
 
         // run the task, and wait for it to complete
         let pid = this.ns['run'](filename, 1, filePrefix) // @RAM 1.0GB
@@ -173,12 +172,51 @@ export class Runner {
         let output = JSON.parse(localStorage.getItem(`runner-${filePrefix}${uuid}`))
 
         // cleanup
-        localStorage.removeItem(uuid)
-        // this.ns.rm(filename) // prefer to run as a sub-task and save 1GB RAM
-        await this.runScript('/scripts/runner-rm.js', 1, `${filePrefix}${uuid}`)
+        await this.cleanup(filePrefix, uuid)
 
         // task done!
         return output
+    }
+
+    /**
+     * Cleanup runner file and localstorage output
+     * @param filePrefix
+     * @param uuid
+     * @returns {Promise<void>}
+     */
+    async cleanup(filePrefix, uuid) {
+        // remove from disk
+        // this.ns.rm(filename) // prefer to run as a sub-task and save 1GB RAM
+        await this.createCleanupScript()
+        await this.runScript('/runner/_rm.js', 1, `${filePrefix}${uuid}`)
+        // remove from local storage
+        localStorage.removeItem(uuid)
+    }
+
+    /**
+     * Create the cleanup script
+     * @returns {Promise<void>}
+     */
+    async createCleanupScript() {
+        // check if the file already exists
+        if (this.ns['fileExists']('/runner/_rm.js')) {
+            return
+        }
+        // create the cleanup script file
+        let contents = [
+            'export async function main(ns) {',
+            '    let uuid = ns.args[0];\n',
+            '    if (!uuid) {\n',
+            '        throw \'missing UUID\';\n',
+            '    }\n',
+            '    let filename = `/runner/${uuid}.js`;\n',
+            '    if (!ns.fileExists(filename)) {  //@RAM 0.1GB\n',
+            '        throw `cannot find task file for cleanup "${filename}", already cleaned?`;\n',
+            '    }\n',
+            '    ns.rm(filename); //@RAM 1GB\n',
+            '}',
+        ].join("\n")
+        await this.ns.write('/runner/_rm.js', contents, 'w')
     }
 
     /**

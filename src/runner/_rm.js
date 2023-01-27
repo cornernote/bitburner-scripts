@@ -3,6 +3,8 @@
  *
  * Doing this here allows us to save the RAM from our task script.
  *
+ * Do not try to automatically create this file, it just costs more ram.
+ *
  * @RAM 2.7GB/thread = 1.1GB (+1.6GB for base script)
  * - 1.0GB ns.rm()
  * - 0.1GB ns.fileExists()

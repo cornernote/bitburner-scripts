@@ -3,7 +3,7 @@
  *
  * @param {NS} ns
  */
-import {formatDelay} from "./lib/Helpers";
+import {formatDelay} from "./lib/Helper";
 
 export async function main(ns) {
 

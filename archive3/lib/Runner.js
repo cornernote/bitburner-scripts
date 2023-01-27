@@ -10,21 +10,20 @@
  * - 0.1GB ns.isRunning()
  * - also note the background task will cost 1.6GB, plus any function memory required for the background script to run
  *
+ * Basic usage, to run NS methods in the background:
+ * ```
+ * const runner = new Runner(ns)
+ * const server1 = await runner.nsProxy.getServer('n00dles') // but the game will still count for RAM in the foreground script
+ * const server2 = await runner.nsProxy['getServer']('n00dles') // use this to run in the background, releasing ram
+ * ```
+ *
  * Note, to avoid runtime ram errors, if you use the proxy you should have fake calls to the above functions. EG:
  * ```
  * function countedTowardsMemory(ns) {
- *     ns.run()
- *     ns.isRunning(0)
+ *    ns.run()
+ *    ns.isRunning(0)
  * }
  * ```
- *
- * Basic usage, to run NS methods in the background:
- * ```
- * let runner = new Runner(ns)
- * let home = await runner.nsProxy.getServer('home') // but the game will still charge for RAM :(
- * let server = await runner.nsProxy['getServer']('n00dles') // use this as a workaround
- * ```
- *
  */
 export class Runner {
 
@@ -37,6 +36,11 @@ export class Runner {
      * @type {NS|Proxy|*}
      */
     nsProxy = null
+
+    /**
+     * @type {NS|Proxy|*}
+     */
+    nsAsyncProxy = null
 
     /**
      * @type {Hacknet|Proxy|*}
@@ -58,8 +62,17 @@ export class Runner {
         if (!this.nsProxy) {
             this.nsProxy = new Proxy({}, {
                 get(target, name) {
+                    return function () {
+                        return that.runNs(name, arguments)
+                    }
+                },
+            })
+        }
+        if (!this.nsAsyncProxy) {
+            this.nsAsyncProxy = new Proxy({}, {
+                async get(target, name) {
                     return async function () {
-                        return await that.runNS(name, arguments)
+                        return await that.runNsAsync(name, arguments)
                     }
                 },
             })
@@ -82,9 +95,21 @@ export class Runner {
      * @param args
      * @returns {Promise<*>}
      */
-    async runNS(method, ...args) {
+    async runNs(method, ...args) {
         return await this.runPayload([
-            // find a way to detect if we need to await, or just await all...
+            `output = ns.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
+        ].join("\n"), `ns-${method}-`)
+    }
+
+    /**
+     * Calls an NS method as a background payload
+     *
+     * @param method
+     * @param args
+     * @returns {Promise<*>}
+     */
+    async runNsAsync(method, ...args) {
+        return await this.runPayload([
             `output = await ns.${method}(${Object.values(...args).map(a => JSON.stringify(a)).join(", ")})`,
         ].join("\n"), `ns-${method}-`)
     }
@@ -160,7 +185,7 @@ export class Runner {
             `    ns.print('task RUN was completed for ${filePrefix}${uuid}')`,
             '}',
         ].join("\n")
-        await this.ns.write(filename, [contents], 'w')
+        this.ns.write(filename, contents, 'w')
 
         // run the task, and wait for it to complete
         let pid = this.ns['run'](filename, 1, filePrefix) // @RAM 1.0GB
@@ -173,12 +198,23 @@ export class Runner {
         let output = JSON.parse(localStorage.getItem(`runner-${filePrefix}${uuid}`))
 
         // cleanup
-        localStorage.removeItem(uuid)
-        // this.ns.rm(filename) // prefer to run as a sub-task and save 1GB RAM
-        await this.runScript('/scripts/runner-rm.js', 1, `${filePrefix}${uuid}`)
+        await this.cleanup(filePrefix, uuid)
 
         // task done!
         return output
+    }
+
+    /**
+     * Cleanup runner file and localstorage output
+     * @param filePrefix
+     * @param uuid
+     * @returns {Promise<void>}
+     */
+    async cleanup(filePrefix, uuid) {
+        // remove from disk
+        await this.runScript('/runner/_rm.js', 1, `${filePrefix}${uuid}`)
+        // remove from local storage
+        localStorage.removeItem(uuid)
     }
 
     /**

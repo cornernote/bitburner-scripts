@@ -1,9 +1,6 @@
 /**
- * Hacks: Weaken
- *
- * Weaken a target
- * Wait for delay and then execute a weaken command.
- *
+ * Hack a target
+ * Wait for delay and then execute a hack.
  * @param {NS} ns
  */
 export async function main(ns) {
@@ -11,7 +8,7 @@ export async function main(ns) {
     //   0: target,
     //   1: delay,
     //   2: uuid,
-    //   3: stock, (not used)
+    //   3: stock,
     //   4: output,
     //   5: host,
     //   6: threads,
@@ -37,15 +34,15 @@ export async function main(ns) {
         await ns.sleep(estDelay)
     }
     const delay = performance.now() - start
-    // weaken()
+    // hack()
     const data = {
-        amount: await ns.weaken(target),
+        amount: await ns.hack(target, {stock: stock}),
     }
     const time = performance.now() - start - delay
     const finishTime = new Date().getTime()
     // write data to a port for stats collection
-    await ns.writePort(20, JSON.stringify({
-        type: 'weaken',
+    await ns.writePort(1, JSON.stringify({
+        type: 'hack',
         data: data,
         // info
         target: target,
@@ -64,8 +61,8 @@ export async function main(ns) {
     // build a message
     if (output) {
         const message = data.amount
-            ? `INFO: WEAKEN ${target} reduced ${ns.nFormat(data.amount, '0.0a')} security!` // + JSON.stringify(ns.args)
-            : `WARNING: WEAKEN ${target} reduced 0 security.` // + JSON.stringify(ns.args)
+            ? `INFO: HACK ${target} stole ${ns.nFormat(data.amount, '$0.0a')} money! ${JSON.stringify(ns.args)}`
+            : `WARNING: HACK ${target} stole 0 money. ${JSON.stringify(ns.args)}`
         ns.tprint(message)
     }
 }

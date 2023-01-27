@@ -1,4 +1,4 @@
-import {formatDelay, updateHUD} from "./lib/Helpers";
+import {formatDelay, updateHUD} from "./lib/Helper";
 
 /**
  * Command options

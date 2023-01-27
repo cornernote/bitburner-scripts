@@ -3,38 +3,31 @@
  */
 
 
+import {TargetSettings} from './lib/Target';
+
 /**
- * Server Constants
+ * Server Settings
  *
- * @type {{maxMoneyMultiplayer: number, minSecurityLevelOffset: number}}
+ * @type {{maxPurchasedServers: number, purchasedServerName: string, backdoorHostnames: string[], maxRamExponent: number, hacknetMaxPayoffTime: number, homeReservedRam: number, remoteHostReservedRam: number, hacknetMaxSpend: number, minRamExponent: number}}
  */
-export const SERVER = {
+export const ServerSettings = {
     // don't use this ram to run attack scripts
-    homeReservedRam: 8,
-    // used to decide if hack action=weaken
-    // if (bestTarget.securityLevel > bestTarget.minSecurityLevel + settings.minSecurityLevelOffset) action = 'weaken'
-    minSecurityLevelOffset: 1,
-    // used to decide if hack action=grow
-    // if (bestTarget.money < bestTarget.moneyMax * settings.maxMoneyMultiplayer) action = 'grow'
-    maxMoneyMultiplayer: 0.9,
+    homeReservedRam: 16,
+    remoteHostReservedRam: 4,
     // the name prefixed to purchased servers
     purchasedServerName: 'homenet',
     // the max number of servers you can have in your farm
     maxPurchasedServers: 25 + 1, // +1 for home
-    // Don't attempt to buy any new servers if we're under this utilization
-    utilizationTarget: 0.05,
+    //// Don't attempt to buy any new servers if we're under this utilization
+    //utilizationTarget: 0.05,
     // the max server ram you can buy (it's a petabyte) as an exponent (power of 2)
     maxRamExponent: 20,
     // the min server ram you will buy
     minRamExponent: 1,
-    // hack scripts
-    hackScripts: [
-        '/hacks/hack.js',
-        '/hacks/grow.js',
-        '/hacks/weaken.js',
-        '/hacks/check.js',
-        '/hacks/share.js',
-    ],
+    // controls how far to upgrade hacknet servers
+    hacknetMaxPayoffTime: 60 * 60 * 4,  // in seconds
+    // controls how far to upgrade hacknet servers
+    hacknetMaxSpend: 0,
     // servers with a backdoor bonus, usually a faction invite
     // https://bitburner.readthedocs.io/en/latest/basicgameplay/factions.html
     backdoorHostnames: [
@@ -45,24 +38,21 @@ export const SERVER = {
         'fulcrumassets', // Fulcrum Secret Technologies (also needs 250k reputation with the Corporation)
         'w0r1d_d43m0n',  // reboot...
     ],
-    // controls how far to upgrade hacknet servers
-    hacknetMaxPayoffTime: 60 * 60 * 4,  // in seconds
-    // controls how far to upgrade hacknet servers
-    hacknetMaxSpend: 0,
 }
 
 /**
  * Gets all servers in the network.
  *
- * @param {NS} ns
+ * @param {function} scanWrap wrapper for `ns.scan(hostname)`
+ * @param {function} getServerWrap wrapper for `ns.getServer(hostname)`
  * @return {Server[]}
  */
-export function getServers(ns) {
+export function getServers(scanWrap, getServerWrap) {
     const servers = []
-    for (const hostname of scanAll(ns)) {
-        const server = ns.getServer(hostname)
+    for (const hostname of scanAll(scanWrap)) {
+        const server = getServerWrap(hostname)
         if (server.hostname === 'home') {
-            server.ramUsed += SERVER.homeReservedRam
+            server.ramUsed = Math.min(ServerSettings.homeReservedRam + server.ramUsed, server.maxRam)
         }
         servers.push(server)
     }
@@ -72,15 +62,15 @@ export function getServers(ns) {
 /**
  * Gets all server hostnames in the network.
  *
- * @param {NS} ns
+ * @param {function} scanWrap wrapper for `ns.scan(hostname)`
  * @return {string[]}
  */
-export function scanAll(ns) {
+export function scanAll(scanWrap) {
     const servers = []
     const spider = ['home']
     while (spider.length > 0) {
         const hostname = spider.pop()
-        for (const scanned of ns.scan(hostname)) {
+        for (const scanned of scanWrap(hostname)) {
             if (!servers.includes(scanned)) {
                 spider.push(scanned)
             }
@@ -90,19 +80,18 @@ export function scanAll(ns) {
     return servers
 }
 
-
 /**
  * Gets routes to all servers in the network.
  *
- * @param {NS} ns
+ * @param {function} scanWrap
  * @return {Object} key/value of hostname/route
  */
-export function getRoutes(ns) {
+export function getRoutes(scanWrap) {
     const spider = ['home']
     const routes = {home: ['home']}
     while (spider.length > 0) {
         const hostname = spider.pop()
-        for (const scanned of ns.scan(hostname)) {
+        for (const scanned of scanWrap(hostname)) {
             if (!routes[scanned]) {
                 spider.push(scanned)
                 routes[scanned] = routes[hostname].slice()
@@ -114,54 +103,107 @@ export function getRoutes(ns) {
 }
 
 /**
- * Gets all hackable target servers, ensuring they are rooted prepped.
+ * Gets all player purchased servers.
  *
- * @param {NS} ns
  * @param {Server[]} servers
  * @return {Server[]}
  */
-export function getHackTargetServers(ns, servers) {
+export function filterPurchasedServers(servers) {
+    return servers
+        .filter(s => s.purchasedByPlayer)
+}
+
+/**
+ * Gets all rooted servers.
+ *
+ * @param {Server[]} servers
+ * @return {Server[]}
+ */
+export function filterRootedServers(servers) {
+    return servers
+        .filter(s => s.hasAdminRights && !s.purchasedByPlayer)
+}
+
+/**
+ * Gets all rootable servers.
+ *
+ * @param {Server[]} servers
+ * @param {int} playerHacking
+ * @param {int} ownedCrackCount
+ * @return {Server[]}
+ */
+export function filterRootableServers(servers, playerHacking, ownedCrackCount) {
+    return servers
+        .filter(s => !s.hasAdminRights
+            && s.requiredHackingSkill <= playerHacking
+            && s.numOpenPortsRequired <= ownedCrackCount)
+}
+
+/**
+ * Gets all locked servers.
+ *
+ * @param {Server[]} servers
+ * @return {Server[]}
+ */
+export function filterLockedServers(servers) {
+    return servers
+        .filter(s => !s.hasAdminRights)
+}
+
+/**
+ * Gets all target servers.
+ *
+ * @param {Server[]} servers
+ * @return {Server[]}
+ */
+export function filterTargetServers(servers) {
     return servers
         .filter(s => s.hasAdminRights && s.moneyMax > 0)
-        .filter(s => s.hackDifficulty <= s.minDifficulty + SERVER.minSecurityLevelOffset
-            && s.moneyAvailable >= s.moneyMax * SERVER.maxMoneyMultiplayer)
+}
+
+/**
+ * Gets all hackable target servers, ensuring they are rooted prepped.
+ *
+ * @param {Server[]} servers
+ * @return {Server[]}
+ */
+export function filterHackTargetServers(servers) {
+    return filterTargetServers(servers)
+        .filter(s => s.hackDifficulty <= s.minDifficulty + TargetSettings.minSecurityLevelOffset
+            && s.moneyAvailable >= s.moneyMax * TargetSettings.maxMoneyMultiplayer)
 }
 
 /**
  * Gets all hackable target servers, only the ones not prepped, ensuring they are rooted.
  *
- * @param {NS} ns
  * @param {Server[]} servers
  * @return {Server[]}
  */
-export function getPrepTargetServers(ns, servers) {
-    return servers
-        .filter(s => s.hasAdminRights && s.moneyMax > 0)
-        .filter(s => s.hackDifficulty > s.minDifficulty + SERVER.minSecurityLevelOffset
-            || s.moneyAvailable < s.moneyMax * SERVER.maxMoneyMultiplayer)
+export function filterPrepTargetServers(servers) {
+    return filterTargetServers(servers)
+        .filter(s => s.hackDifficulty > s.minDifficulty + TargetSettings.minSecurityLevelOffset
+            || s.moneyAvailable < s.moneyMax * TargetSettings.maxMoneyMultiplayer)
 }
 
 /**
  * Gets all servers we can run scripts on.
  *
- * @param {NS} ns
  * @param {Server[]} servers
  * @return {Server[]}
  */
-export function getHackingServers(ns, servers) {
+export function filterHackingServers(servers) {
     return servers
         .filter(s => s.hasAdminRights)
-        .sort((a, b) => b.maxRam - a.maxRam) // sort by ram
+        .sort((a, b) => (b.maxRam - b.ramUsed) - (a.maxRam - a.ramUsed)) // sort by free ram
 }
 
 /**
  * Gets all hackable target servers, only the ones not prepped, ensuring they are rooted.
  *
- * @param {NS} ns
  * @param {Server[]} servers
  * @return {Server[]}
  */
-export function getOwnedServers(ns, servers) {
+export function filterOwnedServers(servers) {
     return servers
         .filter(s => s.purchasedByPlayer)
         .sort((a, b) => b.maxRam - a.maxRam)
@@ -170,23 +212,34 @@ export function getOwnedServers(ns, servers) {
 /**
  * Gets the RAM available on a list of servers.
  *
- * @param {NS} ns
  * @param {Server[]} servers
  * @return {Number}
  */
-export function getFreeRam(ns, servers) {
+export function getFreeRam(servers) {
     return servers
         .map(s => s.maxRam - s.ramUsed)
         .reduce((prev, next) => prev + next)
 }
 
+
 /**
- * Gets the total (max) RAM on a list of servers.
- * @param {NS} ns
+ * Gets the RAM used on a list of servers.
+ *
  * @param {Server[]} servers
  * @return {Number}
  */
-export function getTotalRam(ns, servers) {
+export function getUsedRam(servers) {
+    return servers
+        .map(s => s.ramUsed)
+        .reduce((prev, next) => prev + next)
+}
+
+/**
+ * Gets the total (max) RAM on a list of servers.
+ * @param {Server[]} servers
+ * @return {Number}
+ */
+export function getTotalRam(servers) {
     return servers
         .map(s => s.maxRam)
         .reduce((prev, next) => prev + next)
@@ -195,69 +248,36 @@ export function getTotalRam(ns, servers) {
 /**
  * Gets the RAM available to run hacking threads on a list of servers.
  *
- * @param {NS} ns
  * @param {Server[]} servers
- * @param {number} ram per thread in GB
+ * @param {number} ramPerThread per thread in GB
  * @return {Number}
  */
-export function getFreeThreads(ns, servers, ram) {
+export function getFreeThreads(servers, ramPerThread) {
     return servers
-        .map(s => Math.floor((s.maxRam - s.ramUsed) / ram))
+        .map(s => Math.floor((s.maxRam - s.ramUsed) / ramPerThread))
+        .reduce((prev, next) => prev + next)
+}
+
+/**
+ * Gets the used RAM to run hacking threads on a list of servers.
+ * @param {Server[]} servers
+ * @param {number} ramPerThread per thread in GB
+ * @return {Number}
+ */
+export function getUsedThreads(servers, ramPerThread) {
+    return servers
+        .map(s => Math.floor(s.ramUsed / ramPerThread))
         .reduce((prev, next) => prev + next)
 }
 
 /**
  * Gets the total (max) RAM to run hacking threads on a list of servers.
- * @param {NS} ns
  * @param {Server[]} servers
- * @param {number} ram per thread in GB
+ * @param {number} ramPerThread per thread in GB
  * @return {Number}
  */
-export function getTotalThreads(ns, servers, ram) {
+export function getTotalThreads(servers, ramPerThread) {
     return servers
-        .map(s => Math.floor(s.maxRam / ram))
+        .map(s => Math.floor(s.maxRam / ramPerThread))
         .reduce((prev, next) => prev + next)
 }
-
-/**
- * Gets the cracks used to gain root access
- *
- * @param {NS} ns
- * @return {Object[]}
- */
-export function getCracks(ns) {
-    const cracks = []
-    const c = [
-        {
-            method: 'brutessh',
-            file: 'BruteSSH.exe',
-            cost: 500000,
-        },
-        {
-            method: 'ftpcrack',
-            file: 'FTPCrack.exe',
-            cost: 1500000,
-        },
-        {
-            method: 'relaysmtp',
-            file: 'relaySMTP.exe',
-            cost: 5000000,
-        },
-        {
-            method: 'httpworm',
-            file: 'HTTPWorm.exe',
-            cost: 30000000,
-        },
-        {
-            method: 'sqlinject',
-            file: 'SQLInject.exe',
-            cost: 250000000,
-        },
-    ]
-    for (const crack of c) {
-        crack.owned = ns.fileExists(crack.file)
-        cracks.push(crack)
-    }
-    return cracks
-}
-

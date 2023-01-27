@@ -1,6 +1,9 @@
 /**
+ * Hacks: Check
+ *
  * Check a target
  * Wait for delay and then check the target.
+ *
  * @param {NS} ns
  */
 export async function main(ns) {
@@ -43,7 +46,7 @@ export async function main(ns) {
     const time = performance.now() - start - delay
     const finishTime = new Date().getTime()
     // write data to a port for stats collection
-    await ns.writePort(1, JSON.stringify({
+    await ns.writePort(20, JSON.stringify({
         type: 'check',
         data: data,
         // info

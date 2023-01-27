@@ -1,6 +1,9 @@
 /**
+ * Hacks: Grow
+ *
  * Grow a target
- * Wait for delay and then execute a grow.
+ * Wait for delay and then execute a grow command.
+ *
  * @param {NS} ns
  */
 export async function main(ns) {
@@ -41,7 +44,7 @@ export async function main(ns) {
     const time = performance.now() - start - delay
     const finishTime = new Date().getTime()
     // write data to a port for stats collection
-    await ns.writePort(1, JSON.stringify({
+    await ns.writePort(20, JSON.stringify({
         type: 'grow',
         data: data,
         // info
@@ -60,9 +63,9 @@ export async function main(ns) {
     }))
     // build a message
     if (output) {
-        const message = data.amount
-            ? `INFO: GROW ${target} increased x${ns.nFormat(data.amount, '0.00a')} money! ${JSON.stringify(ns.args)}`
-            : `WARNING: GROW ${target} increased x0 money. ${JSON.stringify(ns.args)}`
+        const message = data.amount > 1
+            ? `INFO: GROW ${target} increased x${ns.nFormat(data.amount, '0.00a')} money!` // + JSON.stringify(ns.args)
+            : `WARNING: GROW ${target} increased x0 money.` // + JSON.stringify(ns.args)
         ns.tprint(message)
     }
 }

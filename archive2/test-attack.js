@@ -1,6 +1,6 @@
 import {assignAttack, buildHackAttack, launchAttack} from "./lib/Attack";
 import {getHackingServers, getServers} from "./lib/Server";
-import {formatDelay, formatTime} from "./lib/Helpers";
+import {formatDelay, formatTime} from "./lib/Helper";
 
 /**
  * @param {NS} ns

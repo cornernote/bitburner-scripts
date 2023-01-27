@@ -1,9 +1,6 @@
 /**
- * Hacks: Weaken
- *
- * Weaken a target
- * Wait for delay and then execute a weaken command.
- *
+ * Check a target
+ * Wait for delay and then check the target.
  * @param {NS} ns
  */
 export async function main(ns) {
@@ -22,7 +19,6 @@ export async function main(ns) {
     const start = performance.now()
     const target = /** @type string */ ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
-    const stock = (ns.args.length > 3 && ns.args[3])
     const output = (ns.args.length > 4 && ns.args[4])
     const host = ns.args.length > 5 ? ns.args[5] : 'unknown'
     const threads = ns.args.length > 6 ? ns.args[6] : 'unknown'
@@ -37,15 +33,18 @@ export async function main(ns) {
         await ns.sleep(estDelay)
     }
     const delay = performance.now() - start
-    // weaken()
+    // get server info, cheaper than getServer
     const data = {
-        amount: await ns.weaken(target),
+        moneyAvailable: ns.getServerMoneyAvailable(target),
+        moneyMax: ns.getServerMaxMoney(target),
+        hackDifficulty: ns.getServerSecurityLevel(target),
+        minDifficulty: ns.getServerMinSecurityLevel(target),
     }
     const time = performance.now() - start - delay
     const finishTime = new Date().getTime()
     // write data to a port for stats collection
-    await ns.writePort(20, JSON.stringify({
-        type: 'weaken',
+    await ns.writePort(1, JSON.stringify({
+        type: 'check',
         data: data,
         // info
         target: target,
@@ -63,9 +62,14 @@ export async function main(ns) {
     }))
     // build a message
     if (output) {
-        const message = data.amount
-            ? `INFO: WEAKEN ${target} reduced ${ns.nFormat(data.amount, '0.0a')} security!` // + JSON.stringify(ns.args)
-            : `WARNING: WEAKEN ${target} reduced 0 security.` // + JSON.stringify(ns.args)
+        const status = data.hackDifficulty > data.minDifficulty + 1 || data.moneyAvailable < data.moneyMax * 0.9
+            ? 'WARNING:'
+            : 'INFO:'
+        const message = [
+            `${status} CHECK ${target}`,
+            `money=${ns.nFormat(data.moneyAvailable, '$0.000a')}/${ns.nFormat(data.moneyMax, '$0.000a')}`,
+            `security=${data.hackDifficulty}/${data.minDifficulty}`,
+        ].join(' | ')
         ns.tprint(message)
     }
 }

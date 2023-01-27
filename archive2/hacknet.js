@@ -1,7 +1,7 @@
 /**
  * Command options
  */
-import {SERVER} from "./lib/Server";
+import {Server} from "./lib/Server";
 
 const argsSchema = [
     ['once', false],
@@ -146,13 +146,13 @@ export function manageHacknet(ns) {
             : `hacknet-node-${nodeToUpgrade} ${bestUpgrade.name} ${upgradedValue}`)
         + ` for ${ns.nFormat(cost, '$0.00a')}`
     let strPayoff = `production ${((shouldBuyNewNode ? newNodePayoff : bestUpgradePayoff) * cost).toPrecision(3)} payoff time ${ns.nFormat(payoffTimeSeconds, '00:00:00')}`
-    if (SERVER.hacknetMaxSpend && cost > SERVER.hacknetMaxSpend) {
-        ns.print(`The next best purchase would be ${strPurchase} but the cost ${ns.nFormat(cost, '$0.00a')} exceeds the limit (${ns.nFormat(SERVER.hacknetMaxSpend, '$0.00a')})`)
+    if (Server.hacknetMaxSpend && cost > Server.hacknetMaxSpend) {
+        ns.print(`The next best purchase would be ${strPurchase} but the cost ${ns.nFormat(cost, '$0.00a')} exceeds the limit (${ns.nFormat(Server.hacknetMaxSpend, '$0.00a')})`)
         return false // As long as maxSpend doesn't change, we will never purchase another upgrade
     }
 
     // limit payoff time
-    let nextPayoffTime = SERVER.hacknetMaxPayoffTime
+    let nextPayoffTime = Server.hacknetMaxPayoffTime
     if (nextPayoffTime && payoffTimeSeconds > nextPayoffTime) {
         ns.print(`The next best purchase would be ${strPurchase} but the ${strPayoff} is worse than the limit (${ns.nFormat(nextPayoffTime, '00:00:00')})`)
         return false // As long as maxPayoffTime doesn't change, we will never purchase another upgrade

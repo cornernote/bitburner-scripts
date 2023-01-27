@@ -1,5 +1,5 @@
-import {getRoutes, getServers, ServerSettings} from './lib/Server';
-import {terminalCommand} from './lib/Helper';
+import {Server, getRoutes, getServers} from "./lib/Server";
+import {terminalCommand} from "./lib/Helper";
 
 /**
  * Command options
@@ -30,21 +30,21 @@ export async function main(ns) {
 
     const player = ns.getPlayer()
 
-    let backdoorServers = getServers(ns.scan, ns.getServer).filter(s => s.hasAdminRights
+    let backdoorServers = getServers(ns).filter(s => s.hasAdminRights
         && !s.backdoorInstalled
         && !s.purchasedByPlayer
-        && s.requiredHackingSkill <= player.skills.hacking)
+        && s.requiredHackingSkill <= player.hacking)
 
     if (args['_'][0]) {
         if (args['_'][0] !== 'all') {
             backdoorServers = backdoorServers.filter(s => s.hostname === args['_'][0])
         }
     } else {
-        backdoorServers = backdoorServers.filter(s => ServerSettings.backdoorHostnames.includes(s.hostname))
+        backdoorServers = backdoorServers.filter(s => Server.backdoorHostnames.includes(s.hostname))
     }
 
     if (backdoorServers.length) {
-        const routes = getRoutes(ns.scan)
+        const routes = getRoutes(ns)
         ns.tprint(`Backdoor: ${backdoorServers.map(s => s.hostname).join(', ')}.`)
         const commands = []
         for (const server of backdoorServers) {
@@ -64,7 +64,6 @@ export async function main(ns) {
                     }
                 }
             }
-            //await ns.sleep(1000)
         }
     }
 }

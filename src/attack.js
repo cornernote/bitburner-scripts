@@ -1,325 +1,439 @@
 import {
-    ATTACK,
-    assignAttack,
-    getBestHackAttack,
-    getBestPrepAttack,
-    launchAttack
-} from './lib/Attack'
-import {
-    SERVER,
-    getServers,
-    getHackTargetServers,
-    getHackingServers,
-    getPrepTargetServers,
+    filterHackingServers,
+    filterOwnedServers,
+    filterRootableServers,
+    filterTargetServers,
     getFreeThreads,
-    getTotalThreads,
-    getCracks
-} from './lib/Server'
+    getTotalRam,
+    ServerSettings
+} from './lib/Server';
 import {
-    buyTor,
-    formatDelay,
-    formatTime,
-    terminalCommand
-} from "./lib/Helpers";
-
+    AttackCommand,
+    attackDelays,
+    attackThreadsCount,
+    buildAttack, fitThreads,
+    getAttackDetails,
+    getCracks,
+    launchAttack,
+    TargetSettings,
+    ThreadPack
+} from './lib/Target';
+import {listView} from './lib/TermView';
+import {formatDelays, formatMoney, formatPercent, formatRam} from './lib/Format';
+import {
+    deleteServerRemote,
+    getPlayerRemote,
+    getPurchasedServerCostRemote,
+    getServerRemote,
+    getServersRemote, infectRemote,
+    killAllRemote,
+    purchaseServerRemote
+} from './lib/Remote';
+import {terminalCommand} from './lib/Helper';
 
 /**
  * Command options
  */
 const argsSchema = [
-    ['once', false],
     ['help', false],
+    ['once', false],
+    ['percent', false],
+    ['force', false],
+    ['no-buy', false],
 ]
 
 /**
  * Command auto-complete
+ * @param {Object} data
+ * @param {*} args
  */
-export function autocomplete(data, _) {
+export function autocomplete(data, args) {
     data.flags(argsSchema)
-    return []
-}
-
-// fake method to count towards memory usage to prevent error
-function countedTowardsMemory(ns) {
-    ns.brutessh()
-    ns.ftpcrack()
-    ns.relaysmtp()
-    ns.httpworm()
-    ns.sqlinject()
+    return data.servers
 }
 
 /**
- * Entry point
+ * Attack
+ * Hack money from targets.
  *
  * @param {NS} ns
  */
 export async function main(ns) {
-    // get some stuff ready
-    const args = ns.flags(argsSchema)
+    // disable logs
     ns.disableLog('ALL')
 
-    // show help
-    if (args.help) {
-        ns.tprint(getHelp(ns))
-        ns.exit()
+    // load command arguments
+    const args = ns.flags(argsSchema)
+
+    // load help
+    if (args['help'] || args['_'][0] === 'help') {
+        ns.tprint('Help:\n' + helpInfo(ns, []))
+        return
     }
-
-    // startup
-    ns.print('----------' + formatTime() + '----------')
-
-    // load some helper scripts
-    const host = 'home'
-    const helpers = ['host.js', 'hacknet.js', 'hud.js'] // why does everything start with H ?
-    for (const helper of helpers) {
-        if (!ns.ps(host).filter(p => p.filename === helper).length) {
-            ns.print(`launching ${helper}`)
-            ns.exec(helper, host)
-        }
-    }
-    ns.print('----------' + formatTime() + '----------')
-
-    // load data from disk
-    // const attacksContents = ns.read('/data/attacks.json.txt')
-    // let currentAttacks = attacksContents
-    //     ? JSON.parse(attacksContents)
-    //     : []
-    let currentAttacks = []
 
     // work, sleep, repeat
     do {
-        const player = ns.getPlayer()
-        const servers = getServers(ns)
-
-        // cracks
-        await buyCracks(ns, player)
-        await runCracks(ns, servers)
-
-        // attacks
-        currentAttacks = await manageAttacks(ns, player, servers, currentAttacks)
+        if (!args['no-buy']) {
+            await buyCracks(ns)
+        }
+        await runCracks(ns)
+        if (!args['no-buy']) {
+            await buyServers(ns)
+        }
+        await runAttack(ns, args['_'][0], args['percent'], args['force'])
 
         await ns.sleep(1000)
     } while (!args.once)
 }
 
 /**
- * Help text
+ * Help information
  *
- * Player boss is stuck, let's get them some help.
- *
- * @returns {string}
+ * @param {NS} ns
+ * @param {Array} args
  */
-function getHelp(ns) {
-    const script = ns.getScriptName()
+function helpInfo(ns, args) {
+    const scriptName = ns.getScriptName()
+    const aliasName = scriptName.substring(0, scriptName.length - 3)
+
     return [
-        'Prepares and launches hack attacks on targets.',
         '',
-        `USAGE: run ${script}`,
+        'Launches an attack on a server.',
         '',
-        'Example:',
-        `> run ${script}`,
+        `ALIAS: alias ${aliasName}="run ${scriptName}"`,
+        `USAGE: ${aliasName} [target] [--once=bool] [--hack-percent=20] [--force=bool]`,
+        '',
+        'Examples:',
+        `> ${aliasName} n00dles`,
+        `> ${aliasName} --force`,
     ].join("\n")
 }
 
-/**
- * Manage the attacks.
- *
- * @param {NS} ns
- * @param {Player} player
- * @param {Server[]} servers
- * @param {Array} currentAttacks
- * @return {Promise<[]>}
- */
-export async function manageAttacks(ns, player, servers, currentAttacks) {
-    // how many attacks to allow
-    let maxAttacks = 3
-    let attackSpacer = 150
+async function buyCracks(ns) {
+    const player = await getPlayerRemote(ns)
+    const cracks = getCracks(ns.fileExists)
 
-    // decide if we should write
-    let changed = false
-
-    // split attacks into hack/prep
-    // remove completed attacks from the list
-    const now = new Date().getTime()
-    currentAttacks = currentAttacks
-        .filter(a => a.end + 1000 > now)
-    const currentHackAttacks = currentAttacks
-        .filter(a => a.type === 'hack')
-    const currentPrepAttacks = currentAttacks
-        .filter(a => a.type === 'prep')
-
-    // load some data
-    const cores = 1 // assume we won't run on home, or home has 1 core
-    const hackingServers = getHackingServers(ns, servers) //.filter(s => s.hostname !== 'home') // exclude if it has a different number of cores
-    const hackTargetServers = getHackTargetServers(ns, servers)
-        .filter(s => currentAttacks.filter(a => a.target === s.hostname).length === 0) // exclude currentAttacks
-    const prepTargetServers = getPrepTargetServers(ns, servers)
-        .filter(s => currentAttacks.filter(a => a.target === s.hostname).length === 0) // exclude currentAttacks
-
-    // launch new hack attacks if there is a full active attack, or if there are no current hack attacks
-    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.filter(a => a.type === 'hack').length) {
-        const hackAttack = getBestHackAttack(ns, player, hackTargetServers, hackingServers, cores, attackSpacer)
-        // ns.tprint('find hack attack...')
-        if (hackAttack) {
-            // ns.tprint('found attack, can it fit')
-            if (currentHackAttacks.length < maxAttacks) {
-                // ns.tprint('it fits, can we get commands')
-                const commands = assignAttack(ns, hackAttack, hackingServers, 'hack', hackAttack.cycles)
-                if (commands.length) {
-                    // ns.tprint(commands)
-                    await launchAttack(ns, hackAttack, commands, hackAttack.cycles)
-                    await ns.writePort(1, JSON.stringify({
-                        type: 'add-hack',
-                        attack: hackAttack,
-                    }))
-                    currentAttacks.push(hackAttack)
-                    changed = true
-                    ns.print([
-                        `hack ${hackAttack.target}: ${formatDelay(hackAttack.time)}`,
-                        `${ns.nFormat(hackAttack.info.cycleValue, '$0.0a')}/cycle ${ns.nFormat(hackAttack.info.cycleValue * hackAttack.cycles, '$0.0a')}/batch`,
-                        `on=${ns.nFormat(hackAttack.activePercent, '0.0%')} take=${ns.nFormat(hackAttack.info.hackedPercent, '0.00%')} grow=${ns.nFormat(hackAttack.info.growthRequired, '0.00%')}`,
-                        `threads=${hackAttack.cycles}x ${ns.nFormat(hackAttack.cycleThreads, '0a')} ${Object.values(hackAttack.parts).map(p => p.threads).join('|')} (${ns.nFormat(hackAttack.cycleThreads * hackAttack.cycles, '0a')} total)`,
-                    ].join(' | '))
-                    // ns.print(listView(commands.map(c => {
-                    //     return {
-                    //         script: c.script,
-                    //         hostname: c.hostname,
-                    //         threads: c.threads,
-                    //         target: c.target,
-                    //         end: c.start + c.delay + c.time,
-                    //     }
-                    // })))
-                }
-            }
-        }
-    }
-
-    // launch new prep attacks if there is a full active attack, or if there are no current attacks, or if we launched an attack and we have spare ram
-    if (currentAttacks.filter(a => a.type === 'hack' && a.activePercent === 1).length || !currentAttacks.length || changed) {
-        // ns.tprint('find prep attack...')
-        const prepAttack = getBestPrepAttack(ns, player, prepTargetServers, hackingServers, cores, 1000)
-        // if the current prep can be done in available threads, or no prep attacks
-        if (prepAttack) {
-            // ns.tprint('found attack, can it fit')
-            const freeThreads = getFreeThreads(ns, hackingServers, 1.75)
-            const allowRamOverflow = currentPrepAttacks.length === 0
-            if (prepAttack.cycleThreads < freeThreads || allowRamOverflow) {
-                // ns.tprint('it fits, can we get commands')
-                // ns.tprint(currentPrepAttacks.length === 0)
-                // fit grow and weaken threads based on threads available
-                const threadMessage = Object.values(prepAttack.parts).map(p => p.threads).join('|')
-                if (allowRamOverflow && prepAttack.parts.g.threads) {
-                    prepAttack.parts.g.threads = freeThreads
-                    prepAttack.parts.gw.threads = Math.ceil((prepAttack.parts.g.threads * ATTACK.scripts.g.change) / ATTACK.scripts.w.change)
-                    prepAttack.parts.g.threads -= prepAttack.parts.gw.threads
-                }
-                const commands = assignAttack(ns, prepAttack, hackingServers, 'prep', 1, allowRamOverflow)
-                if (commands.length) {
-                    // ns.tprint(commands)
-                    await launchAttack(ns, prepAttack, commands)
-                    await ns.writePort(1, JSON.stringify({
-                        type: 'add-prep',
-                        attack: prepAttack,
-                    }))
-                    currentAttacks.push(prepAttack)
-                    await ns.writePort(1, JSON.stringify({target: prepAttack.target, action: 'start'}))
-                    const threadsRunMessage = commands.map(c => c.threads).reduce((prev, next) => prev + next) < prepAttack.cycleThreads ? ` (${Object.values(prepAttack.parts).map(p => p.threads).join('|')} ran)` : ''
-                    changed = true
-                    ns.print([ // note this may not be the amount of threads fitted, coule be less if allowRamOverflow=true
-                        `prep ${prepAttack.target}: ${formatDelay(prepAttack.time)}`,
-                        `threads=${ns.nFormat(prepAttack.cycleThreads, '0a')} ${threadMessage}${threadsRunMessage}`
-                    ].join(' | '))
-                }
-            }
-        }
-    }
-
-    // if we launched an attack and if there is unused ram, share ram with factions
-    if (changed) {
-        const shareRam = 4
-        const shareMax = prepTargetServers.length ? 0 : 0.9 // share upto 90% if we have no prep targets
-        const totalThreads = getTotalThreads(ns, hackingServers, shareRam)
-        const freeThreads = getFreeThreads(ns, hackingServers, shareRam)
-        if (freeThreads > totalThreads * (1 - shareMax)) {
-            const usedThreads = totalThreads - freeThreads
-            const requiredThreads = Math.floor(totalThreads * shareMax - usedThreads)
-            let remainingThreads = requiredThreads
-            for (const server of hackingServers) {
-                const threadsFittable = Math.max(0, Math.floor((server.maxRam - server.ramUsed) / shareRam))
-                const threadsToRun = Math.max(0, Math.min(threadsFittable, remainingThreads))
-                if (threadsToRun) {
-                    //args[0: loop]
-                    try {
-                        ns.exec('/hacks/share.js', server.hostname, threadsToRun, 10)
-                        remainingThreads -= threadsToRun
-                        server.ramUsed += threadsToRun * shareRam
-                    } catch (e) {
-                    }
-                }
-            }
-            ns.print([
-                `INFO: shared ${ns.nFormat(requiredThreads, '0.0a')} threads for faction use`,
-            ].join(' | '))
-        }
-    }
-
-    // return attacks
-    if (changed) {
-        ns.print('----------' + formatTime() + '----------')
-        //await ns.write('/data/attacks.json.txt', JSON.stringify(currentAttacks))
-    }
-    return currentAttacks
-}
-
-/**
- * Buys Cracks from the Darkweb using player interaction
- *
- * @param {NS} ns
- * @param {Player} player
- * @returns {Promise<void>}
- */
-export async function buyCracks(ns, player) {
-    // buy the tor router
+    // recommend the player buy the tor router
     if (!player.tor && player.money > 200000) {
-        ns.tprint('INFO: Buying Tor Router')
-        await buyTor(ns)
+        ns.tprint('\n' + [
+            '============================',
+            '|| ⛔ Tor Router Required ||',
+            '============================',
+            '',
+            `You should buy the TOR Router at City > alpha ent.`
+        ].join('\n') + '\n')
     }
+
     // buy unowned cracks
-    if (player.tor) {
-        const unownedCracks = getCracks(ns).filter(c => c.cost <= player.money && !c.owned)
-        if (unownedCracks.length) {
-            ns.tprint(`Buying: ${unownedCracks.map(c => c.file).join(', ')}.`)
-            terminalCommand([
-                'connect darkweb',
-                unownedCracks.map(c => `buy ${c.file}`).join(';'),
-                'home',
-            ].join(';'))
+    else {
+        const unownedCracks = cracks.filter(c => c.cost && !c.owned)
+        for (const crack of unownedCracks) {
+            if (player.money > crack.cost) {
+                ns.tprint('\n' + [
+                    '======================',
+                    '|| 💰 Buying Cracks ||',
+                    '======================',
+                    '',
+                    `About to purchase ${crack.file}...`
+                ].join('\n') + '\n')
+                await terminalCommand('connect darkweb')
+                await terminalCommand(`buy ${crack.file}`)
+                await terminalCommand('home')
+            }
         }
     }
+
 }
 
 /**
- * Runs port hacks on rootable servers
+ * Run owned port hacks on rootable servers.
+ *
+ * @param ns
+ * @return {Promise<void>}
+ */
+async function runCracks(ns) {
+    const player = await getPlayerRemote(ns)
+    const cracks = getCracks(ns.fileExists)
+    const ownedCracks = cracks.filter(c => c.owned)
+    const servers = await getServersRemote(ns)
+    const rootableServers = filterRootableServers(servers, player.skills.hacking, ownedCracks.length)
+    if (rootableServers.length) {
+        ns.tprint('\n' + [
+            '=======================',
+            '|| 💣 Running Cracks ||',
+            '=======================',
+            '',
+            `About to run cracks on ${rootableServers.map(s => s.hostname).join('\n > ')}...`
+        ].join('\n') + '\n')
+        rootableServers.map(s => s.hostname).forEach(hostname => {
+            for (const crack of ownedCracks) {
+                ns[crack.method](hostname)
+            }
+            ns.nuke(hostname)
+        })
+    }
+
+    function countedTowardsMemory(ns) {
+        ns.brutessh('')
+        ns.ftpcrack('')
+        ns.relaysmtp('')
+        ns.httpworm('')
+        ns.sqlinject('')
+    }
+}
+
+
+/**
+ * Manage purchased servers.
+ *
+ * @param {NS} ns
+ * @returns {Promise<boolean>} false if we cannot purchase any more servers
+ */
+async function buyServers(ns) {
+    const servers = await getServersRemote(ns)
+    const purchasedServers = filterOwnedServers(servers)
+    const totalMaxRam = purchasedServers.length
+        ? getTotalRam(purchasedServers)
+        : 0
+    // const utilizationTotal = purchasedServers.length
+    //     ? totalMaxRam - getFreeRam(purchasedServers)
+    //     : 0
+    // const utilizationRate = purchasedServers.length
+    //     ? utilizationTotal / totalMaxRam
+    //     : 1
+
+    // Check for other reasons not to go ahead with the purchase
+    const prefix = 'tried to buy server, but '
+    const player = await getPlayerRemote(ns)
+    const budget = player.money
+
+    // Stop if utilization is below target. We probably don't need another server.
+    // if (utilizationRate < ServerSettings.utilizationTarget) {
+    //     ns.tprint(prefix + 'current utilization is below target ' + formatPercent(ns, ServerSettings.utilizationTarget) + '.')
+    //     return true
+    // }
+    // Determine the most ram we can buy with this money
+    let exponentLevel
+    for (exponentLevel = 1; exponentLevel < ServerSettings.maxRamExponent; exponentLevel++) {
+        if (await getPurchasedServerCostRemote(ns, Math.pow(2, exponentLevel + 1)) > budget) {
+            break
+        }
+    }
+    const maxRamPossibleToBuy = Math.pow(2, exponentLevel)
+
+    // Abort if we don't have enough money
+    const cost = await getPurchasedServerCostRemote(ns, maxRamPossibleToBuy)
+    if (budget < cost) {
+        ns.tprint(prefix + 'budget ' + formatMoney(ns, budget) + ' is less than ' + formatMoney(ns, cost) + ' for ' + formatRam(ns, maxRamPossibleToBuy))
+        return true
+    }
+
+    // if (exponentLevel < SERVER.minRamExponent) {
+    //     ns.tprint(`${prefix}The highest ram exponent we can afford (2^${exponentLevel} for ${formatMoney(ns, cost)}) on our budget of ${formatMoney(ns, budget)} `
+    //         + `is less than the minimum ram exponent (2^${SERVER.minRamExponent} for ${formatMoney(ns, ns.getPurchasedServerCost(Math.pow(2, SERVER.minRamExponent)))})'`)
+    //     return
+    // }
+
+    if (exponentLevel < ServerSettings.maxRamExponent) {
+        // Abort if purchasing this server wouldn't improve our total RAM by more than 10% (ensures we buy in meaningful increments)
+        if (maxRamPossibleToBuy / totalMaxRam < 0.1) {
+            ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(ns, totalMaxRam) + ')')
+            return true
+        }
+    }
+
+    // check compared to current purchased servers
+    let maxPurchasableServerRam = Math.pow(2, ServerSettings.maxRamExponent)
+    let worstServerName = null
+    let worstServerRam = maxPurchasableServerRam
+    let bestServerName = null
+    let bestServerRam = 0
+    for (const server of purchasedServers.filter(s => s.hostname !== 'home')) {
+        if (server.maxRam < worstServerRam) {
+            worstServerName = server.hostname
+            worstServerRam = server.maxRam
+        }
+        if (server.maxRam >= bestServerRam) {
+            bestServerName = server.hostname
+            bestServerRam = server.maxRam
+        }
+    }
+
+    // Abort if our worst previously-purchased server is better than the one we're looking to buy (ensures we buy in sane increments of capacity)
+    if (worstServerName != null && maxRamPossibleToBuy < worstServerRam) {
+        ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
+            ') is less than our worst purchased server ' + worstServerName + '\'s RAM ' + formatRam(ns, worstServerRam))
+        return true
+    }
+    // Only buy new servers as good as or better than our best bought server (anything less is considered a regression in value)
+    if (bestServerRam != null && maxRamPossibleToBuy < bestServerRam) {
+        ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
+            ') is less than our previously purchased server ' + bestServerName + " RAM " + formatRam(ns, bestServerRam))
+        return true
+    }
+
+    // if we're at capacity, check to see if we can do better than the current worst purchased server. If so, delete it to make room.
+    if (purchasedServers.length >= ServerSettings.maxPurchasedServers) {
+        if (worstServerRam === maxPurchasableServerRam) {
+            ns.tprint('All purchasable servers are maxed.')
+            return false
+        }
+
+        // It's only worth deleting our old server if the new server will be 16x bigger or more (or if it's the biggest we can buy)
+        if (exponentLevel === ServerSettings.maxRamExponent || worstServerRam * 16 <= maxRamPossibleToBuy) {
+            await killAllRemote(ns, worstServerName)
+            if (await deleteServerRemote(ns, worstServerName)) {
+                ns.tprint(`deleted server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM) ` +
+                    `to make room for a new ${formatRam(ns, maxRamPossibleToBuy)} Server.`)
+            } else {
+                ns.tprint(`WARNING: failed to delete server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM), perhaps it is running scripts?`)
+            }
+            return true
+        } else {
+            ns.tprint(`${prefix}the most RAM we can buy (${formatRam(ns, maxRamPossibleToBuy)}) is less than 16x the RAM ` +
+                `of the server it must delete to make room: ${worstServerName} (${formatRam(ns, worstServerRam)} RAM)`)
+            return true
+        }
+    }
+
+    const purchasedServer = await purchaseServerRemote(ns, ServerSettings.purchasedServerName, maxRamPossibleToBuy)
+    // if (purchasedServer) {
+    //     ns.scp(ServerSettings.hackScripts, purchasedServer)
+    // }
+    if (!purchasedServer) {
+        ns.tprint(prefix + `Could not purchase a server with ${formatRam(ns, maxRamPossibleToBuy)} RAM for ${formatMoney(ns, cost)} ` +
+            `with a budget of ${formatMoney(ns, budget)}. This is either a bug, or we in a SF.9`)
+    } else {
+        ns.tprint('Purchased a new server ' + purchasedServer + ' with ' + formatRam(ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(ns, cost))
+    }
+    return true
+
+}
+
+/**
+ * @param {NS} ns
+ * @param {string} targetHostname
+ * @param {number} hackFraction between 0 and 1
+ * @param {boolean} forceMoneyHack
+ */
+async function runAttack(ns, targetHostname, hackFraction, forceMoneyHack) {
+    hackFraction = hackFraction || TargetSettings.hackFraction
+
+    const servers = await getServersRemote(ns)
+    const hackingServers = filterHackingServers(servers)
+
+    // force money hack if we have a small network
+    const freeThreads = getFreeThreads(hackingServers, 1.75)
+    if (freeThreads < 1000) {
+        forceMoneyHack = true
+    }
+
+    // copy hack scripts to hackingServers (using n00dles)
+    for (const hostname of hackingServers.map(s => s.hostname)) {
+        await infectRemote(ns, hostname);
+    }
+
+    // choose target
+    let targetServer = await chooseTarget(ns, servers, targetHostname, hackFraction, forceMoneyHack)
+
+    // if we can't find a forced hack then do a normal hack (prep)
+    if (!targetServer && forceMoneyHack) {
+        forceMoneyHack = false
+        targetServer = await chooseTarget(ns, servers, targetHostname, hackFraction, forceMoneyHack)
+    }
+
+    // attack!
+    await attackServer(ns, hackingServers, targetServer, hackFraction, forceMoneyHack)
+}
+
+/**
+ * Choose the best target server to attack.
  *
  * @param {NS} ns
  * @param {Server[]} servers
- * @returns {Promise<void>}
+ * @param {string} targetHostname
+ * @param {number} hackFraction between 0 and 1
+ * @param {boolean} forceMoneyHack
+ * @return {Promise<Server>}
  */
-export async function runCracks(ns, servers) {
-    // run owned port hacks on rootable servers
-    const ownedCracks = getCracks(ns).filter(c => c.owned)
-    const rootableServers = servers.filter(s => !s.hasAdminRights
-        && s.requiredHackingSkill <= ns.getPlayer().hacking
-        && s.numOpenPortsRequired <= ownedCracks.length)
-    for (const server of rootableServers) {
-        // run port cracks
-        for (const crack of ownedCracks) {
-            ns[crack.method](server.hostname)
-        }
-        // run nuke
-        ns.nuke(server.hostname)
-        // copy hack scripts
-        await ns.scp(SERVER.hackScripts, server.hostname)
-        // tell someone about it
-        ns.print(`INFO: ${server.hostname} has been nuked!`)
+async function chooseTarget(ns, servers, targetHostname, hackFraction, forceMoneyHack) {
+    if (targetHostname) {
+        return await getServerRemote(ns, targetHostname)
     }
+    const targetServers = filterTargetServers(servers)
+        .sort((a, b) => {
+            a.attackDetails = getAttackDetails(a, hackFraction, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+            b.attackDetails = getAttackDetails(b, hackFraction, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+            a.sort = a.attackDetails.moneyPerHack / a.attackDetails.hackThreadsCount / a.attackDetails.minsPerHack
+            b.sort = b.attackDetails.moneyPerHack / b.attackDetails.hackThreadsCount / b.attackDetails.minsPerHack
+            return b.sort - a.sort
+        })
+
+    if (forceMoneyHack) {
+        targetServers.shift()
+        return targetServers
+            .filter(s => {
+                return s.moneyAvailable / s.moneyMax > 0.01
+            })
+            .find(s => s.hostname)
+    }
+
+    return targetServers.find(s => s.hostname)
+}
+
+/**
+ * @param {NS} ns
+ * @param {Server[]} hackingServers
+ * @param {Server} targetServer
+ * @param {number} hackFraction between 0 and 1
+ * @param {boolean} forceMoneyHack
+ */
+async function attackServer(ns, hackingServers, targetServer, hackFraction, forceMoneyHack) {
+    if (forceMoneyHack) {
+        hackFraction = 1
+    }
+    const attackDetails = getAttackDetails(targetServer, hackFraction, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+    if (forceMoneyHack) {
+        attackDetails.type = 'hack'
+        attackDetails.hackThreads.h = 1000
+        attackDetails.hackThreads.w = 0
+        attackDetails.hackThreads.g = 0
+        attackDetails.hackThreads.gw = 0
+    }
+    const totalFreeThreads = getFreeThreads(hackingServers, 1.75)
+    const attackThreads = attackDetails.type === 'prep' ? attackDetails.prepThreads : attackDetails.hackThreads
+    const cycles = Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
+    const commands = buildAttack(hackingServers, attackDetails.type, cycles, attackThreads, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+    await launchAttack(commands, 1, ns.exec, ns.sleep)
+
+    const lastCommand = commands
+        .sort((a, b) => (b.delay + b.time) - (a.delay + a.time))
+        .find(c => c)
+    const sleepTime = lastCommand.delay + lastCommand.time
+
+    const start = new Date()
+    const end = new Date(start.getTime() + sleepTime)
+
+    ns.tprint(`INFO: \n`)
+    ns.tprint('\n' + [
+        '====================================================================================================',
+        `|| ⚡ Attack ${targetServer.hostname} ${formatPercent(ns, hackFraction)} from ${start.toLocaleString()} to ${end.toLocaleString()}`.padEnd(97, ' ') + ' ||',
+        '====================================================================================================',
+        '',
+        listView(commands
+            .sort((a, b) => (a.delay + a.time) - (b.delay + b.time))
+            .map(c => {
+                c.times = formatDelays(c.delay, c.time)
+                c.script = c.script.substring(7)
+                delete c.delay
+                delete c.time
+                delete c.start
+                delete c.pid
+                delete c.uuid
+                return c
+            }))
+    ].join('\n') + '\n')
+
+    await ns.sleep(sleepTime)
+    ns.tprint(`INFO: Attack Completed! at ${new Date().toLocaleString()}`)
 }

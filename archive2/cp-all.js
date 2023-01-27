@@ -1,4 +1,4 @@
-import {getServers, SERVER} from "./lib/Server";
+import {getServers, Server} from "./lib/Server";
 
 /**
  * Copies hacking scripts to all hacking servers
@@ -8,6 +8,6 @@ import {getServers, SERVER} from "./lib/Server";
 export async function main(ns) {
     const servers = getServers(ns).filter(s => s.hasAdminRights)
     for (const server of servers) {
-        await ns.scp(SERVER.hackScripts, server.hostname)
+        await ns.scp(Server.hackScripts, server.hostname)
     }
 }

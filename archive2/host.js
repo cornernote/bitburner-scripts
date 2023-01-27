@@ -1,5 +1,6 @@
-import {SERVER, getFreeRam, getOwnedServers, getServers, getTotalRam} from "./lib/Server";
-import {formatMoney, formatRam} from "./lib/Helpers";
+import {ServerSettings, getFreeRam, getOwnedServers, getServers, getTotalRam} from './lib/Server';
+import {formatMoney, formatRam} from './lib/Helper';
+import {Runner} from "./lib/Runner";
 
 /**
  * Command options
@@ -26,10 +27,11 @@ export function autocomplete(data, _) {
 export async function main(ns) {
     // get some stuff ready
     const args = ns.flags(argsSchema)
+    const runner = new Runner(ns)
     ns.disableLog('ALL')
     // work, sleep, repeat
     do {
-        if (!await manageHosts(ns)) {
+        if (!await manageHosts(runner)) {
             break
         }
         await ns.sleep(10 * 1000)
@@ -40,17 +42,17 @@ export async function main(ns) {
 /**
  * Manage purchased servers.
  *
- * @param {NS} ns
+ * @param {Runner} runner
  * @returns {Promise<boolean>} false if we cannot purchase any more servers
  */
-export async function manageHosts(ns) {
-    const servers = getServers(ns)
-    const purchasedServers = getOwnedServers(ns, servers)
+export async function manageHosts(runner) {
+    const servers = getServers(runner)
+    const purchasedServers = getOwnedServers(runner.ns, servers)
     const totalMaxRam = purchasedServers.length
-        ? getTotalRam(ns, purchasedServers)
+        ? getTotalRam(runner.ns, purchasedServers)
         : 0
     const utilizationTotal = purchasedServers.length
-        ? totalMaxRam - getFreeRam(ns, purchasedServers)
+        ? totalMaxRam - getFreeRam(runner.ns, purchasedServers)
         : 0
     const utilizationRate = purchasedServers.length
         ? utilizationTotal / totalMaxRam
@@ -58,27 +60,27 @@ export async function manageHosts(ns) {
 
     // Check for other reasons not to go ahead with the purchase
     let prefix = 'tried to buy server, but '
-    const player = ns.getPlayer()
+    const player = runner.nsProxy['getPlayer']()
     const budget = player.money
 
     // Stop if utilization is below target. We probably don't need another server.
-    if (utilizationRate < SERVER.utilizationTarget) {
-        ns.print(prefix + 'current utilization is below target ' + ns.nFormat(SERVER.utilizationTarget, '0%') + '.')
+    if (utilizationRate < ServerSettings.utilizationTarget) {
+        runner.ns.print(prefix + 'current utilization is below target ' + runner.ns.nFormat(ServerSettings.utilizationTarget, '0%') + '.')
         return true
     }
     // Determine the most ram we can buy with this money
     let exponentLevel
-    for (exponentLevel = 1; exponentLevel < SERVER.maxRamExponent; exponentLevel++) {
-        if (ns.getPurchasedServerCost(Math.pow(2, exponentLevel + 1)) > budget) {
+    for (exponentLevel = 1; exponentLevel < ServerSettings.maxRamExponent; exponentLevel++) {
+        if (runner.nsProxy['getPurchasedServerCost'](Math.pow(2, exponentLevel + 1)) > budget) {
             break
         }
     }
     const maxRamPossibleToBuy = Math.pow(2, exponentLevel)
 
     // Abort if we don't have enough money
-    const cost = ns.getPurchasedServerCost(maxRamPossibleToBuy)
+    const cost = runner.nsProxy['getPurchasedServerCost'](maxRamPossibleToBuy)
     if (budget < cost) {
-        ns.print(prefix + 'budget ' + formatMoney(ns, budget) + ' is less than ' + formatMoney(ns, cost) + ' for ' + formatRam(ns, maxRamPossibleToBuy))
+        runner.ns.print(prefix + 'budget ' + formatMoney(runner.ns, budget) + ' is less than ' + formatMoney(runner.ns, cost) + ' for ' + formatRam(runner.ns, maxRamPossibleToBuy))
         return true
     }
 
@@ -88,16 +90,16 @@ export async function manageHosts(ns) {
     //     return
     // }
 
-    if (exponentLevel < SERVER.maxRamExponent) {
+    if (exponentLevel < ServerSettings.maxRamExponent) {
         // Abort if purchasing this server wouldn't improve our total RAM by more than 10% (ensures we buy in meaningful increments)
         if (maxRamPossibleToBuy / totalMaxRam < 0.1) {
-            ns.print(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(ns, totalMaxRam) + ')')
+            runner.ns.print(prefix + 'the most RAM we can buy (' + formatRam(runner.ns, maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(runner.ns, totalMaxRam) + ')')
             return true
         }
     }
 
     // check compared to current purchased servers
-    let maxPurchasableServerRam = Math.pow(2, SERVER.maxRamExponent)
+    let maxPurchasableServerRam = Math.pow(2, ServerSettings.maxRamExponent)
     let worstServerName = null
     let worstServerRam = maxPurchasableServerRam
     let bestServerName = null
@@ -115,50 +117,50 @@ export async function manageHosts(ns) {
 
     // Abort if our worst previously-purchased server is better than the one we're looking to buy (ensures we buy in sane increments of capacity)
     if (worstServerName != null && maxRamPossibleToBuy < worstServerRam) {
-        ns.print(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
-            ') is less than our worst purchased server ' + worstServerName + '\'s RAM ' + formatRam(ns, worstServerRam))
+        runner.ns.print(prefix + 'the most RAM we can buy (' + formatRam(runner.ns, maxRamPossibleToBuy) +
+            ') is less than our worst purchased server ' + worstServerName + '\'s RAM ' + formatRam(runner.ns, worstServerRam))
         return true
     }
     // Only buy new servers as good as or better than our best bought server (anything less is considered a regression in value)
     if (bestServerRam != null && maxRamPossibleToBuy < bestServerRam) {
-        ns.print(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
-            ') is less than our previously purchased server ' + bestServerName + " RAM " + formatRam(ns, bestServerRam))
+        runner.ns.print(prefix + 'the most RAM we can buy (' + formatRam(runner.ns, maxRamPossibleToBuy) +
+            ') is less than our previously purchased server ' + bestServerName + " RAM " + formatRam(runner.ns, bestServerRam))
         return true
     }
 
     // if we're at capacity, check to see if we can do better than the current worst purchased server. If so, delete it to make room.
-    if (purchasedServers.length >= SERVER.maxPurchasedServers) {
+    if (purchasedServers.length >= ServerSettings.maxPurchasedServers) {
         if (worstServerRam === maxPurchasableServerRam) {
-            ns.print('All purchasable servers are maxed.')
+            runner.ns.print('All purchasable servers are maxed.')
             return false
         }
 
         // It's only worth deleting our old server if the new server will be 16x bigger or more (or if it's the biggest we can buy)
-        if (exponentLevel === SERVER.maxRamExponent || worstServerRam * 16 <= maxRamPossibleToBuy) {
-            ns.killall(worstServerName)
-            if (ns.deleteServer(worstServerName)) {
-                ns.print(`deleted server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM) ` +
+        if (exponentLevel === ServerSettings.maxRamExponent || worstServerRam * 16 <= maxRamPossibleToBuy) {
+            runner.nsProxy['killall'](worstServerName)
+            if (runner.nsProxy['deleteServer'](worstServerName)) {
+                runner.ns.print(`deleted server ${worstServerName} (${formatRam(runner.ns, worstServerRam)} RAM) ` +
                     `to make room for a new ${formatRam(ns, maxRamPossibleToBuy)} Server.`)
             } else {
-                ns.print(`WARNING: failed to delete server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM), perhaps it is running scripts?`)
+                runner.ns.print(`WARNING: failed to delete server ${worstServerName} (${formatRam(runner.ns, worstServerRam)} RAM), perhaps it is running scripts?`)
             }
             return true
         } else {
-            ns.print(`${prefix}the most RAM we can buy (${formatRam(ns, maxRamPossibleToBuy)}) is less than 16x the RAM ` +
-                `of the server it must delete to make room: ${worstServerName} (${formatRam(ns, worstServerRam)} RAM)`)
+            runner.ns.print(`${prefix}the most RAM we can buy (${formatRam(runner.ns, maxRamPossibleToBuy)}) is less than 16x the RAM ` +
+                `of the server it must delete to make room: ${worstServerName} (${formatRam(runner.ns, worstServerRam)} RAM)`)
             return true
         }
     }
 
-    let purchasedServer = ns.purchaseServer(SERVER.purchasedServerName, maxRamPossibleToBuy)
+    let purchasedServer = runner.nsProxy['purchaseServer'](ServerSettings.purchasedServerName, maxRamPossibleToBuy)
     if (purchasedServer) {
-        await ns.scp(SERVER.hackScripts, purchasedServer)
+        await runner.nsProxy['scp'](ServerSettings.hackScripts, purchasedServer)
     }
     if (!purchasedServer) {
-        ns.print(prefix + `Could not purchase a server with ${formatRam(ns, maxRamPossibleToBuy)} RAM for ${formatMoney(ns, cost)} ` +
-            `with a budget of ${formatMoney(ns, budget)}. This is either a bug, or we in a SF.9`)
+        runner.ns.print(prefix + `Could not purchase a server with ${formatRam(runner.ns, maxRamPossibleToBuy)} RAM for ${formatMoney(runner.ns, cost)} ` +
+            `with a budget of ${formatMoney(runner.ns, budget)}. This is either a bug, or we in a SF.9`)
     } else {
-        ns.print('Purchased a new server ' + purchasedServer + ' with ' + formatRam(ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(ns, cost))
+        runner.ns.print('Purchased a new server ' + purchasedServer + ' with ' + formatRam(runner.ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(runner.ns, cost))
     }
     return true
 

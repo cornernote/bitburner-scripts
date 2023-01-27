@@ -8,7 +8,7 @@ import {scanAll} from './lib/Server';
  */
 export async function main(ns) {
     const host = ns.getHostname()
-    const servers = scanAll(ns.scan)
+    const servers = scanAll(ns)
 
     // Send the kill command to all servers
     for (const server of servers) {
