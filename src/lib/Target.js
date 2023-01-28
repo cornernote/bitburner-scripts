@@ -15,7 +15,7 @@ export const TargetSettings = {
     // if (bestTarget.money < bestTarget.moneyMax * settings.maxMoneyMultiplayer) action = 'grow'
     maxMoneyMultiplayer: 0.9,
     // time (in ms) between attack parts
-    attackSpacer: 25,
+    attackSpacer: 250,
     // default hack percent
     hackFraction: 0.2, // 20%
     // scripts used for hacking threads
@@ -430,6 +430,7 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
 
 /**
  * @param {Server[]} hackingServers
+ * @param {number} totalFreeThreads
  * @param {string} attackType
  * @param {number} cycles
  * @param {ThreadPack} attackThreads
@@ -442,20 +443,17 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
  * @param {function} getWeakenTimeWrap
  * @return {AttackCommand[]}
  */
-export function buildAttack(hackingServers, attackType, cycles, attackThreads, targetServer, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
-
+export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles, attackThreads, targetServer, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
     const commands = []
-
-    // build the attack
-    for (const [k, hackingServer] of Object.entries(hackingServers)) {
+    const delays = attackDelays(targetServer.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
+    for (const hackingServer of hackingServers) {
         for (let cycle = 1; cycle <= cycles; cycle++) {
             const freeThreads = Math.floor((hackingServer.maxRam - hackingServer.ramUsed) / 1.75)
-            if (freeThreads < 4) {
+            if (freeThreads < 100 && freeThreads / totalFreeThreads < 0.05) {
                 continue
             }
             const threadsToRun = new ThreadPack(attackThreads)
             const fittedThreads = fitThreads(targetServer, attackType, threadsToRun, freeThreads, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap)
-            const delays = attackDelays(targetServer.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
 
             // hack
             if (fittedThreads.h) {
@@ -464,7 +462,7 @@ export function buildAttack(hackingServers, attackType, cycles, attackThreads, t
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.h,
                     target: targetServer.hostname,
-                    delay: (forceMoneyHack ? 0 : delays.h) + ((k + 1) * cycle * TargetSettings.attackSpacer * 5),
+                    delay: (forceMoneyHack ? 0 : delays.h) + (commands.length * TargetSettings.attackSpacer),
                     time: delays.times.h,
                     stock: false,
                     output: true,
@@ -479,7 +477,7 @@ export function buildAttack(hackingServers, attackType, cycles, attackThreads, t
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.w,
                     target: targetServer.hostname,
-                    delay: delays.w + ((k + 1) * cycle * TargetSettings.attackSpacer * 5),
+                    delay: delays.w + (commands.length * TargetSettings.attackSpacer),
                     time: delays.times.w,
                     stock: false,
                     output: true,
@@ -494,7 +492,7 @@ export function buildAttack(hackingServers, attackType, cycles, attackThreads, t
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.g,
                     target: targetServer.hostname,
-                    delay: delays.g + ((k + 1) * cycle * TargetSettings.attackSpacer * 5),
+                    delay: delays.g + (commands.length * TargetSettings.attackSpacer),
                     time: delays.times.g,
                     stock: false,
                     output: true,
@@ -509,7 +507,7 @@ export function buildAttack(hackingServers, attackType, cycles, attackThreads, t
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.gw,
                     target: targetServer.hostname,
-                    delay: delays.gw + ((k + 1) * cycle * TargetSettings.attackSpacer * 5),
+                    delay: delays.gw + (commands.length * TargetSettings.attackSpacer),
                     time: delays.times.w,
                     stock: false,
                     output: true,

@@ -64,8 +64,8 @@ export async function main(ns) {
     // build a message
     if (output) {
         const message = data.amount > 1
-            ? `INFO: GROW ${target} increased x${ns.nFormat(data.amount, '0.00a')} money!` // + JSON.stringify(ns.args)
-            : `WARNING: GROW ${target} increased x0 money.` // + JSON.stringify(ns.args)
+            ? `INFO: GROW ${target} increased x${ns.nFormat(data.amount, '0.00a')} money using ${threads} threads on ${host}!` // + JSON.stringify(ns.args)
+            : `WARNING: GROW ${target} increased x0 money using ${threads} threads on ${host}!.` // + JSON.stringify(ns.args)
         ns.tprint(message)
     }
 }

@@ -64,8 +64,8 @@ export async function main(ns) {
     // build a message
     if (output) {
         const message = data.amount
-            ? `INFO: HACK ${target} stole ${ns.nFormat(data.amount, '$0.0a')} money!` // + JSON.stringify(ns.args)
-            : `WARNING: HACK ${target} stole 0 money.` //+ JSON.stringify(ns.args)
+            ? `INFO: HACK ${target} stole ${ns.nFormat(data.amount, '$0.0a')} money using ${threads} threads on ${host}!` // + JSON.stringify(ns.args)
+            : `WARNING: HACK ${target} stole 0 money using ${threads} threads on ${host}!.` //+ JSON.stringify(ns.args)
         ns.tprint(message)
     }
 }

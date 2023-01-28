@@ -402,8 +402,10 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
     }
     const totalFreeThreads = getFreeThreads(hackingServers, 1.75)
     const attackThreads = attackDetails.type === 'prep' ? attackDetails.prepThreads : attackDetails.hackThreads
-    const cycles = Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
-    const commands = buildAttack(hackingServers, attackDetails.type, cycles, attackThreads, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+    const cycles = attackDetails.type === 'hack'
+        ? Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
+        : 1
+    const commands = buildAttack(hackingServers, totalFreeThreads, attackDetails.type, cycles, attackThreads, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
     await launchAttack(commands, 1, ns.exec, ns.sleep)
 
     const lastCommand = commands
