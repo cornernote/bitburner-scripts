@@ -90,7 +90,6 @@ export class ThreadDelay {
      * @param threadDelay
      */
     constructor(threadDelay) {
-        this.time = threadDelay.time
         this.h = threadDelay.h
         this.w = threadDelay.w
         this.g = threadDelay.g
@@ -133,6 +132,7 @@ export class AttackCommand {
         this.output = attackCommand.output
         this.start = attackCommand.start
         this.pid = attackCommand.pid
+        this.sequence = attackCommand.sequence
     }
 }
 
@@ -180,7 +180,7 @@ export function getCracks(fileExistsWrap) {
 
 /**
  *
- * @param target
+ * @param targetServer
  * @param hackFraction
  * @param hackAnalyzeWrap
  * @param growthAnalyzeWrap
@@ -189,21 +189,21 @@ export function getCracks(fileExistsWrap) {
  * @param getWeakenTimeWrap
  * @return {AttackDetails}
  */
-export function getAttackDetails(target, hackFraction, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
-    const delays = attackDelays(target.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
-    const hackThreads = hackThreadsRequired(target, hackFraction, hackAnalyzeWrap, growthAnalyzeWrap)
-    const prepThreads = prepThreadsRequired(target, growthAnalyzeWrap)
-    const chance = 1 // getAttackChance(target, playerHackingSkill, playerHackingMult)
+export function getAttackDetails(targetServer, hackFraction, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
+    const delays = attackDelays(targetServer.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
+    const hackThreads = hackThreadsRequired(targetServer, hackFraction, hackAnalyzeWrap, growthAnalyzeWrap)
+    const prepThreads = prepThreadsRequired(targetServer, growthAnalyzeWrap)
+    const chance = 1 // getAttackChance(targetServer, playerHackingSkill, playerHackingMult)
 
     return new AttackDetails({
-        type: getAttackType(target),
+        type: getAttackType(targetServer),
         delays: delays,
         hackThreads: hackThreads,
         prepThreads: prepThreads,
         hackThreadsCount: attackThreadsCount(hackThreads),
         threadsPerPrep: attackThreadsCount(prepThreads),
-        moneyPerHack: (target.moneyMax * hackFraction) * chance,
-        minsPerHack: (delays.time / 1000 / 60),
+        moneyPerHack: (targetServer.moneyMax * hackFraction) * chance,
+        minsPerHack: (delays.times.w / 1000 / 60),
     })
 }
 
@@ -211,6 +211,8 @@ export function getAttackDetails(target, hackFraction, hackAnalyzeWrap, growthAn
  * Get the chance that a hack will be successful.
  *
  * @param {Server} target
+ * @param {number} playerHackingSkill
+ * @param {number} playerHackingMult
  * @return {number}
  */
 export function getAttackChance(target, playerHackingSkill, playerHackingMult) {
@@ -360,11 +362,10 @@ export function attackDelays(targetHostname, getHackTimeWrap, getGrowTimeWrap, g
 
     // order -> H W G GW <- with spacer between
     return new ThreadDelay({
-        time: w + s * 4,     // 0. 0:00 - 1:04 - total attack time
-        h: w - h,            // 1. 0:40 - 1:00 - hack, timed to end before weaken finishes
-        w: s,                // 2. 0:01 - 1:01 - weaken after hack
-        g: w - g + (s * 2),  // 3. 0:22 - 1:02 - grow, timed to end before grow-weaken finishes
-        gw: s * 3,           // 4. 0:03 - 1:03 - weaken after grow
+        h: w - h,  // 1. 0:40 - 1:00 - hack, timed to end before weaken finishes
+        w: 0,      // 2. 0:00 - 1:00 - weaken after hack
+        g: w - g,  // 3. 0:20 - 1:00 - grow, timed to end before grow-weaken finishes
+        gw: 0,     // 4. 0:00 - 1:00 - weaken after grow
         times: new ThreadTime({h: h, g: g, w: w, s: s}),
     })
 }
@@ -373,6 +374,7 @@ export function attackDelays(targetHostname, getHackTimeWrap, getGrowTimeWrap, g
  * Fits the attack threads into available threads.
  *
  * @param {Server} targetServer
+ * @param {string} attackType
  * @param {ThreadPack} attackThreads
  * @param {number} freeThreads
  * @param {boolean} forceMoneyHack
@@ -445,6 +447,9 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
  */
 export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles, attackThreads, targetServer, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
     const commands = []
+    const hackRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/hack.js').ram
+    const growRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').ram
+    const weakenRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').ram
     const delays = attackDelays(targetServer.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
     for (const hackingServer of hackingServers) {
         for (let cycle = 1; cycle <= cycles; cycle++) {
@@ -462,13 +467,14 @@ export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.h,
                     target: targetServer.hostname,
-                    delay: (forceMoneyHack ? 0 : delays.h) + (commands.length * TargetSettings.attackSpacer),
+                    delay: forceMoneyHack ? 0 : (delays.h + commands.length * TargetSettings.attackSpacer),
                     time: delays.times.h,
                     stock: false,
                     output: true,
+                    sequence: commands.length,
                 }))
                 threadsToRun.h -= fittedThreads.h
-                hackingServer.ramUsed += fittedThreads.h * 1.75
+                hackingServer.ramUsed += fittedThreads.h * hackRam
             }
             // weaken
             if (fittedThreads.w) {
@@ -477,13 +483,14 @@ export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.w,
                     target: targetServer.hostname,
-                    delay: delays.w + (commands.length * TargetSettings.attackSpacer),
+                    delay: delays.w + commands.length * TargetSettings.attackSpacer,
                     time: delays.times.w,
                     stock: false,
                     output: true,
+                    sequence: commands.length,
                 }))
                 threadsToRun.w -= fittedThreads.w
-                hackingServer.ramUsed += fittedThreads.w * 1.75
+                hackingServer.ramUsed += fittedThreads.w * weakenRam
             }
             // grow
             if (fittedThreads.g) {
@@ -492,13 +499,14 @@ export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.g,
                     target: targetServer.hostname,
-                    delay: delays.g + (commands.length * TargetSettings.attackSpacer),
+                    delay: delays.g + commands.length * TargetSettings.attackSpacer,
                     time: delays.times.g,
                     stock: false,
                     output: true,
+                    sequence: commands.length,
                 }))
                 threadsToRun.g -= fittedThreads.g
-                hackingServer.ramUsed += fittedThreads.g * 1.75
+                hackingServer.ramUsed += fittedThreads.g * growRam
             }
             // weaken
             if (fittedThreads.gw) {
@@ -507,13 +515,19 @@ export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.gw,
                     target: targetServer.hostname,
-                    delay: delays.gw + (commands.length * TargetSettings.attackSpacer),
+                    delay: delays.gw + commands.length * TargetSettings.attackSpacer,
                     time: delays.times.w,
                     stock: false,
                     output: true,
+                    sequence: commands.length,
                 }))
                 threadsToRun.gw -= fittedThreads.gw
-                hackingServer.ramUsed += fittedThreads.gw * 1.75
+                hackingServer.ramUsed += fittedThreads.gw * weakenRam
+            }
+
+            // no more than 2x the length of the attack
+            if (commands.length * TargetSettings.attackSpacer > delays.times.w * 2) {
+                break;
             }
         }
     }
@@ -531,7 +545,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles
  */
 export async function launchAttack(commands, cycles, execWrap, sleepWrap) {
     // start the commands at the same time, assume 50ms to start each command
-    const start = new Date().getTime() + commands.length * TargetSettings.attackSpacer
+    const start = new Date().getTime() + commands.length * 50
     // run each command in the list
     for (const command of commands) {
         // ns.args = [

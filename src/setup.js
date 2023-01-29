@@ -11,6 +11,7 @@ export async function main(ns) {
 
     terminalCommand('alias info="run info.js"')
     terminalCommand('alias attack="run attack.js"')
+    terminalCommand('alias share="run share.js"')
     terminalCommand('alias bd="run backdoor.js"')
 
     await runCracks(ns)

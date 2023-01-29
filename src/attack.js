@@ -8,15 +8,12 @@ import {
     ServerSettings
 } from './lib/Server';
 import {
-    AttackCommand,
-    attackDelays,
     attackThreadsCount,
-    buildAttack, fitThreads,
+    buildAttack,
     getAttackDetails,
     getCracks,
     launchAttack,
     TargetSettings,
-    ThreadPack
 } from './lib/Target';
 import {listView} from './lib/TermView';
 import {formatDelays, formatMoney, formatPercent, formatRam} from './lib/Format';
@@ -37,7 +34,7 @@ import {terminalCommand} from './lib/Helper';
 const argsSchema = [
     ['help', false],
     ['once', false],
-    ['percent', false],
+    ['percent', 0.2],
     ['force', false],
     ['no-buy', false],
 ]
@@ -101,7 +98,7 @@ function helpInfo(ns, args) {
         'Launches an attack on a server.',
         '',
         `ALIAS: alias ${aliasName}="run ${scriptName}"`,
-        `USAGE: ${aliasName} [target] [--once=bool] [--hack-percent=20] [--force=bool]`,
+        `USAGE: ${aliasName} [target] [--once=false] [--percent=0.2] [--force=false] [--no-buy=false]`,
         '',
         'Examples:',
         `> ${aliasName} n00dles`,
@@ -319,12 +316,13 @@ async function buyServers(ns) {
 async function runAttack(ns, targetHostname, hackFraction, forceMoneyHack) {
     hackFraction = hackFraction || TargetSettings.hackFraction
 
+    const player = await getPlayerRemote(ns)
     const servers = await getServersRemote(ns)
     const hackingServers = filterHackingServers(servers)
 
     // force money hack if we have a small network
     const freeThreads = getFreeThreads(hackingServers, 1.75)
-    if (freeThreads < 1000) {
+    if (freeThreads < 1000 || player.money < 50000000) {
         forceMoneyHack = true
     }
 
@@ -400,26 +398,35 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
         attackDetails.hackThreads.g = 0
         attackDetails.hackThreads.gw = 0
     }
-    const totalFreeThreads = getFreeThreads(hackingServers, 1.75)
+
+    let attackServers = hackingServers
+    attackServers = attackServers.filter(s => s.hostname === 'home')
+
+    const totalFreeThreads = getFreeThreads(attackServers, 1.75)
     const attackThreads = attackDetails.type === 'prep' ? attackDetails.prepThreads : attackDetails.hackThreads
     const cycles = attackDetails.type === 'hack'
         ? Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
         : 1
-    const commands = buildAttack(hackingServers, totalFreeThreads, attackDetails.type, cycles, attackThreads, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+    const commands = buildAttack(attackServers, totalFreeThreads, attackDetails.type, cycles, attackThreads, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
     await launchAttack(commands, 1, ns.exec, ns.sleep)
+
+
+    if (!commands.length) {
+        ns.tprint('no attack launched... no free ram?')
+        await ns.sleep(60 * 1000)
+        return
+    }
 
     const lastCommand = commands
         .sort((a, b) => (b.delay + b.time) - (a.delay + a.time))
         .find(c => c)
-    const sleepTime = lastCommand.delay + lastCommand.time
 
     const start = new Date()
-    const end = new Date(start.getTime() + sleepTime)
+    const end = new Date(lastCommand.start + lastCommand.delay + lastCommand.time + 2000)
 
-    ns.tprint(`INFO: \n`)
     ns.tprint('\n' + [
         '====================================================================================================',
-        `|| ⚡ Attack ${targetServer.hostname} ${formatPercent(ns, hackFraction)} from ${start.toLocaleString()} to ${end.toLocaleString()}`.padEnd(97, ' ') + ' ||',
+        `|| ⚡ Attack ${targetServer.hostname} ${formatPercent(ns, hackFraction)} from ${start.toLocaleString()} to ${end.toLocaleString()}`.padEnd(96, ' ') + ' ||',
         '====================================================================================================',
         '',
         listView(commands
@@ -436,6 +443,10 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
             }))
     ].join('\n') + '\n')
 
-    await ns.sleep(sleepTime)
+    ns.tprint(`sleeping until ${end.toLocaleString()}`)
+    do {
+        await ns.sleep(1000)
+    }
+    while (end >= new Date());
     ns.tprint(`INFO: Attack Completed! at ${new Date().toLocaleString()}`)
 }

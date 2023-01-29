@@ -428,7 +428,7 @@ async function targetsInfo(ns, hackFraction) {
                 'security': formatNumber(ns, server.hackDifficulty) + ':' + formatNumber(ns, server.minDifficulty),
                 'H.type': attackDetails.type === 'hack' ? 'hack' : 'prep',
                 'H.money': formatMoney(ns, attackDetails.moneyPerHack),
-                'H.time': formatDelay(attackDelays(server.hostname, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime).time),
+                'H.time': formatDelay(attackDelays(server.hostname, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime).times.w),
                 //'P.threads': formatNumber(ns, attackDetails.threadsPerPrep),
                 //'H.threads': formatNumber(ns, attackDetails.hackThreadsCount),
                 'P.th*min': formatNumber(ns, attackDetails.threadsPerPrep * attackDetails.minsPerHack),
