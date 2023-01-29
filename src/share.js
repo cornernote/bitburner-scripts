@@ -33,15 +33,19 @@ export async function main(ns) {
     do {
         const servers = await getServersRemote(ns, 'n00dles', 2)
         const hackingServers = filterHackingServers(servers).filter(s => s.hostname !== 'home')
+        const ramPerThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/share.js').ram
+        const totalThreads = hackingServers
+            .map(s => Math.floor(s.maxRam / ramPerThread))
+            .reduce((prev, next) => prev + next)
+
 
         // share resources
         const shareThreads = []
         for (const hackingServer of hackingServers) {
-            const shareRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/share.js').ram
-            const threads = Math.floor((hackingServer.maxRam - hackingServer.ramUsed) / shareRam)
-            if (threads) {
+            const threads = Math.floor((hackingServer.maxRam - hackingServer.ramUsed) / ramPerThread)
+            if (threads && threads / totalThreads > 0.01) {
                 shareThreads.push({hostname: hackingServer.hostname, threads: threads})
-                hackingServer.ramUsed += threads * shareRam
+                hackingServer.ramUsed += threads * ramPerThread
             }
         }
         if (shareThreads.length) {

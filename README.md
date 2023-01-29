@@ -18,9 +18,7 @@ Then goto [Bitburner](https://danielyxie.github.io/bitburner/) > Options > Remot
 
 ### not waiting long enough after attack
 
-- prep thread should automatically send attack thread afterwards
-- send prep threads for 20% grow/weaken after hack batch 
-
+- force money attack - send attacks to multiple targets
 
 
 

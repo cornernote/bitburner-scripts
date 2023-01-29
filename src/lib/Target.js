@@ -433,9 +433,7 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
 /**
  * @param {Server[]} hackingServers
  * @param {number} totalFreeThreads
- * @param {string} attackType
- * @param {number} cycles
- * @param {ThreadPack} attackThreads
+ * @param {AttackDetails} attackDetails
  * @param {Server} targetServer
  * @param {boolean} forceMoneyHack
  * @param {function} hackAnalyzeWrap
@@ -445,20 +443,87 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
  * @param {function} getWeakenTimeWrap
  * @return {AttackCommand[]}
  */
-export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles, attackThreads, targetServer, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
+export function buildAttack(hackingServers, totalFreeThreads, attackDetails, targetServer, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap) {
     const commands = []
     const hackRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/hack.js').ram
     const growRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').ram
     const weakenRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').ram
     const delays = attackDelays(targetServer.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
+
+    if (attackDetails.type === 'prep') {
+        const attackThreads = attackDetails.prepThreads
+        for (const hackingServer of hackingServers) {
+            const freeThreads = Math.floor((hackingServer.maxRam - hackingServer.ramUsed) / 1.75)
+            const threadsToRun = new ThreadPack(attackThreads)
+            const fittedThreads = fitThreads(targetServer, 'prep', threadsToRun, freeThreads, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap)
+            // weaken
+            if (fittedThreads.w) {
+                commands.push(new AttackCommand({
+                    script: '/hacks/weaken.js',
+                    hostname: hackingServer.hostname,
+                    threads: fittedThreads.w,
+                    target: targetServer.hostname,
+                    delay: delays.w + commands.length * TargetSettings.attackSpacer + 1000,
+                    time: delays.times.w,
+                    stock: false,
+                    output: true,
+                    sequence: commands.length,
+                }))
+                threadsToRun.w -= fittedThreads.w
+                hackingServer.ramUsed += fittedThreads.w * weakenRam
+            }
+            // grow
+            if (fittedThreads.g) {
+                commands.push(new AttackCommand({
+                    script: '/hacks/grow.js',
+                    hostname: hackingServer.hostname,
+                    threads: fittedThreads.g,
+                    target: targetServer.hostname,
+                    delay: delays.g + commands.length * TargetSettings.attackSpacer + 2000,
+                    time: delays.times.g,
+                    stock: false,
+                    output: true,
+                    sequence: commands.length,
+                }))
+                threadsToRun.g -= fittedThreads.g
+                hackingServer.ramUsed += fittedThreads.g * growRam
+            }
+            // weaken
+            if (fittedThreads.gw) {
+                commands.push(new AttackCommand({
+                    script: '/hacks/weaken.js',
+                    hostname: hackingServer.hostname,
+                    threads: fittedThreads.gw,
+                    target: targetServer.hostname,
+                    delay: delays.gw + commands.length * TargetSettings.attackSpacer + 3000,
+                    time: delays.times.w,
+                    stock: false,
+                    output: true,
+                    sequence: commands.length,
+                }))
+                threadsToRun.gw -= fittedThreads.gw
+                hackingServer.ramUsed += fittedThreads.gw * weakenRam
+            }
+            break;
+        }
+    }
+
+    const attackThreads = attackDetails.hackThreads
+    const cycles = forceMoneyHack ? 1 : Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
     for (const hackingServer of hackingServers) {
         for (let cycle = 1; cycle <= cycles; cycle++) {
             const freeThreads = Math.floor((hackingServer.maxRam - hackingServer.ramUsed) / 1.75)
-            if (freeThreads < 100 && freeThreads / totalFreeThreads < 0.05) {
-                continue
-            }
+            // // don't run on systems with low ram
+            // if (freeThreads < 100 && freeThreads / totalFreeThreads < 0.05) {
+            //     continue
+            // }
             const threadsToRun = new ThreadPack(attackThreads)
-            const fittedThreads = fitThreads(targetServer, attackType, threadsToRun, freeThreads, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap)
+            const fittedThreads = fitThreads(targetServer, 'hack', threadsToRun, freeThreads, forceMoneyHack, hackAnalyzeWrap, growthAnalyzeWrap)
+
+            // no more than 2x the length of the attack to prevent overlapping attacks
+            if ((commands.length + 4) * TargetSettings.attackSpacer > delays.times.w) {
+                break;
+            }
 
             // hack
             if (fittedThreads.h) {
@@ -523,11 +588,6 @@ export function buildAttack(hackingServers, totalFreeThreads, attackType, cycles
                 }))
                 threadsToRun.gw -= fittedThreads.gw
                 hackingServer.ramUsed += fittedThreads.gw * weakenRam
-            }
-
-            // no more than 2x the length of the attack
-            if (commands.length * TargetSettings.attackSpacer > delays.times.w * 2) {
-                break;
             }
         }
     }

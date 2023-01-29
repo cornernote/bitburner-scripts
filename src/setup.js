@@ -3,8 +3,6 @@ import {getCracks} from './lib/Target';
 import {terminalCommand} from "./lib/Helper";
 
 
-
-
 export async function main(ns) {
     // disable logs
     ns.disableLog('ALL')
@@ -13,6 +11,13 @@ export async function main(ns) {
     terminalCommand('alias attack="run attack.js"')
     terminalCommand('alias share="run share.js"')
     terminalCommand('alias bd="run backdoor.js"')
+    terminalCommand('clear')
+    if (ns.getServerMaxRam('home') >= 16) {
+        terminalCommand('share')
+        terminalCommand('attack')
+    } else {
+        ns.tprint('run "attack" to begin...')
+    }
 
     await runCracks(ns)
     await copyScripts(ns)

@@ -124,15 +124,17 @@ async function buyCracks(ns) {
     // buy unowned cracks
     else {
         const unownedCracks = cracks.filter(c => c.cost && !c.owned)
+        if (unownedCracks.length) {
+            ns.tprint('\n' + [
+                '======================',
+                '|| 💰 Buying Cracks ||',
+                '======================',
+            ].join('\n'))
+        }
         for (const crack of unownedCracks) {
             if (player.money > crack.cost) {
-                ns.tprint('\n' + [
-                    '======================',
-                    '|| 💰 Buying Cracks ||',
-                    '======================',
-                    '',
-                    `About to purchase ${crack.file}...`
-                ].join('\n') + '\n')
+                ns.tprint(`Purchasing ${crack.file}`)
+                player.money -= crack.cost
                 await terminalCommand('connect darkweb')
                 await terminalCommand(`buy ${crack.file}`)
                 await terminalCommand('home')
@@ -192,23 +194,12 @@ async function buyServers(ns) {
     const totalMaxRam = purchasedServers.length
         ? getTotalRam(purchasedServers)
         : 0
-    // const utilizationTotal = purchasedServers.length
-    //     ? totalMaxRam - getFreeRam(purchasedServers)
-    //     : 0
-    // const utilizationRate = purchasedServers.length
-    //     ? utilizationTotal / totalMaxRam
-    //     : 1
 
     // Check for other reasons not to go ahead with the purchase
     const prefix = 'tried to buy server, but '
     const player = await getPlayerRemote(ns)
     const budget = player.money
 
-    // Stop if utilization is below target. We probably don't need another server.
-    // if (utilizationRate < ServerSettings.utilizationTarget) {
-    //     ns.tprint(prefix + 'current utilization is below target ' + formatPercent(ns, ServerSettings.utilizationTarget) + '.')
-    //     return true
-    // }
     // Determine the most ram we can buy with this money
     let exponentLevel
     for (exponentLevel = 1; exponentLevel < ServerSettings.maxRamExponent; exponentLevel++) {
@@ -224,12 +215,6 @@ async function buyServers(ns) {
         ns.tprint(prefix + 'budget ' + formatMoney(ns, budget) + ' is less than ' + formatMoney(ns, cost) + ' for ' + formatRam(ns, maxRamPossibleToBuy))
         return true
     }
-
-    // if (exponentLevel < SERVER.minRamExponent) {
-    //     ns.tprint(`${prefix}The highest ram exponent we can afford (2^${exponentLevel} for ${formatMoney(ns, cost)}) on our budget of ${formatMoney(ns, budget)} `
-    //         + `is less than the minimum ram exponent (2^${SERVER.minRamExponent} for ${formatMoney(ns, ns.getPurchasedServerCost(Math.pow(2, SERVER.minRamExponent)))})'`)
-    //     return
-    // }
 
     if (exponentLevel < ServerSettings.maxRamExponent) {
         // Abort if purchasing this server wouldn't improve our total RAM by more than 10% (ensures we buy in meaningful increments)
@@ -294,14 +279,11 @@ async function buyServers(ns) {
     }
 
     const purchasedServer = await purchaseServerRemote(ns, ServerSettings.purchasedServerName, maxRamPossibleToBuy)
-    // if (purchasedServer) {
-    //     ns.scp(ServerSettings.hackScripts, purchasedServer)
-    // }
-    if (!purchasedServer) {
+    if (purchasedServer) {
+        ns.tprint('Purchased a new server ' + purchasedServer + ' with ' + formatRam(ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(ns, cost))
+    } else {
         ns.tprint(prefix + `Could not purchase a server with ${formatRam(ns, maxRamPossibleToBuy)} RAM for ${formatMoney(ns, cost)} ` +
             `with a budget of ${formatMoney(ns, budget)}. This is either a bug, or we in a SF.9`)
-    } else {
-        ns.tprint('Purchased a new server ' + purchasedServer + ' with ' + formatRam(ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(ns, cost))
     }
     return true
 
@@ -322,7 +304,7 @@ async function runAttack(ns, targetHostname, hackFraction, forceMoneyHack) {
 
     // force money hack if we have a small network
     const freeThreads = getFreeThreads(hackingServers, 1.75)
-    if (freeThreads < 1000 || player.money < 50000000) {
+    if (freeThreads < 1000 || player.money < 50000000) { // TODO make these variables
         forceMoneyHack = true
     }
 
@@ -393,23 +375,21 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
     const attackDetails = getAttackDetails(targetServer, hackFraction, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
     if (forceMoneyHack) {
         attackDetails.type = 'hack'
-        attackDetails.hackThreads.h = 1000
+        attackDetails.hackThreads.h *= 5
         attackDetails.hackThreads.w = 0
         attackDetails.hackThreads.g = 0
         attackDetails.hackThreads.gw = 0
     }
 
-    let attackServers = hackingServers
-    attackServers = attackServers.filter(s => s.hostname === 'home')
+    const ramPerThread = 1.75
+    const homeServer = hackingServers.filter(s => s.hostname === 'home')
+    const attackServers = Math.floor(homeServer.maxRam / ramPerThread) >= 1000 // TODO make a variable
+        ? [homeServer]
+        : hackingServers
 
-    const totalFreeThreads = getFreeThreads(attackServers, 1.75)
-    const attackThreads = attackDetails.type === 'prep' ? attackDetails.prepThreads : attackDetails.hackThreads
-    const cycles = attackDetails.type === 'hack'
-        ? Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
-        : 1
-    const commands = buildAttack(attackServers, totalFreeThreads, attackDetails.type, cycles, attackThreads, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
+    const totalFreeThreads = getFreeThreads(attackServers, ramPerThread)
+    const commands = buildAttack(attackServers, totalFreeThreads, attackDetails, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
     await launchAttack(commands, 1, ns.exec, ns.sleep)
-
 
     if (!commands.length) {
         ns.tprint('no attack launched... no free ram?')
