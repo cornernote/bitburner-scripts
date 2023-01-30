@@ -407,7 +407,7 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
             // use threads from hack to grow, round to not waste threads
             const percentStolenPerThread = hackAnalyzeWrap(targetServer.hostname)
             const remainingPercent = 1 - (fittedThreads.h * percentStolenPerThread)
-            const growthRequired = remainingPercent > 0 ? 1 / remainingPercent : 0
+            const growthRequired = remainingPercent > 0 ? 1 / remainingPercent : 1
             fittedThreads.g = Math.min(freeThreads, Math.round(growthAnalyzeWrap(targetServer.hostname, growthRequired)))
         }
     } else {
@@ -463,7 +463,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.w,
                     target: targetServer.hostname,
-                    delay: delays.w + commands.length * TargetSettings.attackSpacer + 1000,
+                    delay: delays.w + commands.length * TargetSettings.attackSpacer,
                     time: delays.times.w,
                     stock: false,
                     output: true,
@@ -479,7 +479,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.g,
                     target: targetServer.hostname,
-                    delay: delays.g + commands.length * TargetSettings.attackSpacer + 2000,
+                    delay: delays.g + commands.length * TargetSettings.attackSpacer,
                     time: delays.times.g,
                     stock: false,
                     output: true,
@@ -495,7 +495,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.gw,
                     target: targetServer.hostname,
-                    delay: delays.gw + commands.length * TargetSettings.attackSpacer + 3000,
+                    delay: delays.gw + commands.length * TargetSettings.attackSpacer,
                     time: delays.times.w,
                     stock: false,
                     output: true,
@@ -510,6 +510,15 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
 
     const attackThreads = attackDetails.hackThreads
     const cycles = forceMoneyHack ? 1 : Math.max(1, Math.floor(totalFreeThreads / attackThreadsCount(attackThreads)))
+
+    // mega force
+    // const cycles = 1000
+    // attackDetails.hackThreads.h = 1000
+    // attackDetails.hackThreads.w = 0
+    // attackDetails.hackThreads.g = 0
+    // attackDetails.hackThreads.gw = 0
+
+
     for (const hackingServer of hackingServers) {
         for (let cycle = 1; cycle <= cycles; cycle++) {
             const freeThreads = Math.floor((hackingServer.maxRam - hackingServer.ramUsed) / 1.75)
@@ -590,6 +599,9 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
                 hackingServer.ramUsed += fittedThreads.gw * weakenRam
             }
         }
+        if (forceMoneyHack) { // we break here so we don't run the attack on the next hackingServer
+            break // todo check how many threads left to run, run only those
+        }
     }
     return commands
 }
@@ -598,14 +610,13 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
  * Launch the attack
  *
  * @param {AttackCommand[]} commands
- * @param {number} cycles
  * @param {function} execWrap
  * @param {function} sleepWrap
  * @return {Promise<{any}>}
  */
-export async function launchAttack(commands, cycles, execWrap, sleepWrap) {
+export async function launchAttack(commands, execWrap, sleepWrap) {
     // start the commands at the same time, assume 50ms to start each command
-    const start = new Date().getTime() + commands.length * 50
+    // const start = new Date().getTime() // + commands.length * 50
     // run each command in the list
     for (const command of commands) {
         // ns.args = [
@@ -622,7 +633,7 @@ export async function launchAttack(commands, cycles, execWrap, sleepWrap) {
         //   10: start,
         //   11: time,
         // ]
-        command.start = start
+        // command.start = start
         try {
             command.pid = execWrap(command.script,
                 command.hostname,
@@ -633,9 +644,9 @@ export async function launchAttack(commands, cycles, execWrap, sleepWrap) {
                 command.stock,
                 command.output,
                 command.hostname,
-                command.threads,
-                command.start,
-                command.time)
+                command.threads) //,
+            // command.start,
+            // command.time)
         } catch (e) {
             throw `WARNING: could not start command: ${JSON.stringify(command)}`
         }

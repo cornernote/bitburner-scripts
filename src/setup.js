@@ -11,10 +11,11 @@ export async function main(ns) {
     terminalCommand('alias attack="run attack.js"')
     terminalCommand('alias share="run share.js"')
     terminalCommand('alias bd="run backdoor.js"')
-    terminalCommand('clear')
     if (ns.getServerMaxRam('home') >= 16) {
         terminalCommand('share')
+        await ns.sleep(2000)
         terminalCommand('attack')
+        terminalCommand('clear')
     } else {
         ns.tprint('run "attack" to begin...')
     }

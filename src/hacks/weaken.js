@@ -18,7 +18,7 @@ export async function main(ns) {
     //   7: start,
     //   8: time,
     // ]
-    const startTime = new Date().getTime()
+    // const startTime = new Date().getTime()
     // const start = performance.now()
     const target = /** @type string */ ns.args[0]
     const estDelay = ns.args.length > 1 ? ns.args[1] : 0
@@ -26,12 +26,12 @@ export async function main(ns) {
     const output = (ns.args.length > 4 && ns.args[4])
     const host = ns.args.length > 5 ? ns.args[5] : 'unknown'
     const threads = ns.args.length > 6 ? ns.args[6] : 'unknown'
-    const estStart = ns.args.length > 7 ? ns.args[7] : 0
-    const estTime = ns.args.length > 8 ? ns.args[8] : 0
-    // delay until estStart
-    if (estStart - startTime - 1 > 0) {
-        await ns.sleep(estStart - startTime - 1)
-    }
+    // const estStart = ns.args.length > 7 ? ns.args[7] : 0
+    // const estTime = ns.args.length > 8 ? ns.args[8] : 0
+    // // delay until estStart
+    // if (estStart - startTime - 1 > 0) {
+    //     await ns.sleep(estStart - startTime - 1)
+    // }
     // delay
     if (estDelay > 0) {
         await ns.sleep(estDelay)

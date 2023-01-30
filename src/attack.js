@@ -111,7 +111,7 @@ async function buyCracks(ns) {
     const cracks = getCracks(ns.fileExists)
 
     // recommend the player buy the tor router
-    if (!player.tor && player.money > 200000) {
+    if (!ns.hasTorRouter() && player.money > 200000) {
         ns.tprint('\n' + [
             '============================',
             '|| ⛔ Tor Router Required ||',
@@ -382,14 +382,14 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
     }
 
     const ramPerThread = 1.75
-    const homeServer = hackingServers.filter(s => s.hostname === 'home')
+    const homeServer = hackingServers.find(s => s.hostname === 'home')
     const attackServers = Math.floor(homeServer.maxRam / ramPerThread) >= 1000 // TODO make a variable
         ? [homeServer]
         : hackingServers
 
     const totalFreeThreads = getFreeThreads(attackServers, ramPerThread)
     const commands = buildAttack(attackServers, totalFreeThreads, attackDetails, targetServer, forceMoneyHack, ns.hackAnalyze, ns.growthAnalyze, ns.getHackTime, ns.getGrowTime, ns.getWeakenTime)
-    await launchAttack(commands, 1, ns.exec, ns.sleep)
+    await launchAttack(commands, ns.exec, ns.sleep)
 
     if (!commands.length) {
         ns.tprint('no attack launched... no free ram?')
@@ -402,7 +402,7 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
         .find(c => c)
 
     const start = new Date()
-    const end = new Date(lastCommand.start + lastCommand.delay + lastCommand.time + 2000)
+    const end = new Date(start.getTime() + lastCommand.delay + lastCommand.time + 2000)
 
     ns.tprint('\n' + [
         '====================================================================================================',
