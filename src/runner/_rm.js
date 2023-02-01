@@ -11,13 +11,13 @@
  * @param {NS} ns
  */
 export async function main(ns) {
-    let uuid = ns.args[0];
+    let uuid = ns.args[0]
     if (!uuid) {
-        throw 'missing UUID';
+        throw 'missing UUID'
     }
-    let filename = `/runner/${uuid}.js`;
+    let filename = `/runner/${uuid}.js`
     if (!ns.fileExists(filename)) {  //@RAM 0.1GB
-        throw `cannot find task file for cleanup "${filename}", already cleaned?`;
+        throw `cannot find task file for cleanup "${filename}", already cleaned?`
     }
-    ns.rm(filename); //@RAM 1GB
+    ns.rm(filename) //@RAM 1GB
 }
