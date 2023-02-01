@@ -64,8 +64,8 @@ export async function main(ns) {
     // build a message
     if (output) {
         const message = data.amount
-            ? `INFO: WEAKEN ${target} reduced ${ns.nFormat(data.amount, '0.0a')} difficulty using ${threads} threads on ${host}!` // + JSON.stringify(ns.args)
-            : `WARNING: WEAKEN ${target} reduced 0 difficulty using ${threads} threads on ${host}!.` // + JSON.stringify(ns.args)
+            ? `INFO:  WEAK ${target} reduced ${ns.nFormat(data.amount, '0.0a')} difficulty using ${threads} threads on ${host}!` // + JSON.stringify(ns.args)
+            : `WARNING: WEAK ${target} reduced 0 difficulty using ${threads} threads on ${host}!.` // + JSON.stringify(ns.args)
         ns.tprint(message)
     }
 }

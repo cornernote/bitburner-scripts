@@ -16,7 +16,7 @@ export async function main(ns) {
         '/hacks/hack.js',
         '/hacks/infect.js',
         '/hacks/share.js',
-        '/hacks/weaken.js',
+        '/hacks/weak.js',
         '/remote/infect.js',
         '/remote/get_player.js',
         '/remote/get_server.js',

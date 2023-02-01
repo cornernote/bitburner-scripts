@@ -31,7 +31,7 @@ export const TargetSettings = {
             ram: 1.75,
         },
         {
-            file: '/hacks/weaken.js',
+            file: '/hacks/weak.js',
             change: 0.05,
             ram: 1.75,
         },
@@ -272,7 +272,7 @@ export function prepThreadsRequired(targetServer, growthAnalyzeWrap) {
     const growthRequired = targetServer.moneyAvailable
         ? targetServer.moneyMax / targetServer.moneyAvailable
         : 100
-    const changePerWeakenThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').change
+    const changePerWeakenThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/weak.js').change
     const changePerGrowThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').change
 
     const w = Math.ceil(difficultyDifference / changePerWeakenThread)
@@ -305,7 +305,7 @@ export function hackThreadsRequired(targetServer, hackFraction, hackAnalyzeWrap,
     const growthRequired = remainingPercent > 0 ? 1 / remainingPercent : 1 / growthRequiredEstimated // < ~5 - the number of times we have to grow that amount
     const growThreadsRequired = growthAnalyzeWrap(targetServer.hostname, growthRequired) // how many thread to grow the money by ~5x
     const correctionThreads = 1 // + (hackedFraction * 0.75) // some threads in case there is a misfire, the more hackedFraction the more threads
-    const changePerWeakenThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').change
+    const changePerWeakenThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/weak.js').change
     const changePerGrowThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').change
     const changePerHackThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/hack.js').change
 
@@ -340,9 +340,9 @@ export function attackThreadsCount(attackThreads) {
  */
 export function attackRamRequired(attackThreads) {
     return attackThreads.h * TargetSettings.hackScripts.find(h => h.file === '/hacks/hack.js').ram
-        + attackThreads.w * TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').ram
+        + attackThreads.w * TargetSettings.hackScripts.find(h => h.file === '/hacks/weak.js').ram
         + attackThreads.g * TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').ram
-        + attackThreads.gw * TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').ram
+        + attackThreads.gw * TargetSettings.hackScripts.find(h => h.file === '/hacks/weak.js').ram
 }
 
 /**
@@ -386,7 +386,7 @@ export function fitThreads(targetServer, attackType, attackThreads, freeThreads,
     if (freeThreads >= attackThreadsCount(attackThreads)) {
         return new ThreadPack(attackThreads)
     }
-    const changePerWeakenThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').change
+    const changePerWeakenThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/weak.js').change
     const changePerGrowThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').change
     const changePerHackThread = TargetSettings.hackScripts.find(h => h.file === '/hacks/hack.js').change
     const fittedThreads = new ThreadPack(attackThreads)
@@ -447,7 +447,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
     const commands = []
     const hackRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/hack.js').ram
     const growRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/grow.js').ram
-    const weakenRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/weaken.js').ram
+    const weakenRam = TargetSettings.hackScripts.find(h => h.file === '/hacks/weak.js').ram
     const delays = attackDelays(targetServer.hostname, getHackTimeWrap, getGrowTimeWrap, getWeakenTimeWrap)
 
     if (attackDetails.type === 'prep') {
@@ -459,7 +459,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
             // weaken
             if (fittedThreads.w) {
                 commands.push(new AttackCommand({
-                    script: '/hacks/weaken.js',
+                    script: '/hacks/weak.js',
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.w,
                     target: targetServer.hostname,
@@ -491,7 +491,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
             // weaken
             if (fittedThreads.gw) {
                 commands.push(new AttackCommand({
-                    script: '/hacks/weaken.js',
+                    script: '/hacks/weak.js',
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.gw,
                     target: targetServer.hostname,
@@ -553,7 +553,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
             // weaken
             if (fittedThreads.w) {
                 commands.push(new AttackCommand({
-                    script: '/hacks/weaken.js',
+                    script: '/hacks/weak.js',
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.w,
                     target: targetServer.hostname,
@@ -585,7 +585,7 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
             // weaken
             if (fittedThreads.gw) {
                 commands.push(new AttackCommand({
-                    script: '/hacks/weaken.js',
+                    script: '/hacks/weak.js',
                     hostname: hackingServer.hostname,
                     threads: fittedThreads.gw,
                     target: targetServer.hostname,
