@@ -599,9 +599,9 @@ export function buildAttack(hackingServers, totalFreeThreads, attackDetails, tar
                 hackingServer.ramUsed += fittedThreads.gw * weakenRam
             }
         }
-        if (forceMoneyHack) { // we break here so we don't run the attack on the next hackingServer
-            break // todo check how many threads left to run, run only those
-        }
+        // if (forceMoneyHack) { // we break here so we don't run the attack on the next hackingServer
+        //     break // todo check how many threads left to run, run only those
+        // }
     }
     return commands
 }

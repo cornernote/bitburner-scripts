@@ -13,6 +13,7 @@ Then goto [Bitburner](https://danielyxie.github.io/bitburner/) > Options > Remot
 ## Todo
 
 - scan the network for `.cct` file to run (hacking contracts)
+- hacknet upgrade script
 
 ## Issues
 

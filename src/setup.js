@@ -11,18 +11,15 @@ export async function main(ns) {
     terminalCommand('alias attack="run attack.js"')
     terminalCommand('alias share="run share.js"')
     terminalCommand('alias bd="run backdoor.js"')
-    if (ns.getServerMaxRam('home') >= 16) {
-        terminalCommand('share')
-        await ns.sleep(2000)
-        terminalCommand('attack')
-        terminalCommand('clear')
-    } else {
-        ns.tprint('run "attack" to begin...')
-    }
 
     await runCracks(ns)
     await copyScripts(ns)
 
+    ns.tprint('run "attack" to begin...')
+    // if (ns.getServerMaxRam('home') >= 16) {
+    //     ns.tprint('run "attack" and "share" to begin...')
+    // } else {
+    // }
 }
 
 /**

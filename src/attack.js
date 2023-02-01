@@ -124,7 +124,7 @@ async function buyCracks(ns) {
     // buy unowned cracks
     else {
         const unownedCracks = cracks.filter(c => c.cost && !c.owned)
-        if (unownedCracks.length) {
+        if (unownedCracks.length && player.money > Math.min(...unownedCracks.map(c => c.cost))) {
             ns.tprint('\n' + [
                 '======================',
                 '|| 💰 Buying Cracks ||',
@@ -181,24 +181,50 @@ async function runCracks(ns) {
     }
 }
 
-
 /**
- * Manage purchased servers.
+ * Purchase new servers.
  *
  * @param {NS} ns
- * @returns {Promise<boolean>} false if we cannot purchase any more servers
+ * @returns {Promise<void>}
  */
 async function buyServers(ns) {
-    const servers = await getServersRemote(ns)
-    const purchasedServers = filterOwnedServers(servers)
-    const totalMaxRam = purchasedServers.length
-        ? getTotalRam(purchasedServers)
-        : 0
 
-    // Check for other reasons not to go ahead with the purchase
-    const prefix = 'tried to buy server, but '
+    const purchasedServers = []
+    do {
+        const purchasedServer = await buyServer(ns)
+        if (!purchasedServer) {
+            break
+        }
+        purchasedServers.push(purchasedServer)
+        await ns.sleep(0)
+    } while (true)
+
+    if (purchasedServers.length) {
+        ns.tprint('\n' + [
+                '==========================',
+                '|| 💵 Purchased Servers ||',
+                '==========================',
+                '',
+            ].join('\n')
+            + listView(purchasedServers))
+    }
+}
+
+/**
+ * Purchase a new server.
+ *
+ * @param {NS} ns
+ * @returns {Promise<boolean|{hostname: any, cost: any, ram: number}>} false if we cannot purchase any more servers
+ */
+export async function buyServer(ns) {
+    const servers = await getServersRemote(ns)
+    const ownedServers = filterOwnedServers(servers)
     const player = await getPlayerRemote(ns)
     const budget = player.money
+
+    const totalMaxRam = ownedServers.length
+        ? getTotalRam(ownedServers)
+        : 0
 
     // Determine the most ram we can buy with this money
     let exponentLevel
@@ -212,25 +238,25 @@ async function buyServers(ns) {
     // Abort if we don't have enough money
     const cost = await getPurchasedServerCostRemote(ns, maxRamPossibleToBuy)
     if (budget < cost) {
-        ns.tprint(prefix + 'budget ' + formatMoney(ns, budget) + ' is less than ' + formatMoney(ns, cost) + ' for ' + formatRam(ns, maxRamPossibleToBuy))
-        return true
+        //ns.tprint(prefix + 'budget ' + formatMoney(ns, budget) + ' is less than ' + formatMoney(ns, cost) + ' for ' + formatRam(ns, maxRamPossibleToBuy))
+        return false
     }
 
     if (exponentLevel < ServerSettings.maxRamExponent) {
         // Abort if purchasing this server wouldn't improve our total RAM by more than 10% (ensures we buy in meaningful increments)
         if (maxRamPossibleToBuy / totalMaxRam < 0.1) {
-            ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(ns, totalMaxRam) + ')')
-            return true
+            // ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than 10% of total available RAM ' + formatRam(ns, totalMaxRam) + ')')
+            return false
         }
     }
 
     // check compared to current purchased servers
-    let maxPurchasableServerRam = Math.pow(2, ServerSettings.maxRamExponent)
+    const maxPurchasableServerRam = Math.pow(2, ServerSettings.maxRamExponent)
     let worstServerName = null
     let worstServerRam = maxPurchasableServerRam
     let bestServerName = null
     let bestServerRam = 0
-    for (const server of purchasedServers.filter(s => s.hostname !== 'home')) {
+    for (const server of ownedServers.filter(s => s.hostname !== 'home')) {
         if (server.maxRam < worstServerRam) {
             worstServerName = server.hostname
             worstServerRam = server.maxRam
@@ -243,50 +269,47 @@ async function buyServers(ns) {
 
     // Abort if our worst previously-purchased server is better than the one we're looking to buy (ensures we buy in sane increments of capacity)
     if (worstServerName != null && maxRamPossibleToBuy < worstServerRam) {
-        ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
-            ') is less than our worst purchased server ' + worstServerName + '\'s RAM ' + formatRam(ns, worstServerRam))
-        return true
+        // ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than our worst purchased server ' + worstServerName + '\'s RAM ' + formatRam(ns, worstServerRam))
+        return false
     }
     // Only buy new servers as good as or better than our best bought server (anything less is considered a regression in value)
     if (bestServerRam != null && maxRamPossibleToBuy < bestServerRam) {
-        ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) +
-            ') is less than our previously purchased server ' + bestServerName + " RAM " + formatRam(ns, bestServerRam))
-        return true
+        // ns.tprint(prefix + 'the most RAM we can buy (' + formatRam(ns, maxRamPossibleToBuy) + ') is less than our previously purchased server ' + bestServerName + " RAM " + formatRam(ns, bestServerRam))
+        return false
     }
 
     // if we're at capacity, check to see if we can do better than the current worst purchased server. If so, delete it to make room.
-    if (purchasedServers.length >= ServerSettings.maxPurchasedServers) {
+    if (ownedServers.length >= ServerSettings.maxPurchasedServers) {
         if (worstServerRam === maxPurchasableServerRam) {
-            ns.tprint('All purchasable servers are maxed.')
+            // ns.tprint('All purchasable servers are maxed.')
             return false
         }
 
         // It's only worth deleting our old server if the new server will be 16x bigger or more (or if it's the biggest we can buy)
-        if (exponentLevel === ServerSettings.maxRamExponent || worstServerRam * 16 <= maxRamPossibleToBuy) {
-            await killAllRemote(ns, worstServerName)
-            if (await deleteServerRemote(ns, worstServerName)) {
-                ns.tprint(`deleted server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM) ` +
-                    `to make room for a new ${formatRam(ns, maxRamPossibleToBuy)} Server.`)
-            } else {
-                ns.tprint(`WARNING: failed to delete server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM), perhaps it is running scripts?`)
-            }
-            return true
-        } else {
-            ns.tprint(`${prefix}the most RAM we can buy (${formatRam(ns, maxRamPossibleToBuy)}) is less than 16x the RAM ` +
-                `of the server it must delete to make room: ${worstServerName} (${formatRam(ns, worstServerRam)} RAM)`)
-            return true
+        if (exponentLevel <= ServerSettings.maxRamExponent && worstServerRam * 16 > maxRamPossibleToBuy) {
+            //ns.tprint(`${prefix}the most RAM we can buy (${formatRam(ns, maxRamPossibleToBuy)}) is less than 16x the RAM ` + `of the server it must delete to make room: ${worstServerName} (${formatRam(ns, worstServerRam)} RAM)`)
+            return false
+        }
+
+        // Remove the worst server
+        await killAllRemote(ns, worstServerName)
+        if (!await deleteServerRemote(ns, worstServerName)) {
+            throw `failed to delete server ${worstServerName} (${formatRam(ns, worstServerRam)} RAM), perhaps it is running scripts?`
         }
     }
 
+    // Buy a new server
     const purchasedServer = await purchaseServerRemote(ns, ServerSettings.purchasedServerName, maxRamPossibleToBuy)
-    if (purchasedServer) {
-        ns.tprint('Purchased a new server ' + purchasedServer + ' with ' + formatRam(ns, maxRamPossibleToBuy) + ' RAM for ' + formatMoney(ns, cost))
-    } else {
-        ns.tprint(prefix + `Could not purchase a server with ${formatRam(ns, maxRamPossibleToBuy)} RAM for ${formatMoney(ns, cost)} ` +
-            `with a budget of ${formatMoney(ns, budget)}. This is either a bug, or we in a SF.9`)
+    if (!purchasedServer) {
+        // ns.tprint(prefix + `Could not purchase a server with ${formatRam(ns, maxRamPossibleToBuy)} RAM for ${formatMoney(ns, cost)} ` + `with a budget of ${formatMoney(ns, budget)}. This is either a bug, or we in a SF.9`)
+        return false
     }
-    return true
 
+    return {
+        hostname: purchasedServer,
+        ram: maxRamPossibleToBuy,
+        cost: cost,
+    }
 }
 
 /**
@@ -310,7 +333,7 @@ async function runAttack(ns, targetHostname, hackFraction, forceMoneyHack) {
 
     // copy hack scripts to hackingServers (using n00dles)
     for (const hostname of hackingServers.map(s => s.hostname)) {
-        await infectRemote(ns, hostname);
+        await infectRemote(ns, hostname)
     }
 
     // choose target
@@ -426,7 +449,6 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
     ns.tprint(`sleeping until ${end.toLocaleString()}`)
     do {
         await ns.sleep(1000)
-    }
-    while (end >= new Date());
+    } while (end >= new Date())
     ns.tprint(`INFO: Attack Completed! at ${new Date().toLocaleString()}`)
 }
