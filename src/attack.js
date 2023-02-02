@@ -162,7 +162,7 @@ async function runCracks(ns) {
             '|| 💣 Running Cracks ||',
             '=======================',
             '',
-            `About to run cracks on ${rootableServers.map(s => s.hostname).join('\n > ')}...`
+            `About to run cracks on ${rootableServers.map(s => s.hostname).join(', ')}.`
         ].join('\n') + '\n')
         rootableServers.map(s => s.hostname).forEach(hostname => {
             for (const crack of ownedCracks) {
@@ -208,6 +208,7 @@ async function buyServers(ns) {
             listView(purchasedServers.map(s => {
                 s.ram = formatRam(ns, s.ram)
                 s.cost = formatMoney(ns, s.cost)
+                return s
             }))
         ].join('\n') + '\n')
     }
