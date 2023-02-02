@@ -201,12 +201,15 @@ async function buyServers(ns) {
 
     if (purchasedServers.length) {
         ns.tprint('\n' + [
-                '==========================',
-                '|| 💵 Purchased Servers ||',
-                '==========================',
-                '',
-            ].join('\n')
-            + listView(purchasedServers))
+            '==========================',
+            '|| 💵 Purchased Servers ||',
+            '==========================',
+            '',
+            listView(purchasedServers.map(s => {
+                s.ram = formatRam(ns, s.ram)
+                s.cost = formatMoney(ns, s.cost)
+            }))
+        ].join('\n') + '\n')
     }
 }
 
@@ -327,7 +330,7 @@ async function runAttack(ns, targetHostname, hackFraction, forceMoneyHack) {
 
     // force money hack if we have a small network
     const freeThreads = getFreeThreads(hackingServers, 1.75)
-    if (freeThreads < 1000 || player.money < 50000000) { // TODO make these variables
+    if (freeThreads < TargetSettings.freeThreadsForNormalHack || player.money < TargetSettings.freeMoneyForNormalHack) {
         forceMoneyHack = true
     }
 
@@ -406,7 +409,7 @@ async function attackServer(ns, hackingServers, targetServer, hackFraction, forc
 
     const ramPerThread = 1.75
     const homeServer = hackingServers.find(s => s.hostname === 'home')
-    const attackServers = Math.floor(homeServer.maxRam / ramPerThread) >= 1000 // TODO make a variable
+    const attackServers = Math.floor(homeServer.maxRam / ramPerThread) >= TargetSettings.freeHomeThreadsForHomeHack
         ? [homeServer]
         : hackingServers
 

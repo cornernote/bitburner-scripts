@@ -18,6 +18,12 @@ export const TargetSettings = {
     attackSpacer: 250,
     // default hack percent
     hackFraction: 0.2, // 20%
+    // free threads on home before we use only home for attacks
+    freeHomeThreadsForHomeHack: 5000,
+    // free threads required for normal HWGW attack
+    freeThreadsForNormalHack: 1000,
+    // have at least this much money before HWGW attack
+    freeMoneyForNormalHack: 5000000,
     // scripts used for hacking threads
     hackScripts: [
         {
